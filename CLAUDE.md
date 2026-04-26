@@ -118,7 +118,7 @@
 |------|------|------|
 | ERROR | 系统错误，需立即关注 | DB 不可用 / 第三方 API 超时 / 未捕获异常 |
 | WARN | 业务异常但已处理 | 限流触发 / 验证码错误超阈值 / OAuth 验签失败 |
-| INFO | 关键业务事件 | 用户注册成功 / 账号冻结发起 / 模块启动 |
+| INFO | 关键业务事件 | 账号注册成功 / 账号冻结发起 / 模块启动 |
 | DEBUG | 开发期排查 | UseCase 入参 / 中间状态（生产不输出） |
 
 ### 严禁出现在日志中
@@ -134,8 +134,8 @@
 
 | 项 | 约定 |
 |----|------|
-| Schema 命名 | 模块名小写（`user`、`pkm`） |
-| 表命名 | `snake_case`，**单数**（`account`、`third_party_binding`） |
+| Schema 命名 | 模块名小写（`account`、`pkm`） |
+| 表命名 | `snake_case`，**单数**（`account_profile`、`third_party_binding`） |
 | 主键 | 统一 `id BIGINT`，`@GeneratedValue(strategy = IDENTITY)` |
 | 时间字段 | `created_at` / `updated_at`，类型 `TIMESTAMP WITH TIME ZONE`，时区统一 UTC |
 | 枚举存储 | `VARCHAR`（**禁止**存数字，避免 enum 顺序变更引发灾难） |
