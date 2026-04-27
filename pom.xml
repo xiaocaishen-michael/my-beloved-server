@@ -30,7 +30,7 @@
     <spotless-maven-plugin.version>2.44.5</spotless-maven-plugin.version>
     <palantir-java-format.version>2.68.0</palantir-java-format.version>
     <maven-checkstyle-plugin.version>3.6.0</maven-checkstyle-plugin.version>
-    <checkstyle.version>10.21.0</checkstyle.version>
+    <checkstyle.version>13.4.1</checkstyle.version>
     <jacoco-maven-plugin.version>0.8.13</jacoco-maven-plugin.version>
   </properties>
 
