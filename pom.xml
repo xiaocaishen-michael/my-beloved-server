@@ -11,6 +11,7 @@
 
   <modules>
     <module>mbw-shared</module>
+    <module>mbw-account</module>
     <module>mbw-app</module>
   </modules>
 
