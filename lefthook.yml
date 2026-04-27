@@ -9,3 +9,30 @@ pre-commit:
       run: gitleaks protect --staged --redact --verbose
       tags:
         - security
+    spotless:
+      # Trip wire on staged Java files.
+      # Currently runs full-reactor (~10s on warm cache); acceptable for
+      # solo dev. To shave to ~3s on single-file commits, swap to:
+      #   run: ./mvnw -B -ntp spotless:check -DspotlessFiles="$(echo {staged_files} | tr ' ' ',')"
+      # but verify the lefthook {staged_files} quoting handles paths with
+      # spaces or special chars correctly first.
+      glob: "*.java"
+      run: ./mvnw -B -ntp spotless:check
+      tags:
+        - format
+    checkstyle:
+      # Lint dimensions only (naming / coding bugs / metrics warnings).
+      # Triggers in `validate` phase regardless of -pl scope (~1s).
+      glob: "*.java"
+      run: ./mvnw -B -ntp checkstyle:check
+      tags:
+        - lint
+
+# pre-push intentionally NOT configured.
+# Rationale: AI-augmented dev (Claude Code) generates most code; pre-commit
+# already covers spotless + checkstyle + gitleaks; pre-push's only added
+# value would be `mvn test` (compile + test), but currently no business
+# tests exist (ArchUnit alone < 1s). 50s+ push wait per push is overhead
+# without proportional safety gain. CI is the final defense.
+# Re-evaluate when business tests accumulate (PR-3+) and pre-commit-passes-
+# but-CI-fails frequency becomes noticeable.
