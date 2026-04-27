@@ -1,0 +1,89 @@
+# Local development compose: starts PG / Redis / MinIO so you can run
+# Spring Boot from your IDE pointing at localhost.
+#
+# Usage:
+#   docker compose -f docker-compose.dev.yml up -d                # start deps
+#   docker compose -f docker-compose.dev.yml --profile app up -d  # also start app inside Docker
+#   docker compose -f docker-compose.dev.yml down                 # stop (keep volumes)
+#   docker compose -f docker-compose.dev.yml down -v              # stop + drop data
+#
+# Production compose (full stack with Nginx / Prometheus / Grafana) lives
+# elsewhere — see meta repo docs/architecture/deployment.md (M3 deliverable).
+
+name: mbw-dev
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: mbw-postgres
+    environment:
+      POSTGRES_DB: mbw
+      POSTGRES_USER: mbw
+      POSTGRES_PASSWORD: mbw
+    ports:
+      - "5432:5432"
+    volumes:
+      - mbw-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mbw -d mbw"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: mbw-redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  minio:
+    image: minio/minio:latest
+    container_name: mbw-minio
+    command: server /data --console-address ":9001"
+    ports:
+      - "9000:9000"  # S3 API
+      - "9001:9001"  # Web console
+    environment:
+      MINIO_ROOT_USER: mbwadmin
+      MINIO_ROOT_PASSWORD: mbwadminsecret
+    volumes:
+      - mbw-miniodata:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  app:
+    profiles: ["app"]   # only starts when --profile app is passed
+    build:
+      context: .
+    container_name: mbw-app
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+    environment:
+      DATASOURCE_URL: jdbc:postgresql://postgres:5432/mbw
+      DATASOURCE_USERNAME: mbw
+      DATASOURCE_PASSWORD: mbw
+      FLYWAY_SCHEMAS: shared,account
+      JAVA_OPTS: -Xmx1g -XX:+UseG1GC
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+
+volumes:
+  mbw-pgdata:
+  mbw-miniodata:
