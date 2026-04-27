@@ -23,15 +23,15 @@
     <!-- Framework versions -->
     <spring-boot.version>3.5.3</spring-boot.version>
     <spring-modulith.version>1.4.1</spring-modulith.version>
-    <archunit.version>1.4.1</archunit.version>
+    <archunit.version>1.4.2</archunit.version>
     <springdoc.version>2.6.0</springdoc.version>
 
     <!-- Plugin versions -->
-    <spotless-maven-plugin.version>2.44.5</spotless-maven-plugin.version>
+    <spotless-maven-plugin.version>3.4.0</spotless-maven-plugin.version>
     <palantir-java-format.version>2.68.0</palantir-java-format.version>
     <maven-checkstyle-plugin.version>3.6.0</maven-checkstyle-plugin.version>
-    <checkstyle.version>10.21.0</checkstyle.version>
-    <jacoco-maven-plugin.version>0.8.13</jacoco-maven-plugin.version>
+    <checkstyle.version>13.4.1</checkstyle.version>
+    <jacoco-maven-plugin.version>0.8.14</jacoco-maven-plugin.version>
   </properties>
 
   <dependencyManagement>
