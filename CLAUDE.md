@@ -252,16 +252,16 @@ Maven 插件 `surefire`（单测）+ `failsafe`（集成测）分离，集成测
 - Spring Boot starter 版本随父 pom 中的 BOM
 - 加新三方依赖前：检查是否与既有冲突 / 是否真的需要 / 与 Claude 协作时主动询问
 - 禁止从 Maven Central 之外的源拉依赖（除非明确加入私有仓库）
-- 依赖更新自动化：Dependabot 或 Renovate（**M1.3 之后引入**）
+- 依赖更新自动化：Dependabot 已接入（`.github/dependabot.yml`，weekly schedule，含 Maven + GitHub Actions ecosystems）
 
 ---
 
 ## 十、Pre-commit / Lint
 
-- 格式化：spotless（Google Java Format，**M1.1 第一周敲定**）
-- 静态检查：checkstyle（规则集 **M1.1 第一周敲定**）
-- 禁止 commit 触发 lint 错误（CI 拦截）
-- 配置文件：`.spotless.xml` / `checkstyle.xml`，统一在父 pom
+- 格式化：Spotless + Palantir Java Format（见 [meta ADR-0007](https://github.com/xiaocaishen-michael/no-vain-years/blob/main/docs/adr/0007-eslint-prettier-not-biome.md) + [code-quality.md](https://github.com/xiaocaishen-michael/no-vain-years/blob/main/docs/conventions/code-quality.md)），配置在父 `pom.xml` 的 `<spotless-maven-plugin>` 节
+- 静态检查：Checkstyle，规则集在 `config/checkstyle/checkstyle.xml`（让出 whitespace / indent / line-length / import-order 给 Palantir）
+- CI 强制：`./mvnw verify` 不通过不能合并（GitHub Actions required check）
+- 本地建议：commit 前跑 `./mvnw spotless:apply` 自动格式化
 
 ---
 
@@ -294,3 +294,7 @@ Maven 插件 `surefire`（单测）+ `failsafe`（集成测）分离，集成测
 - 账号中心 PRD：[account-center.v2.md](https://github.com/xiaocaishen-michael/no-vain-years/blob/main/docs/requirement/account-center.v2.md)
 - UI/UX 工作流（前端配套）：[ui-ux-workflow.md](https://github.com/xiaocaishen-michael/no-vain-years/blob/main/docs/ui-ux-workflow.md)
 - 前端消费方仓库：[no-vain-years-app](https://github.com/xiaocaishen-michael/no-vain-years-app)
+
+<!-- SPECKIT START -->
+**SDD via spec-kit**: business modules use `/speckit-specify` → `/speckit-plan` → `/speckit-tasks` → `/speckit-implement`. All outputs MUST follow [`.specify/memory/constitution.md`](.specify/memory/constitution.md), which captures non-negotiable architecture (Modular Monolith, DDD 5-layer, TDD), tech stack (Spring Boot 3.5.x, Spring Modulith 1.4.x), quality gates (Spotless + Palantir + Checkstyle), and anti-patterns. Cross-repo SDD policy: see meta repo [`docs/conventions/sdd.md`](https://github.com/xiaocaishen-michael/no-vain-years/blob/main/docs/conventions/sdd.md).
+<!-- SPECKIT END -->

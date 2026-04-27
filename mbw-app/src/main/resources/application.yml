@@ -1,0 +1,51 @@
+spring:
+  application:
+    name: mbw
+
+  datasource:
+    url: ${DATASOURCE_URL:jdbc:postgresql://localhost:5432/mbw}
+    username: ${DATASOURCE_USERNAME:mbw}
+    password: ${DATASOURCE_PASSWORD:}
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+        format_sql: false
+
+  flyway:
+    enabled: true
+    schemas: ${FLYWAY_SCHEMAS:shared}
+    locations: classpath:db/migration
+
+  modulith:
+    events:
+      jdbc-schema-initialization:
+        enabled: true
+
+server:
+  port: ${SERVER_PORT:8080}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: when-authorized
+
+logging:
+  level:
+    root: INFO
+    com.mbw: DEBUG
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
