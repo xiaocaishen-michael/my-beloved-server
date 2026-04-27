@@ -1,0 +1,50 @@
+# Build artifacts
+target/
+*/target/
+
+# Git
+.git/
+.gitignore
+.gitattributes
+.gitleaks.toml
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# Environment / secrets (defense in depth — keep .env* out of build context)
+.env
+.env.*
+!.env.example
+.envrc
+*.local
+
+# Documentation (not needed inside image)
+docs/
+spec/
+.specify/
+.claude/
+README.md
+SECURITY.md
+LICENSE
+CLAUDE.md
+
+# CI / hooks (not needed for image build)
+.github/
+lefthook.yml
+
+# Compose files (not part of the image)
+docker-compose*.yml
+docker-compose*.yaml
+Dockerfile
+.dockerignore
+
+# OS / editor junk
+.DS_Store
+Thumbs.db
+*.swp
+
+# Logs
+*.log
+logs/

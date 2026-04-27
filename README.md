@@ -29,15 +29,39 @@ Module strategy: see meta repo [`docs/architecture/modular-strategy.md`](https:/
 
 ## Local development
 
+### Start dependencies in Docker
+
+```bash
+# Start PG / Redis / MinIO (no app inside Docker; you run Spring Boot from IDE)
+docker compose -f docker-compose.dev.yml up -d
+
+# Stop (keep data)
+docker compose -f docker-compose.dev.yml down
+
+# Stop + drop volumes
+docker compose -f docker-compose.dev.yml down -v
+```
+
+Optional — run app inside Docker too (`--profile app`):
+
+```bash
+docker compose -f docker-compose.dev.yml --profile app up -d --build
+```
+
+### Maven commands
+
 ```bash
 # Verify (compile + test + spotless + checkstyle + jacoco)
 ./mvnw verify
 
-# Run the app
+# Run the app (requires PG + Redis up via docker compose above)
 ./mvnw -pl mbw-app spring-boot:run
 
 # Test a single module
 ./mvnw -pl mbw-shared test
+
+# Apply formatting
+./mvnw spotless:apply
 ```
 
 Environment variables: see [`.env.example`](./.env.example); use [direnv](https://direnv.net/) for local loading.
