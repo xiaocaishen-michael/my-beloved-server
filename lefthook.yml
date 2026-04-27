@@ -28,13 +28,11 @@ pre-commit:
       tags:
         - lint
 
-pre-push:
-  commands:
-    full-verify:
-      # Full Maven verify before push: compile + test + spotless +
-      # checkstyle + jacoco. Mirrors what CI runs.
-      # Skip with `git push --no-verify` for emergencies (CI is the
-      # final defense).
-      run: ./mvnw -B -ntp verify
-      tags:
-        - all
+# pre-push intentionally NOT configured.
+# Rationale: AI-augmented dev (Claude Code) generates most code; pre-commit
+# already covers spotless + checkstyle + gitleaks; pre-push's only added
+# value would be `mvn test` (compile + test), but currently no business
+# tests exist (ArchUnit alone < 1s). 50s+ push wait per push is overhead
+# without proportional safety gain. CI is the final defense.
+# Re-evaluate when business tests accumulate (PR-3+) and pre-commit-passes-
+# but-CI-fails frequency becomes noticeable.
