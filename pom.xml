@@ -23,7 +23,7 @@
     <!-- Framework versions -->
     <spring-boot.version>3.5.3</spring-boot.version>
     <spring-modulith.version>1.4.1</spring-modulith.version>
-    <archunit.version>1.4.1</archunit.version>
+    <archunit.version>1.4.2</archunit.version>
     <springdoc.version>2.6.0</springdoc.version>
 
     <!-- Plugin versions -->
