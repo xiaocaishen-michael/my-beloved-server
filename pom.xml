@@ -22,8 +22,8 @@
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
 
     <!-- Framework versions -->
-    <spring-boot.version>3.5.3</spring-boot.version>
-    <spring-modulith.version>1.4.1</spring-modulith.version>
+    <spring-boot.version>3.5.14</spring-boot.version>
+    <spring-modulith.version>1.4.11</spring-modulith.version>
     <archunit.version>1.4.2</archunit.version>
     <springdoc.version>2.6.0</springdoc.version>
 
