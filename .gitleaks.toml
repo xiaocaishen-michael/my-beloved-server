@@ -1,0 +1,10 @@
+# Gitleaks configuration.
+# Extends the default ruleset shipped with gitleaks.
+# https://github.com/gitleaks/gitleaks#configuration
+
+[extend]
+useDefault = true
+
+# Add allowlist entries below ONLY when a rule emits a confirmed false positive,
+# and document the reason inline. Avoid broad path-based allowlists — they
+# erode the defense.
