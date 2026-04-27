@@ -1,0 +1,11 @@
+# Lefthook configuration.
+# Run `lefthook install` once after cloning to activate hooks.
+# https://lefthook.dev/configuration/
+
+pre-commit:
+  parallel: true
+  commands:
+    gitleaks:
+      run: gitleaks protect --staged --redact --verbose
+      tags:
+        - security
