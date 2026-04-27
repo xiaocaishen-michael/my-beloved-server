@@ -19,8 +19,9 @@ spring:
 
   flyway:
     enabled: true
-    schemas: ${FLYWAY_SCHEMAS:shared}
-    locations: classpath:db/migration
+    schemas: ${FLYWAY_SCHEMAS:shared,account}
+    locations:
+      - classpath:db/migration/account
 
   modulith:
     events:

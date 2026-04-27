@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>com.mbw</groupId>
+    <artifactId>mbw-parent</artifactId>
+    <version>0.0.1-SNAPSHOT</version>
+  </parent>
+
+  <artifactId>mbw-account</artifactId>
+  <name>mbw-account</name>
+  <description>Account center: user identity, credentials, sessions, lifecycle state machine</description>
+
+  <dependencies>
+    <dependency>
+      <groupId>com.mbw</groupId>
+      <artifactId>mbw-shared</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+    <!-- Use-case-specific Spring starters (data-jpa, web, security, etc.) added in PR-3+ -->
+  </dependencies>
+</project>
