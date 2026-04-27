@@ -1,0 +1,22 @@
+<?xml version="1.0"?>
+<!DOCTYPE suppressions PUBLIC
+    "-//Checkstyle//DTD SuppressionFilter Configuration 1.2//EN"
+    "https://checkstyle.org/dtds/suppressions_1_2.dtd">
+<!--
+  Per-file Checkstyle suppressions.
+
+  Keep this list short and well-justified — broad suppressions erode the ruleset.
+  Prefer fixing code over adding suppressions.
+-->
+<suppressions>
+    <!-- Spring Boot main classes have only a static main() method, which Checkstyle
+         misidentifies as a utility class. Spring needs a public default constructor
+         for reflection-based instantiation, so HideUtilityClassConstructor cannot apply. -->
+    <suppress files=".*Application\.java" checks="HideUtilityClassConstructor"/>
+
+    <!-- ArchUnit test classes hold static @ArchTest fields whose names use descriptive
+         lowerCamelCase (ArchUnit's idiom, not constant naming). They also have only static
+         members, triggering HideUtilityClassConstructor false-positive. -->
+    <suppress files=".*Test\.java" checks="HideUtilityClassConstructor"/>
+    <suppress files=".*Test\.java" checks="ConstantName"/>
+</suppressions>
