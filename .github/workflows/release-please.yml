@@ -12,7 +12,29 @@ jobs:
   release-please:
     runs-on: ubuntu-latest
     steps:
-      - uses: googleapis/release-please-action@v5
+      - id: release
+        uses: googleapis/release-please-action@v5
         with:
           config-file: .github/release-please-config.json
           manifest-file: .github/.release-please-manifest.json
+
+      # Auto-merge ONLY snapshot PRs (label autorelease: snapshot).
+      # Release PRs (label autorelease: pending) stay manual — release timing
+      # is the maintainer's call. See docs/conventions/git-workflow.md for the
+      # full AI-agent-default-auto-merge convention this is the exception to.
+      - name: Auto-merge Snapshot PR (housekeeping only)
+        if: ${{ steps.release.outputs.prs_created == 'true' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PRS_JSON: ${{ steps.release.outputs.prs }}
+        run: |
+          echo "$PRS_JSON" | jq -c '.[]' | while read -r pr; do
+            number=$(echo "$pr" | jq -r '.number')
+            labels=$(gh pr view "$number" --json labels --jq '[.labels[].name] | join(",")')
+            if echo "$labels" | grep -q "autorelease: snapshot"; then
+              gh pr merge --auto --squash --delete-branch "$number"
+              echo "✅ Auto-merge enabled on Snapshot PR #${number}"
+            else
+              echo "⏸ PR #${number} (labels: $labels) — manual merge (Release PRs stay manual)"
+            fi
+          done
