@@ -69,23 +69,30 @@ jobs:
           ignore-unfixed: true
           skip-dirs: 'docs,spec,.specify,.claude'
 
-  trivy-image:
-    name: Trivy image scan  # ruleset-required
-    runs-on: ubuntu-latest
-    needs: build
-    steps:
-      - uses: actions/checkout@v6
-
-      - name: Build Docker image
-        run: docker build -t mbw-app:ci .
-
-      - name: Run Trivy image scan
-        uses: aquasecurity/trivy-action@v0.36.0
-        with:
-          image-ref: 'mbw-app:ci'
-          severity: 'CRITICAL,HIGH'
-          exit-code: '1'
-          ignore-unfixed: true
+  # TODO(M3-pre-launch): re-enable trivy-image scan job before going public.
+  # Disabled during early business-code development (PR-3+) because:
+  # - docker build + trivy image scan adds ~2min to every PR (slowest job)
+  # - trivy fs scan still covers source-level vulnerabilities
+  # - image scan value peaks at deployment time, not pre-merge during dev
+  # When re-enabling: uncomment below + add "Trivy image scan" back to the
+  # required_status_checks rule in the main-protection ruleset
+  # (gh api PUT /repos/.../rulesets/15496719 — see git-workflow.md).
+  #
+  # trivy-image:
+  #   name: Trivy image scan  # ruleset-required
+  #   runs-on: ubuntu-latest
+  #   needs: build
+  #   steps:
+  #     - uses: actions/checkout@v6
+  #     - name: Build Docker image
+  #       run: docker build -t mbw-app:ci .
+  #     - name: Run Trivy image scan
+  #       uses: aquasecurity/trivy-action@v0.36.0
+  #       with:
+  #         image-ref: 'mbw-app:ci'
+  #         severity: 'CRITICAL,HIGH'
+  #         exit-code: '1'
+  #         ignore-unfixed: true
 
   hadolint:
     name: Hadolint (Dockerfile)  # ruleset-required
