@@ -19,7 +19,7 @@ Conventional Commits 起 PR title（合并时作为 squash commit message）；r
 
 <!-- 按 DDD 分层 / 模块组织变更。必要时贴关键 diff。-->
 
-- 
+-
 
 ## API changes
 

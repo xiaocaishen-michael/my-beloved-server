@@ -28,6 +28,22 @@ pre-commit:
       tags:
         - lint
 
+# Conventional Commits enforcement at commit time.
+# Regex-based check (no Node dependency) — full ruleset runs in CI via
+# wagoid/commitlint-github-action. PR title also validated by
+# amannn/action-semantic-pull-request (load-bearing for release-please
+# since we squash merge with PR title as commit message).
+commit-msg:
+  commands:
+    conventional-format:
+      run: |
+        head -1 "{1}" | grep -qE '^(feat|fix|docs|chore|refactor|style|test|perf|build|ci|revert)(\(.+\))?!?: .{1,100}$' \
+          || (echo "❌ Commit message must follow Conventional Commits:" \
+              && echo "   <type>(<scope>): <subject>   (e.g. feat(account): add register endpoint)" \
+              && echo "   types: feat fix docs chore refactor style test perf build ci revert" \
+              && echo "   subject: 1-100 chars" \
+              && exit 1)
+
 # pre-push intentionally NOT configured.
 # Rationale: AI-augmented dev (Claude Code) generates most code; pre-commit
 # already covers spotless + checkstyle + gitleaks; pre-push's only added

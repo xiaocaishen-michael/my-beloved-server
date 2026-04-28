@@ -86,10 +86,12 @@
 | **跨业务但非系统级** | 第一次出现时放该模块；第二个模块需要时**上提**到 `mbw-shared.api.error` | （M1 阶段还没有明确例子） |
 
 **命名冲突处理**：
+
 - M1 单体阶段：模块少，不强制加模块前缀（`PHONE_ALREADY_REGISTERED` 即可，不需写成 `ACCOUNT_PHONE_ALREADY_REGISTERED`）
 - 拆服务后或多模块用同一概念时：错误码必须加模块前缀（如 `ACCOUNT_PHONE_INVALID` vs `BILLING_PHONE_INVALID`），**避免歧义**
 
 **错误码索引**：
+
 - M1 错误码完整列表见 [account-center.v2.md § 错误码](https://github.com/xiaocaishen-michael/no-vain-years/blob/main/docs/requirement/account-center.v2.md#7-错误码选摘)
 - 新模块加入时：**先在 PRD 加错误码及其语义、HTTP 状态码 → 再写代码 enum**，保证 PRD 与实现同步
 
@@ -163,7 +165,8 @@
 -- V12__rename_phone_to_mobile.sql（错误！）
 ALTER TABLE account.account RENAME COLUMN phone TO mobile;
 ```
-+ 应用代码同 PR 把 `phone` 改成 `mobile`。
+
+- 应用代码同 PR 把 `phone` 改成 `mobile`。
 
 **问题**：滚动部署或多实例场景下，旧实例还在读 `phone` 列就被删 → NPE / DB error；rollback 必须同时回退 SQL + 代码。
 
@@ -190,6 +193,7 @@ ALTER TABLE account.account DROP COLUMN phone;
 #### 何时允许跳步
 
 只有**两个条件同时满足**才允许 `expand + contract` 合并到单 PR：
+
 1. **无真实用户数据**（M1.1 ~ M3 内测前的 dev / staging 环境，且确认无回滚需求）
 2. **PR 描述明示**："跳过 expand-migrate-contract，理由：< 当前阶段 / 数据状态 >"
 
@@ -229,7 +233,8 @@ M3 内测起，**任何**破坏性变更必须三步走，无例外。
 ### 包结构
 
 测试包 mirror `src/main` 包结构。例：
-```
+
+```text
 src/main/java/com/mbw/account/domain/service/PasswordPolicy.java
 ↓
 src/test/java/com/mbw/account/domain/service/PasswordPolicyTest.java

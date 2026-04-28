@@ -1,0 +1,12 @@
+failure-threshold: warning
+
+# Allow eclipse-temurin tagged images (we pin :21-jdk and :21-jre, not :latest).
+trustedRegistries:
+  - docker.io
+
+ignored:
+  # DL3008: pin apt-get versions. Disabled because eclipse-temurin base
+  # already vetted; pinning every transitive package adds maintenance noise.
+  - DL3008
+  # DL3018: pin apk versions. Same rationale (alpine base).
+  - DL3018

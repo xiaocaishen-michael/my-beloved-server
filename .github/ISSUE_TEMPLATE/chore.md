@@ -19,7 +19,7 @@ assignees: []
 
 ## 验收
 
-- [ ] 
+- [ ]
 - [ ] CI 全绿（spotless / checkstyle / jacoco check / tests / archunit / spring-modulith verify）
 
 ## 影响

@@ -12,7 +12,7 @@
 
 ## Transitions
 
-```
+```text
 [NEW]
   ↓ register
 ACTIVE ───── delete_account ─────▶ FROZEN

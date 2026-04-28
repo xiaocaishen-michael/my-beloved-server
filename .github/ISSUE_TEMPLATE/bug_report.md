@@ -18,7 +18,7 @@ assignees: []
 
 1. 起本地环境（`docker compose -f docker-compose.dev.yml up -d`）
 2. <!-- curl 命令 / 测试用例 -->
-3. 
+3.
 
 ## 环境
 
@@ -30,7 +30,7 @@ assignees: []
 
 ## 日志 / 异常
 
-```
+```text
 <!-- 贴 stacktrace 或关键日志（脱敏）-->
 ```
 
