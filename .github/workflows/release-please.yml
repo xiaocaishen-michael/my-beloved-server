@@ -26,8 +26,10 @@ jobs:
         if: ${{ steps.release.outputs.prs_created == 'true' }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
           PRS_JSON: ${{ steps.release.outputs.prs }}
         run: |
+          # GH_REPO env makes `gh` work without a git checkout (no .git here).
           echo "$PRS_JSON" | jq -c '.[]' | while read -r pr; do
             number=$(echo "$pr" | jq -r '.number')
             labels=$(gh pr view "$number" --json labels --jq '[.labels[].name] | join(",")')
