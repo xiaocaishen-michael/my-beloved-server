@@ -13,6 +13,35 @@
   <description>Shared kernel: cross-module error codes, base utilities, event contracts, domain primitives</description>
 
   <dependencies>
-    <!-- Empty until first cross-module concept lands (PR-2+) -->
+    <!--
+      Web stack: cross-cutting concerns (RequestIdFilter, GlobalExceptionHandler)
+      live here so business modules don't reimplement. Versions managed by
+      Spring Boot BOM in parent.
+    -->
+    <dependency>
+      <groupId>org.springframework</groupId>
+      <artifactId>spring-web</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework</groupId>
+      <artifactId>spring-webmvc</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework</groupId>
+      <artifactId>spring-context</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>jakarta.servlet</groupId>
+      <artifactId>jakarta.servlet-api</artifactId>
+      <scope>provided</scope>
+    </dependency>
+    <dependency>
+      <groupId>jakarta.validation</groupId>
+      <artifactId>jakarta.validation-api</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.slf4j</groupId>
+      <artifactId>slf4j-api</artifactId>
+    </dependency>
   </dependencies>
 </project>
