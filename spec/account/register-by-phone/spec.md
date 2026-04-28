@@ -2,7 +2,7 @@
 
 **Feature Branch**: `docs/account-register-by-phone-spec`
 **Created**: 2026-04-28
-**Status**: Draft（待 /speckit.clarify 5 问澄清后转 Ready）
+**Status**: Ready（5 CL 已澄清完成 — 见 `## Clarifications` 节）
 **Module**: `mbw-account`
 **Input**: User description: "用户通过手机号 + 短信验证码注册账号，注册即激活，密码可选"
 
@@ -76,16 +76,16 @@
   - 验证成功立即删除（保持单次有效）
   - 所有失败统一返回 `INVALID_CREDENTIALS`（不区分错码 / 过期 / 已作废，per FR-007）
   - 验证码模板（**Template A**）仅在 phone **未注册**时使用；已注册 phone 走 Template B（见 FR-012）
-- **FR-003**：密码**可选**；若提供则必须 ≥ 8 字符 + 至少 1 大写 + 1 小写 + 1 数字；不符合返回 `INVALID_PASSWORD`
+- **FR-003**：密码**可选**；若提供则必须 ≥ 8 字符 + 至少 1 大写 + 1 小写 + 1 数字；不符合返回 `INVALID_PASSWORD`。**未提供时不创建 `PasswordCredential` 记录**，账号后续仅可走 `login-by-phone-sms`，或通过单独的 `set-password` use case 补设（见 Out of Scope）
 - **FR-004**：账号状态机仅 `(无) → ACTIVE`；**无 PENDING_VERIFY 中间态**；DB 写入即 ACTIVE
-- **FR-005**：(country_code, phone_number) 全局唯一（DB 复合唯一索引）；ACTIVE 账号必须有至少 1 个 credential（短信码触发的注册视为 phone credential，记录最近一次成功注册时间）
-- **FR-006**：限流按以下规则（基于 mbw-shared.RateLimitService，key 格式 `<scenario>:<subject>`）：
+- **FR-005**：`phone` 列（E.164 完整字符串，含 `+` 前缀）全局唯一（DB **单列**唯一索引）；ACTIVE 账号必须有至少 1 个 credential（短信码触发的注册视为 phone credential，记录最近一次成功注册时间）。**国际化扩展**：`country_code` 字段为派生/冗余，由 phone 前缀正则提取（M2+ 启用），**不参与唯一约束**——避免将来扩展时改 schema 触发 expand-migrate-contract 流程
+- **FR-006**：限流按以下规则（基于 `mbw-shared.RateLimitService`，**Redis backend**，key 格式 `<scenario>:<subject>`）：
   - `sms:<phone>` 60 秒 1 次（每手机号）
   - `sms:<phone>` 24 小时 10 次（每手机号）
   - `sms:<ip>` 24 小时 50 次（每 IP，跨手机号汇总）
   - `register:<phone>` 24 小时 5 次失败后锁 30 分钟（防爆破码）
 - **FR-007**：错误响应统一为 `INVALID_CREDENTIALS` 用于所有"码相关"失败（不区分错码 / 过期 / 已作废 / 未发码 / 已注册），避免账号枚举；HTTP 401。**Retry 行为**：重复提交（同 phone，已注册，无 Idempotency-Key）→ DB 唯一约束 → 返回 `INVALID_CREDENTIALS`（与码错误同形态）。客户端应实现"码错→请求新码"流程避免无限重试卡死；Idempotency-Key header 不在 M1.1 范围（M3 引入，详见 [`init-conventions-audit.md`](https://github.com/xiaocaishen-michael/no-vain-years/blob/main/docs/todo/init-conventions-audit.md) P2 段）
-- **FR-008**：注册成功响应必须返回 access token (JWT, TTL 15min) + refresh token (随机 256-bit, TTL 30day)；token 签发失败时账号写入回滚
+- **FR-008**：注册成功响应必须返回 access token (JWT, TTL 15min) + refresh token (随机 256-bit, TTL 30day)；token 签发失败时账号写入回滚（per FR-011）。**Secret 管理**：JWT 签名密钥 `MBW_AUTH_JWT_SECRET` 由宿主机环境变量注入（Docker Compose env / K8s Secret 映射）；**应用启动时若 env 不存在则 fail-fast 拒绝启动**（Spring `@Validated` `@NotBlank` 自动触发），**禁止 fallback 到默认值**避免开发环境密钥泄到生产。测试环境用专属测试密钥（CI 通过 GitHub secret → env 注入），与生产严格隔离
 - **FR-009**：SMS gateway 调用必须**异步重试 + 熔断**：对阿里云短信 API 限流码 / 临时故障最多重试 2 次，超过则返回 `SMS_SEND_FAILED`；所有 SMS 错误必须落 SLF4J ERROR 级日志含 requestId
 - **FR-010**：所有错误响应必须遵循 RFC 9457 ProblemDetail 格式（`application/problem+json`），由 `mbw-shared.web.GlobalExceptionHandler` 映射
 
@@ -93,6 +93,12 @@
   - 实现使用 `@Transactional(rollbackFor = Throwable.class)`，显式覆盖 unchecked exception
   - **执行顺序**：限流 → 验证码消费 → Token 签发 → DB 写入 → commit。Token 必须**先签发后写 DB**，避免"DB 写入成功但 Token 失败回滚"窗口期间其他请求误判已注册
   - DB 唯一约束（FR-005）+ 应用层捕获 `DataIntegrityViolation` 并转 `INVALID_CREDENTIALS` 共同保证 SC-003
+
+- **FR-013**：注册接口的**时延侧信道防御**（dummy bcrypt entry-level）——`POST /api/v1/accounts/register-by-phone` 入口必须执行入口级 dummy bcrypt 计算，保证所有响应路径（成功 / 已注册 / 码错 / 码作废 / 密码格式错 / 限流）的 P95 时延对齐：
+  - dummy hash 应用启动时计算 + 缓存到 static final 字段；cost = 12（与真实密码 hash 一致）
+  - controller 第一行（或入口拦截器）调 `BCryptPasswordEncoder.matches("garbage", DUMMY_HASH)` 丢弃结果
+  - 所有"用户提供密码"的成功路径**不再额外跑 bcrypt**（入口已暖；用户密码 hash 借入口计算或单独跑——选其一在 plan.md 定）
+  - SC-004 集成测试 1000 次对比 P95 时延差 ≤ 50ms（避免单点测试假阴性）
 
 - **FR-012**：已注册手机号的 **alternate SMS template**——`/sms-codes` 处理已注册 phone 时：
   - HTTP 响应：200 OK，与未注册手机号字节级一致（per User Story 3 AS 1）
@@ -105,7 +111,9 @@
 ### Key Entities
 
 - **Account（聚合根）**：账号身份。属性：账号 ID（雪花或自增 BIGINT）/ phone (E.164) / state (ACTIVE) / createdAt (UTC) / lastLoginAt
-- **Credential**：登录凭据，与 Account 1:N。类型：`PhoneCredential`（必有）/ `PasswordCredential`（可选，BCrypt hash）
+- **Credential**：登录凭据，与 Account 1:N。类型：
+  - `PhoneCredential`（必有，注册时建立）
+  - `PasswordCredential`（**nullable**，注册时可选——未设密码时该 credential **不存在**；后续可通过 `set-password` use case 创建）
 - **VerificationCode**：验证码记录（Redis 内存对象）。属性：phone / codeHash（BCrypt cost=8）/ **attemptCount**（初始 0，每次错码 +1）/ **maxAttempts**（默认 3，配置项可调）/ TTL（5 min）/ createdAt（UTC）
 
 ## Success Criteria *(mandatory)*
@@ -118,15 +126,49 @@
 - **SC-004**：账号枚举安全测试：注册接口对"已注册"vs"未注册"手机号的响应（status / body / headers / P95 时延）字节级相同 / 时延差 ≤ 50ms
 - **SC-005**：限流准确性：FR-006 所有 4 条规则在集成测试中验证生效，错误返回 429 + 正确 `Retry-After`
 
-## Clarifications *(待 /speckit.clarify 填充，下面是初步识别的待澄清点)*
+## Clarifications
 
-> 这些点 AI 起草时凭推测填了默认值；正式跑 `/speckit.clarify` 时应提交给用户决定。
+> 5 点澄清于 2026-04-28 完成。决策已落到对应 FR / Entity / Out of Scope。
 
-- **CL-001**：FR-003 密码"可选"——未设密码用户后续如何登录？仅手机号 + 短信码？还是也允许后续补设密码（"设置密码" use case）？
-- **CL-002**：FR-005 唯一性约束 (country_code, phone_number)——M2+ 国际号扩展时用什么策略？现在留空 country_code? 还是 hardcode `+86`?
-- **CL-003**：FR-006 限流 RateLimitService backend——M1.1 单实例确认用 in-memory（mbw-shared 默认）；M2 双节点切 Redis；本 spec 不动 backend，但 SLA 受影响（in-memory 实例重启限流计数清零，是否容忍？）
-- **CL-004**：FR-008 access/refresh token——secret 怎么存？环境变量？K8s secret？M1.1 docker compose secret 文件？
-- **CL-005**：FR-007 隐私：是否需要 dummy bcrypt 来对齐"已注册"vs"未注册"的时延（防侧信道）？开发成本 vs 防御价值，需要明确
+### CL-001：未设密码用户的登录路径
+
+**Q**：FR-003 密码可选——未设密码用户后续如何登录？
+
+**A**：注册即登录（ACTIVE + 立即返回 token）；未设密码用户后续仅走 `login-by-phone-sms` use case；通过 `PATCH /api/v1/accounts/me/password`（`set-password` use case）补设密码，前提需登录态 OR SMS 二次验证。
+
+**落点**：FR-003 微调（未提供时不创 PasswordCredential）；Key Entities Credential 类型加 nullable 标注；`set-password` 进 Out of Scope。
+
+### CL-002：手机号唯一性 + 国际化扩展
+
+**Q**：FR-005 唯一性应基于 `(country_code, phone_number)` 复合索引还是 phone 单列？
+
+**A**：DB 存完整 E.164 字符串单列唯一索引（如 `+8613800138000`）。`country_code` 派生/冗余字段，由 phone 前缀正则提取；M1 hardcode +86，M2+ 扩展时不需要改 schema 触发 expand-migrate-contract。
+
+**落点**：FR-005 重写（单列唯一索引 + country_code 派生）。
+
+### CL-003：RateLimitService backend
+
+**Q**：M1.1 用 in-memory（ConcurrentHashMap）容忍重启清零吗？
+
+**A**：**直接 Redis**，弃 in-memory。理由：① VerificationCode 已 Redis，不应基础设施分裂；② in-memory 重启清零 = 攻击者诱发 OOM 即绕过 24h 限制；③ 架构一致性优先于 ~毫秒级 LAN IO。
+
+**落点**：FR-006 backend 改 Redis；ADR-0011 加 2026-04-28 amendment 块（跳过 M1.1 in-memory，首发即 Redis）。
+
+### CL-004：JWT secret 存储
+
+**Q**：FR-008 access/refresh token secret 怎么存？
+
+**A**：M1 阶段 env 注入（`MBW_AUTH_JWT_SECRET`，宿主 Docker Compose env / 未来 K8s Secret 映射）；启动时 env 不存在 fail-fast 拒绝服务；M2+ 评估 Vault / KMS。
+
+**落点**：FR-008 加 secret 管理段；Out of Scope 加"Vault / KMS rotation"；A-003 微调。
+
+### CL-005：dummy bcrypt 防时延侧信道
+
+**Q**：是否需要 dummy bcrypt 对齐"已注册"vs"未注册"时延？
+
+**A**：**Must Have**。User Story 3 + SC-004 否则形同虚设。采用**入口级 dummy bcrypt** 方案：所有 register 请求入口先跑一次 dummy bcrypt（cost=12，static final hash），保证所有响应路径时延对齐。SC-004 测试用 1000 次对比 P95 时延差 ≤ 50ms。
+
+**落点**：新增 FR-013（入口级 dummy bcrypt）。
 
 ## Assumptions
 
@@ -138,9 +180,11 @@
 
 ## Out of Scope
 
-- 设置密码（仅手机号注册用户）— 单独 use case `set-password`
-- 短信码登录（仅手机号注册用户）— 单独 use case `login-by-phone-sms`
-- Google / 微信 OAuth 绑定 — M1.2 / M1.3 use case
-- 注销 / 删除账号 — 单独 use case `delete-account`
-- 国际化短信内容 — M1.1 仅中文
-- 防机器人验证码（Cloudflare Turnstile）— M1.3 引入
+- **`set-password` use case**（仅手机号注册用户补设密码）— `PATCH /api/v1/accounts/me/password`，前提登录态 OR SMS 二次验证。前端在登录后**引导未设密码用户补全**（UX 流程由前端决定，不在 spec 范围）
+- **`login-by-phone-sms` use case**（仅手机号注册用户的登录路径）
+- **Google / 微信 OAuth 绑定** — M1.2 / M1.3 use case
+- **`delete-account` use case**（注销 / 删除账号）
+- **国际化短信内容** — M1.1 仅中文
+- **防机器人验证码（Cloudflare Turnstile）** — M1.3 引入
+- **Idempotency-Key header** 支持 — M3 引入（详见 [`docs/todo/init-conventions-audit.md`](https://github.com/xiaocaishen-michael/no-vain-years/blob/main/docs/todo/init-conventions-audit.md) P2 段）
+- **Vault / KMS-based secret rotation** 与动态密钥轮换 — M2+ 作为独立基础设施 use case 引入；评估 [HashiCorp Vault](https://www.vaultproject.io/) / [AWS Secrets Manager](https://aws.amazon.com/secrets-manager/)
