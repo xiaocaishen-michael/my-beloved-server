@@ -109,7 +109,7 @@ mbw-account/src/main/java/com/mbw/account/
 │   │   └── AliyunSmsClient.java             # 阿里云短信 SDK 适配
 │   ├── crypto/
 │   │   ├── BCryptPasswordHasher.java        # 包 BCryptPasswordEncoder
-│   │   ├── DummyBcryptTimingDefense.java    # FR-013 入口 dummy bcrypt
+│   │   ├── TimingDefenseExecutor.java       # FR-013 constant-time wrapper（单方法 executeInConstantTime）
 │   │   └── JwtTokenIssuer.java              # Nimbus JOSE access/refresh 签发
 │   └── config/
 │       ├── AccountProperties.java           # @ConfigurationProperties
@@ -187,14 +187,38 @@ public interface AccountRepository {
 }
 
 public interface VerificationCodeRepository {
-    void store(PhoneNumber phone, VerificationCode code, Duration ttl);
+    /** 首次写入；幂等约束用 SETNX 防 60s 限流之外的并发覆盖 */
+    boolean storeIfAbsent(PhoneNumber phone, VerificationCode code, Duration ttl);
     Optional<VerificationCode> findByPhone(PhoneNumber phone);
-    void incrementAttemptOrInvalidate(PhoneNumber phone, int maxAttempts);  // FR-002 attemptCount
-    void delete(PhoneNumber phone);  // 验证成功 / maxAttempts 命中
+    /** 原子 +1 + 超限删除，结果含计数 + 是否已 invalidate */
+    AttemptOutcome incrementAttemptOrInvalidate(PhoneNumber phone, int maxAttempts);
+    void delete(PhoneNumber phone);  // 验证成功
+
+    record AttemptOutcome(int count, boolean invalidated) {}
 }
 ```
 
-infrastructure 实现：`AccountRepositoryImpl` 用 JPA + MapStruct；`RedisVerificationCodeRepository` 用 Spring Data Redis（Lettuce），Redis hash 结构存 `{codeHash, attemptCount, maxAttempts, createdAt}`。
+**infrastructure 实现要点**：
+
+`AccountRepositoryImpl`：JPA + MapStruct（标准方式 A）。
+
+`RedisVerificationCodeRepository`：Redis hash 存 `{codeHash, attemptCount, maxAttempts, createdAt}`。**关键原子性**：
+
+- `storeIfAbsent`：用 `SET key value EX <ttl> NX`（单命令原子）防并发覆盖
+- `incrementAttemptOrInvalidate`：必须用 **Lua 脚本**（应用启动 `SCRIPT LOAD` 拿 SHA1，后续 `EVALSHA` 单 round-trip）。脚本逻辑：
+
+  ```lua
+  local key = KEYS[1]
+  local maxAttempts = tonumber(ARGV[1])
+  local count = redis.call('HINCRBY', key, 'attemptCount', 1)
+  if count >= maxAttempts then
+      redis.call('DEL', key)
+      return {count, 1}
+  end
+  return {count, 0}
+  ```
+
+  否则 `HINCRBY` + 应用层 check + `DEL` 三步非原子，并发场景两请求同时读 count=2 → 各自 +1 → 都写 3 → 绕过 max=3。
 
 ## Application UseCase
 
@@ -215,29 +239,68 @@ input: phone
 
 ### RegisterByPhoneUseCase
 
+**整体包在 `TimingDefenseExecutor.executeInConstantTime(400ms, ...)`**（FR-013，见下方"Timing Defense"段），保证所有响应路径外部 wall-clock 一致。内部业务流：
+
 ```text
 input: phone, code, passwordOpt
-1. dummyBcrypt.consumeTime()  // FR-013 入口对齐时延
-2. PhonePolicy.validate(phone)
-3. passwordOpt.ifPresent(PasswordPolicy::validate)  // FR-003
-4. RateLimitService.consumeOrThrow("register:" + phone, 24h 5次失败锁 30min)
-5. verificationCodeRepo.findByPhone(phone)
-   .filter(vc → BCrypt.matches(code, vc.codeHash))
-   .orElseThrow(InvalidCredentialsException::new)  // 触发 attempt++
+1. PhonePolicy.validate(phone)
+2. passwordOpt.ifPresent(PasswordPolicy::validate)  // FR-003
+3. RateLimitService.consumeOrThrow("register:" + phone, 24h 5次失败锁 30min)
+4. vc = verificationCodeRepo.findByPhone(phone).orElseThrow(InvalidCredentialsException::new)
+5. if (!BCrypt.matches(code, vc.codeHash)):
+       outcome = verificationCodeRepo.incrementAttemptOrInvalidate(phone, maxAttempts=3)  // 原子 Lua
+       throw InvalidCredentialsException
 6. tokenIssuer.signAccess(prospectiveAccountId)  // FR-011 先签 token 后写 DB
    tokenIssuer.signRefresh()
-7. @Transactional:
+7. @Transactional(rollbackFor=Throwable.class):
    - account = AccountStateMachine.activate(new Account(phone))
    - accountRepo.save(account)
    - 若 passwordOpt.isPresent: save(new PasswordCredential(...))
    - 必 save(new PhoneCredential(...))
    - publish(AccountRegistered event)
-8. catch DataIntegrityViolation → throw InvalidCredentialsException  // FR-005 + FR-007
-9. 验证码消费删除
+8. catch DataIntegrityViolation → throw InvalidCredentialsException  // FR-005 / credential UNIQUE / FR-007
+9. verificationCodeRepo.delete(phone)  // 验证成功消费
 10. return RegisterByPhoneResult(accountId, accessToken, refreshToken)
 ```
 
-`@Transactional(rollbackFor = Throwable.class)` per FR-011。
+## Timing Defense（FR-013 详细方案）
+
+**单点 dummy bcrypt 不足够**——"已注册"vs"未注册"路径在 step 7 走的分支不同（`DataIntegrityViolation` 回滚 ~10ms vs 完整 commit + credentials INSERT ~50ms），差 ~40ms 紧贴 SC-004 50ms 阈值，无 margin。
+
+改用 **constant-time wrapper** 方案：
+
+```java
+public class TimingDefenseExecutor {
+    public <T> T executeInConstantTime(Duration target, ThrowingSupplier<T> body) throws Exception {
+        long start = System.nanoTime();
+        Throwable error = null;
+        T result = null;
+        try {
+            result = body.get();
+        } catch (Throwable t) {
+            error = t;
+        } finally {
+            long elapsedNs = System.nanoTime() - start;
+            long remainingNs = target.toNanos() - elapsedNs;
+            if (remainingNs > 0) {
+                Thread.sleep(remainingNs / 1_000_000, (int)(remainingNs % 1_000_000));
+            }
+        }
+        if (error != null) throw error;
+        return result;
+    }
+}
+```
+
+特点：
+
+- 所有路径（成功 / `INVALID_CREDENTIALS` / `DataIntegrityViolation` / `RATE_LIMITED` 等异常）**try-finally 钳住**外部 wall-clock 时间一致
+- target=400ms（依据：dummy150 + Redis5 + bcrypt.matches150 + DB INSERT 50 + buffer 45 ≈ 400）
+- 极慢请求（>400ms）pad 跳过 → 监控 P99，必要时 M2 调高 target
+
+**dummy bcrypt** 仍保留作为内部"暖身"调用（在 step 0 之前由 wrapper 内部触发，确保 wall-clock target 不会因为路径过短而暴露 sleep pattern——sleep 应该是"对齐到 target"而不是"显著大块 sleep"）。
+
+**失效场景**：`Thread.sleep` block 当前 worker thread；register endpoint 预期 < 10 RPS，可接受；DDoS 场景靠 FR-006 限流 + RateLimitService Redis 分布式拒服务兜底。M2 高 QPS 场景考虑 reactive / async（不在本 plan 范围）。
 
 ## DB Schema（V2 migration）
 
@@ -262,7 +325,11 @@ input: phone, code, passwordOpt
 | last_used_at | TIMESTAMPTZ | NULLABLE |
 | created_at | TIMESTAMPTZ | NOT NULL DEFAULT now() |
 
-索引：`uk_account_phone`（phone 唯一）；`idx_credential_account_id`。
+索引：
+
+- `uk_account_phone`（`account.phone` 唯一）— FR-005
+- `idx_credential_account_id`（`credential.account_id`）— 关联查询用
+- **`uk_credential_account_type`**（`credential.account_id, credential.type`）— 防御性 DB 约束：1 account × 1 PHONE / 0~1 PASSWORD / 0~1 GOOGLE / 0~1 WECHAT（M1.2+ 扩展时也成立）。应用层 `DataIntegrityViolation` 触发本约束 → 走 `INVALID_CREDENTIALS`（per FR-007 一致），通过 SQLState 23505 + 索引名识别区分 vs phone 唯一冲突
 
 ## Cross-module dependencies
 
