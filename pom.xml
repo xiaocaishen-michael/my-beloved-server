@@ -150,6 +150,24 @@
           <groupId>org.jacoco</groupId>
           <artifactId>jacoco-maven-plugin</artifactId>
           <version>${jacoco-maven-plugin.version}</version>
+          <configuration>
+            <!--
+              排除无业务逻辑类，避免拉低覆盖率：
+              - *Application.class：Spring Boot 启动类，仅 main 方法
+              - package-info.class：Spring Modulith 模块声明，无可执行代码
+              - **/api/dto/**, **/web/request/**, **/web/response/**：record / DTO，仅数据载体
+              - *JpaEntity.class：JPA 实体，仅字段声明 + getter/setter
+              - **/architecture/**Test.class：ArchUnit 边界测试本身不需被覆盖率统计
+            -->
+            <excludes>
+              <exclude>**/*Application.class</exclude>
+              <exclude>**/package-info.class</exclude>
+              <exclude>**/api/dto/**</exclude>
+              <exclude>**/web/request/**</exclude>
+              <exclude>**/web/response/**</exclude>
+              <exclude>**/*JpaEntity.class</exclude>
+            </excludes>
+          </configuration>
           <executions>
             <execution>
               <id>prepare-agent</id>
@@ -163,6 +181,38 @@
                 <goal>report</goal>
               </goals>
               <phase>test</phase>
+            </execution>
+            <execution>
+              <id>check</id>
+              <goals>
+                <goal>check</goal>
+              </goals>
+              <phase>verify</phase>
+              <configuration>
+                <!--
+                  阈值起手值（M1.1）：LINE 60% / BRANCH 50%。
+                  M2 业务代码量上来后收紧到 LINE 75% / BRANCH 65%。
+                  BUNDLE element 在无业务代码时会 skip（不会卡 build），
+                  PR-3 register-by-phone 业务代码进来后才真正生效。
+                -->
+                <rules>
+                  <rule>
+                    <element>BUNDLE</element>
+                    <limits>
+                      <limit>
+                        <counter>LINE</counter>
+                        <value>COVEREDRATIO</value>
+                        <minimum>0.60</minimum>
+                      </limit>
+                      <limit>
+                        <counter>BRANCH</counter>
+                        <value>COVEREDRATIO</value>
+                        <minimum>0.50</minimum>
+                      </limit>
+                    </limits>
+                  </rule>
+                </rules>
+              </configuration>
             </execution>
           </executions>
         </plugin>
