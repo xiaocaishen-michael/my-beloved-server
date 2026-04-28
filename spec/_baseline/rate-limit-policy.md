@@ -3,13 +3,13 @@
 > 跨业务模块共享的限流框架使用规范。具体规则（短信 60s/次 / 登录 5 次/min 等）在
 > 各业务模块自己的 spec 内定义；本文是"如何用"的统一约定。
 
-## 框架（ADR-0011）
+## 框架（ADR-0011 amended 2026-04-28）
 
-- 选型：Bucket4j 8.x（`com.bucket4j:bucket4j_jdk17-core`）
-- M1.1 backend：进程内 `ConcurrentHashMap`（单实例）
-- M2 backend：bucket4j-redis（双节点）— 切换时改 `RateLimitService` 实现，业务代码零改动
+- 选型：Bucket4j 8.x（`com.bucket4j:bucket4j-core` + `com.bucket4j:bucket4j-redis`）
+- **Backend：M1.1 起即 Redis**（`LettuceBasedProxyManager`）；in-memory 阶段已跳过（amendment 详见 ADR-0011）
 - 入口：`com.mbw.shared.web.RateLimitService#consumeOrThrow(key, bandwidth)`
 - 失败：抛 `RateLimitedException`，`GlobalExceptionHandler` 自动映射 HTTP 429 + `Retry-After` 头 + ProblemDetail
+- **Fail-closed**：Redis 不可用时 `consumeOrThrow` 抛 `RateLimitedException(key, Duration.ZERO)` → 拒服务（避免 fail-open 让攻击者无限制）。运维监控 Redis 可用性
 
 ## Key 命名约定
 

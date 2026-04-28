@@ -205,6 +205,15 @@
               <exclude>**/web/request/**</exclude>
               <exclude>**/web/response/**</exclude>
               <exclude>**/*JpaEntity.class</exclude>
+              <!-- Cross-cutting Filter / @RestControllerAdvice in mbw-shared.web:
+                   framework wiring covered by end-to-end ITs in mbw-app,
+                   unit-test coverage adds little signal. -->
+              <exclude>**/web/RequestIdFilter.class</exclude>
+              <exclude>**/web/GlobalExceptionHandler.class</exclude>
+              <!-- Spring @Configuration classes are pure bean wiring; tested
+                   via Spring context boot in ITs, not unit tests. -->
+              <exclude>**/infrastructure/**/*Config.class</exclude>
+              <exclude>**/infrastructure/**/*Config$*.class</exclude>
             </excludes>
           </configuration>
           <executions>

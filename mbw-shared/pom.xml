@@ -45,15 +45,49 @@
     </dependency>
 
     <!--
-      Rate-limit framework (ADR-0011). Use bucket4j-core directly rather
-      than bucket4j-spring-boot-starter to keep autoconfig surface minimal
-      and avoid JCache provider dependency churn at M1.1. M2 may switch
-      to bucket4j-redis when double-node deployment lands.
+      Rate-limit framework (ADR-0011 amended 2026-04-28). Redis backend
+      from M1.1 — VerificationCode is already on Redis (spec FR-002), so
+      single-store consistency wins; in-memory bucket would also clear on
+      container restart and let attackers OOM-bypass 24h limits. The
+      LettuceBasedProxyManager wires up in mbw-app/infrastructure/ratelimit;
+      mbw-shared just consumes ProxyManager via constructor injection.
     -->
     <dependency>
       <groupId>com.bucket4j</groupId>
       <artifactId>bucket4j-core</artifactId>
       <version>8.10.1</version>
+    </dependency>
+    <dependency>
+      <groupId>com.bucket4j</groupId>
+      <artifactId>bucket4j-redis</artifactId>
+      <version>8.10.1</version>
+    </dependency>
+    <dependency>
+      <groupId>io.lettuce</groupId>
+      <artifactId>lettuce-core</artifactId>
+      <scope>provided</scope>
+    </dependency>
+
+    <!-- Test scope: minimal toolkit for unit tests of shared kernel beans -->
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.mockito</groupId>
+      <artifactId>mockito-core</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.mockito</groupId>
+      <artifactId>mockito-junit-jupiter</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.assertj</groupId>
+      <artifactId>assertj-core</artifactId>
+      <scope>test</scope>
     </dependency>
   </dependencies>
 </project>
