@@ -21,8 +21,7 @@
   "packages": {
     ".": {
       "package-name": "my-beloved-server",
-      "release-type": "maven",
-      "release-as": "0.1.0"
+      "release-type": "maven"
     }
   }
 }
