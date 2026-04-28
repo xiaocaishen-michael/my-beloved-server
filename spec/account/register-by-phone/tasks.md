@@ -16,8 +16,10 @@
 | ID | 层 | Task | 估时 | 依赖 |
 |----|-----|------|------|------|
 | **T0** | [Infra mbw-shared] | RateLimitService 迁移 ConcurrentHashMap → bucket4j-redis（per ADR-0011 amendment）。pom.xml 加 `bucket4j_jdk17-redis`；删除 `ConcurrentHashMap` impl，换 `LettuceBasedProxyManager`；保留同 API 签名（`consumeOrThrow` / `reset`）；fail-closed 策略；Testcontainers Redis IT 验证 | 2h | — |
-| **T1** | [Infra mbw-shared] | 阿里云短信 SDK 引入 + `SmsClient` 接口（在 `mbw-shared.api.client.SmsClient`）+ `AliyunSmsClient` impl（在 mbw-app 配置）+ Resilience4j @Retry 配置 + MockServer IT 模拟 SMS gateway | 1.5h | — [par with T0] |
-| **T2** | [Infra mbw-shared] | `SmsCodeService`（在 mbw-shared 或新建 mbw-sms 模块？建议先放 mbw-shared.infrastructure，M1.2 拆分时再独立模块）— 封装 Redis 存验证码 + Lua atomic + SETNX；提供 `generateAndStore(phone)` / `verify(phone, code)` API。Testcontainers Redis IT | 2h | — [par with T0/T1] |
+| **T1a** | [Interface mbw-shared] | `mbw-shared.api.sms.SmsClient` 接口定义：`send(phone, templateId, params)` + 单元测试（接口语义） | 30min | — [par with T0] |
+| **T1b** | [Impl mbw-app] | `AliyunSmsClient` 实现放 `mbw-app/infrastructure/sms/`（per A2 修订：mbw-shared 不应有 infrastructure 层）：阿里云 SDK 引入 + Resilience4j @Retry + MockServer IT | 1.5h | T1a |
+| **T2a** | [Interface mbw-shared] | `mbw-shared.api.sms.SmsCodeService` 接口定义：`generateAndStore(phone)` / `verify(phone, code)` + AttemptOutcome record + 单元测试（接口语义）| 30min | — [par with T0] |
+| **T2b** | [Impl mbw-app] | `RedisSmsCodeService` 实现放 `mbw-app/infrastructure/sms/`（A2 修订）：Redis 存验证码 + Lua 原子（HINCRBY+条件 DEL）+ SETNX store；Testcontainers Redis IT 含**Lua 原子性 10 并发同 phone 测试** | 2h | T2a |
 
 ## Domain 层（mbw-account）
 
@@ -43,7 +45,7 @@
 
 | ID | 层 | Task | 估时 | 依赖 |
 |----|-----|------|------|------|
-| T13 | [App] | `RequestSmsCodeUseCase` + 4 档限流（FR-006）+ Template A/B 分发（FR-012，已注册查询走 existsByPhone）+ Mockito 单元测试覆盖 6 个分支（未注册成功 / 已注册 Template B / 限流 60s / 限流 24h / IP 限流 / SMS gateway fail）| 2h | T1 + T2 + T9 |
+| T13 | [App] | `RequestSmsCodeUseCase` + 4 档限流（FR-006）+ Template A/B 分发（FR-012，已注册查询走 existsByPhone）+ Mockito 单元测试覆盖 6 个分支（未注册成功 / 已注册 Template B / 限流 60s / 限流 24h / IP 限流 / SMS gateway fail）| 2h | T1a + T2a + T9 |
 | T14 | [App] | `RegisterByPhoneUseCase` 整体包在 `TimingDefenseExecutor.executeInConstantTime(400ms, ...)` + FR-011 先签 token 后写 DB + DataIntegrityViolation 兜底 + Mockito 单元测试覆盖所有路径 | 2h | T9 + T10 + T11 + T12 |
 
 ## Web 层
@@ -51,22 +53,24 @@
 | ID | 层 | Task | 估时 | 依赖 |
 |----|-----|------|------|------|
 | T15 | [Web] | `AccountRegisterController` 2 endpoints（POST `/sms-codes` / POST `/register-by-phone`）+ Request/Response records + Jakarta Validation + Springdoc OpenAPI 注解（含 ProblemDetail 错误响应描述）+ MockMvc IT | 1.5h | T13 + T14 |
-| T16 | [Web] | `AccountWebExceptionAdvice`（@RestControllerAdvice，`@Order` 高于 mbw-shared.GlobalExceptionHandler）— 业务异常统一映射 INVALID_CREDENTIALS / INVALID_PHONE_FORMAT / INVALID_PASSWORD / RATE_LIMITED / SMS_SEND_FAILED → ProblemDetail | 1h | T15 |
+| T16 | [Web] | `AccountWebExceptionAdvice`（@RestControllerAdvice + **`@Order(Ordered.HIGHEST_PRECEDENCE + 100)`** — A3 修订：mbw-shared.GlobalExceptionHandler 是 `LOWEST_PRECEDENCE` 兜底，业务 advice 必须显式高优先级）— 业务异常统一映射 INVALID_CREDENTIALS / INVALID_PHONE_FORMAT / INVALID_PASSWORD / RATE_LIMITED / SMS_SEND_FAILED → ProblemDetail | 1h | T15 |
 
 ## End-to-end + Contract
 
 | ID | 层 | Task | 估时 | 依赖 |
 |----|-----|------|------|------|
-| T17 | [E2E] | Testcontainers 全栈 IT（PG + Redis + MockServer SMS）覆盖 spec.md User Stories 1/2/3 全 9 个 Acceptance Scenarios + SC-001/002/003/005 | 2.5h | T15 + T16 |
+| T17 | [E2E] | Testcontainers 全栈 IT（PG + Redis + MockServer SMS）覆盖 spec.md User Stories 1/2/3 全 9 个 Acceptance Scenarios + SC-002（100 并发 diff phone）+ SC-005（限流准确性）| 2h | T15 + T16 |
+| **T17b** | **[Performance]** | **A1 修订**：单独 task 验证 SC-001 P95 ≤ 800ms。P1 主流程跑 100 次（不含 SMS gateway 时间，从 controller 入到 200 响应），断言 P95 ≤ 800ms。CI 抖动 retry 最多 3 次取最优 P95 | 1h | T17 |
 | T18 | [E2E timing] | **SC-004 timing defense 测试**：1000 次循环对比已注册 vs 未注册 phone 的 P95 时延差 ≤ 50ms。允许小批量预热 + JVM warm-up | 1.5h | T17 |
 | T19 | [Contract] | OpenAPI spec verify（`/v3/api-docs` JSON snapshot 测试，防 API 契约漂移）+ ArchUnit 完整边界断言（domain 不依赖 framework / 跨模块只走 api 包 / web 不直连 infrastructure） | 1h | T15 |
 
 ## 总览
 
-- **19 tasks，约 28h 总工作量**（含测试，TDD 红绿循环时间已计入估时）
-- **关键路径**：T0/T1/T2 → T3 → T5 → T7 → T9/T10 → T14 → T15 → T17 → T18
+- **22 tasks，约 30h 总工作量**（rev2 调整：T1/T2 拆 a/b 接口 vs 实现；新增 T17b 性能验证）
+- **关键路径**：T0/T1a/T2a → T3 → T5 → T7 → T9/T10 → T14 → T15 → T17 → T17b → T18
 - **并行机会**：
-  - T0/T1/T2 同时起（不同子模块文件）
+  - T0/T1a/T2a 同时起（不同子模块文件）
+  - T1b/T2b 在 T1a/T2a 后并行
   - T4/T6 在 T3 后并行
   - T9/T10/T11/T12 在依赖满足后并行（不同文件）
 - **第一个可观察绿光**：T5 完成时（Account 聚合根 + 状态机 + 单元测试全绿，纯 domain 逻辑可证业务规则）
