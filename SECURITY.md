@@ -7,7 +7,7 @@ If you discover a security vulnerability in this project, please **do not** open
 Use **GitHub Security Advisories** (private disclosure):
 
 - Navigate to the repository's `Security` tab → `Advisories` → `Report a vulnerability`
-- Or open this URL directly: https://github.com/xiaocaishen-michael/my-beloved-server/security/advisories/new
+- Or open this URL directly: <https://github.com/xiaocaishen-michael/my-beloved-server/security/advisories/new>
 
 This channel is private until the maintainer publishes the advisory.
 

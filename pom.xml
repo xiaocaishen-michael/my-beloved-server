@@ -33,6 +33,10 @@
     <maven-checkstyle-plugin.version>3.6.0</maven-checkstyle-plugin.version>
     <checkstyle.version>13.4.1</checkstyle.version>
     <jacoco-maven-plugin.version>0.8.14</jacoco-maven-plugin.version>
+    <maven-enforcer-plugin.version>3.5.0</maven-enforcer-plugin.version>
+
+    <!-- Pinned versions for enforcer -->
+    <enforced.maven.version>3.9.6</enforced.maven.version>
   </properties>
 
   <dependencyManagement>
@@ -76,6 +80,41 @@
           <groupId>org.springframework.boot</groupId>
           <artifactId>spring-boot-maven-plugin</artifactId>
           <version>${spring-boot.version}</version>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-enforcer-plugin</artifactId>
+          <version>${maven-enforcer-plugin.version}</version>
+          <executions>
+            <execution>
+              <id>enforce-baseline</id>
+              <goals>
+                <goal>enforce</goal>
+              </goals>
+              <configuration>
+                <rules>
+                  <requireMavenVersion>
+                    <version>[${enforced.maven.version},)</version>
+                  </requireMavenVersion>
+                  <requireJavaVersion>
+                    <version>[${java.version},)</version>
+                  </requireJavaVersion>
+                  <banDuplicatePomDependencyVersions/>
+                  <reactorModuleConvergence/>
+                  <!--
+                    dependencyConvergence + requireUpperBoundDeps in WARN mode initially.
+                    Spring Boot BOM brings ~150 transitive deps; M1.1 starts permissive,
+                    flip to fail when business code stabilises (M2 review).
+                  -->
+                  <dependencyConvergence>
+                    <uniqueVersions>true</uniqueVersions>
+                  </dependencyConvergence>
+                  <requireUpperBoundDeps/>
+                </rules>
+                <fail>false</fail>
+              </configuration>
+            </execution>
+          </executions>
         </plugin>
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
@@ -220,6 +259,10 @@
     </pluginManagement>
 
     <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-enforcer-plugin</artifactId>
+      </plugin>
       <plugin>
         <groupId>com.diffplug.spotless</groupId>
         <artifactId>spotless-maven-plugin</artifactId>

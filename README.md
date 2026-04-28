@@ -15,7 +15,7 @@ Detailed stack rationale: see meta repo [`docs/architecture/tech-stack.md`](http
 
 ## Module structure
 
-```
+```text
 my-beloved-server/
 ├── mbw-shared/               # cross-module kernel (error codes, utilities, event contracts)
 ├── mbw-app/                  # deployment unit, the only @SpringBootApplication
