@@ -19,4 +19,24 @@
          members, triggering HideUtilityClassConstructor false-positive. -->
     <suppress files=".*Test\.java" checks="HideUtilityClassConstructor"/>
     <suppress files=".*Test\.java" checks="ConstantName"/>
+    <suppress files=".*IT\.java" checks="HideUtilityClassConstructor"/>
+    <suppress files=".*IT\.java" checks="ConstantName"/>
+
+    <!-- Magic-number tolerance for tests: assertion ranges, timeouts, capacities,
+         expected counts read clearly inline; extracting to named constants in tests
+         hurts readability. Production code remains constrained. -->
+    <suppress files=".*Test\.java" checks="MagicNumber"/>
+    <suppress files=".*IT\.java" checks="MagicNumber"/>
+
+    <!-- Test method naming follows CLAUDE.md § 七 convention: snake_case
+         `should_X_when_Y` form is explicitly allowed alongside @DisplayName
+         Chinese descriptions. Production code keeps strict camelCase. -->
+    <suppress files=".*Test\.java" checks="MethodName"/>
+    <suppress files=".*IT\.java" checks="MethodName"/>
+
+    <!-- RateLimitService deliberately catches RuntimeException to provide a uniform
+         fail-closed contract across all bucket4j / Lettuce / IO unchecked subtypes
+         (ADR-0011 amended). Listing each subtype individually would drift as the
+         libraries evolve and miss new failure modes. -->
+    <suppress files=".*RateLimitService\.java" checks="IllegalCatch"/>
 </suppressions>

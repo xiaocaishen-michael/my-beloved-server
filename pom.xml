@@ -34,6 +34,7 @@
     <checkstyle.version>13.4.1</checkstyle.version>
     <jacoco-maven-plugin.version>0.8.14</jacoco-maven-plugin.version>
     <maven-enforcer-plugin.version>3.5.0</maven-enforcer-plugin.version>
+    <maven-failsafe-plugin.version>3.5.5</maven-failsafe-plugin.version>
 
     <!-- Pinned versions for enforcer -->
     <enforced.maven.version>3.9.6</enforced.maven.version>
@@ -80,6 +81,19 @@
           <groupId>org.springframework.boot</groupId>
           <artifactId>spring-boot-maven-plugin</artifactId>
           <version>${spring-boot.version}</version>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-failsafe-plugin</artifactId>
+          <version>${maven-failsafe-plugin.version}</version>
+          <executions>
+            <execution>
+              <goals>
+                <goal>integration-test</goal>
+                <goal>verify</goal>
+              </goals>
+            </execution>
+          </executions>
         </plugin>
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
@@ -205,6 +219,15 @@
               <exclude>**/web/request/**</exclude>
               <exclude>**/web/response/**</exclude>
               <exclude>**/*JpaEntity.class</exclude>
+              <!-- Cross-cutting Filter / @RestControllerAdvice in mbw-shared.web:
+                   framework wiring covered by end-to-end ITs in mbw-app,
+                   unit-test coverage adds little signal. -->
+              <exclude>**/web/RequestIdFilter.class</exclude>
+              <exclude>**/web/GlobalExceptionHandler.class</exclude>
+              <!-- Spring @Configuration classes are pure bean wiring; tested
+                   via Spring context boot in ITs, not unit tests. -->
+              <exclude>**/infrastructure/**/*Config.class</exclude>
+              <exclude>**/infrastructure/**/*Config$*.class</exclude>
             </excludes>
           </configuration>
           <executions>
@@ -274,6 +297,10 @@
       <plugin>
         <groupId>org.jacoco</groupId>
         <artifactId>jacoco-maven-plugin</artifactId>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-failsafe-plugin</artifactId>
       </plugin>
     </plugins>
   </build>
