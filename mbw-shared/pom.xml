@@ -43,5 +43,17 @@
       <groupId>org.slf4j</groupId>
       <artifactId>slf4j-api</artifactId>
     </dependency>
+
+    <!--
+      Rate-limit framework (ADR-0011). Use bucket4j-core directly rather
+      than bucket4j-spring-boot-starter to keep autoconfig surface minimal
+      and avoid JCache provider dependency churn at M1.1. M2 may switch
+      to bucket4j-redis when double-node deployment lands.
+    -->
+    <dependency>
+      <groupId>com.bucket4j</groupId>
+      <artifactId>bucket4j-core</artifactId>
+      <version>8.10.1</version>
+    </dependency>
   </dependencies>
 </project>

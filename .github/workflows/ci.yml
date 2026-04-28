@@ -9,9 +9,14 @@ on:
 permissions:
   contents: read
 
+# Ruleset binding: each job's `name:` below is wired into the
+# main-protection ruleset's required_status_checks contexts.
+# Renaming any of them MUST update the ruleset in the SAME PR
+# (gh api -X PUT /repos/.../rulesets/<id>), or PRs are permanently
+# blocked. See docs/conventions/git-workflow.md (PR #25/#26 incident).
 jobs:
   build:
-    name: Build & Test
+    name: Build & Test  # ruleset-required
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -36,7 +41,7 @@ jobs:
           if-no-files-found: ignore
 
   gitleaks:
-    name: Gitleaks
+    name: Gitleaks  # ruleset-required
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -49,7 +54,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   trivy-fs:
-    name: Trivy fs scan
+    name: Trivy fs scan  # ruleset-required
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -65,7 +70,7 @@ jobs:
           skip-dirs: 'docs,spec,.specify,.claude'
 
   trivy-image:
-    name: Trivy image scan
+    name: Trivy image scan  # ruleset-required
     runs-on: ubuntu-latest
     needs: build
     steps:
@@ -83,7 +88,7 @@ jobs:
           ignore-unfixed: true
 
   hadolint:
-    name: Hadolint (Dockerfile)
+    name: Hadolint (Dockerfile)  # ruleset-required
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -94,14 +99,14 @@ jobs:
           failure-threshold: warning
 
   actionlint:
-    name: Actionlint (workflow YAML)
+    name: Actionlint (workflow YAML)  # ruleset-required
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
       - uses: raven-actions/actionlint@v2
 
   markdownlint:
-    name: Markdownlint (docs)
+    name: Markdownlint (docs)  # ruleset-required
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -111,7 +116,7 @@ jobs:
           globs: "**/*.md"
 
   commitlint:
-    name: Commitlint (conventional commits)
+    name: Commitlint (conventional commits)  # ruleset-required
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request'
     steps:
@@ -123,7 +128,7 @@ jobs:
           configFile: commitlint.config.mjs
 
   pr-title:
-    name: PR title (conventional commits)
+    name: PR title (conventional commits)  # ruleset-required
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request'
     permissions:
