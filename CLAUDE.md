@@ -145,6 +145,56 @@
 | Migration 命名 | `V<version>__<snake_case_description>.sql`，模块独立目录 |
 | Migration 不可变 | 已合入 main 的 migration **禁止修改**；改动以新 migration 实现 |
 
+### 不兼容变更：expand-migrate-contract 三步法
+
+**所有破坏性 schema 变更**（删列 / 改列名 / 改列类型 / 拆表 / 合表）必须拆成**至少三个独立 PR / 部署**，**禁止单 PR 一把梭**。
+
+| 阶段 | 做什么 | DB 状态 | 应用代码 |
+|------|--------|---------|---------|
+| **Expand** | 加新结构（加列 / 加表 / 加索引） | 新旧并存，向前兼容 | 旧代码继续读旧字段；新代码可双写 |
+| **Migrate** | 数据回填 + 应用切换到读新字段 | 新旧并存 | 写入路径只写新字段（或双写）；读路径切到新字段 |
+| **Contract** | 删旧结构（drop column / drop table） | 仅新结构 | 旧字段已无引用 |
+
+**核心约束**：每一步独立可回滚，且**每一步部署后都能跑生产流量**。
+
+#### ❌ 反例：单 PR drop column
+
+```sql
+-- V12__rename_phone_to_mobile.sql（错误！）
+ALTER TABLE account.account RENAME COLUMN phone TO mobile;
+```
++ 应用代码同 PR 把 `phone` 改成 `mobile`。
+
+**问题**：滚动部署或多实例场景下，旧实例还在读 `phone` 列就被删 → NPE / DB error；rollback 必须同时回退 SQL + 代码。
+
+#### ✅ 正例：拆三个 PR
+
+```sql
+-- PR-A: V12__add_mobile_column.sql（expand）
+ALTER TABLE account.account ADD COLUMN mobile VARCHAR(32);
+-- 应用代码：写入路径双写 phone + mobile；读路径仍用 phone
+```
+
+```sql
+-- PR-B: V13__backfill_mobile_from_phone.sql（migrate）
+UPDATE account.account SET mobile = phone WHERE mobile IS NULL;
+-- 应用代码：读路径切到 mobile，写入路径仍双写
+```
+
+```sql
+-- PR-C: V14__drop_phone_column.sql（contract）
+ALTER TABLE account.account DROP COLUMN phone;
+-- 应用代码：写入路径只写 mobile（删除双写代码）
+```
+
+#### 何时允许跳步
+
+只有**两个条件同时满足**才允许 `expand + contract` 合并到单 PR：
+1. **无真实用户数据**（M1.1 ~ M3 内测前的 dev / staging 环境，且确认无回滚需求）
+2. **PR 描述明示**："跳过 expand-migrate-contract，理由：< 当前阶段 / 数据状态 >"
+
+M3 内测起，**任何**破坏性变更必须三步走，无例外。
+
 ---
 
 ## 六、API 设计

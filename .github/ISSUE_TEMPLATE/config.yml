@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Meta / 跨仓约定问题（no-vain-years）
+    url: https://github.com/xiaocaishen-michael/no-vain-years/issues/new/choose
+    about: 跨仓共享约定 / ADR / 工作区配置问题去 meta 仓提
+  - name: App bugs / features (no-vain-years-app)
+    url: https://github.com/xiaocaishen-michael/no-vain-years-app/issues/new/choose
+    about: 前端 RN / Expo / Web 相关问题去 app 仓提
+  - name: Security advisories
+    url: https://github.com/xiaocaishen-michael/my-beloved-server/security/advisories/new
+    about: 安全漏洞请走 GitHub Security Advisories（不要在 issue 公开）
