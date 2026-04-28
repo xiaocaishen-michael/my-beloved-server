@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Profile-aware logging:
+   - dev (default): pretty console output for local readability
+   - prod: structured JSON for downstream log shipping (Loki / ELK / CloudWatch)
+  Both profiles include MDC fields (requestId from RequestIdFilter, plus
+  Spring tracing's traceId / spanId once Micrometer Observation is wired).
+-->
+<configuration>
+  <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
+
+  <springProfile name="!prod">
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+      <encoder>
+        <!-- %X{key} pulls from MDC; -- preserves alignment when key absent -->
+        <pattern>%d{HH:mm:ss.SSS} [%thread] %highlight(%-5level) %cyan(%-40.40logger{40}) [req=%X{requestId:--}] : %msg%n</pattern>
+      </encoder>
+    </appender>
+    <root level="INFO">
+      <appender-ref ref="CONSOLE"/>
+    </root>
+  </springProfile>
+
+  <springProfile name="prod">
+    <appender name="JSON_CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+      <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+        <!-- Default LogstashEncoder fields: @timestamp, @version, message,
+             logger_name, thread_name, level, level_value, mdc, stack_trace -->
+        <includeMdcKeyName>requestId</includeMdcKeyName>
+        <includeMdcKeyName>traceId</includeMdcKeyName>
+        <includeMdcKeyName>spanId</includeMdcKeyName>
+        <customFields>{"service":"mbw-app"}</customFields>
+      </encoder>
+    </appender>
+    <root level="INFO">
+      <appender-ref ref="JSON_CONSOLE"/>
+    </root>
+  </springProfile>
+</configuration>

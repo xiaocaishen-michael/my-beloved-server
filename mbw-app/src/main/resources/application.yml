@@ -2,6 +2,12 @@ spring:
   application:
     name: mbw
 
+  mvc:
+    # RFC 9457 ProblemDetail for all error responses (cross-cutting baseline,
+    # see GlobalExceptionHandler in mbw-shared.web).
+    problemdetails:
+      enabled: true
+
   datasource:
     url: ${DATASOURCE_URL:jdbc:postgresql://localhost:5432/mbw}
     username: ${DATASOURCE_USERNAME:mbw}
@@ -35,10 +41,15 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info,metrics
+        # prometheus exposed for scrape; in prod restrict via Nginx/SLB allowlist
+        include: health,info,metrics,prometheus
   endpoint:
     health:
       show-details: when-authorized
+      probes:
+        # Enable distinct /actuator/health/liveness + /actuator/health/readiness
+        # endpoints (k8s / docker compose healthcheck targets at M2).
+        enabled: true
 
 logging:
   level:
