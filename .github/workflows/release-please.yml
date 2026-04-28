@@ -17,6 +17,15 @@ jobs:
         with:
           config-file: .github/release-please-config.json
           manifest-file: .github/.release-please-manifest.json
+          # Use a fine-grained PAT instead of the default GITHUB_TOKEN so PRs
+          # opened by release-please trigger the regular CI workflow. Default
+          # GITHUB_TOKEN is gated by GitHub's anti-recursion protection (PRs
+          # created via GITHUB_TOKEN do not start new workflow runs), which
+          # left every release-please PR without required status checks and
+          # blocked merge. Secret RELEASE_PLEASE_PAT is a fine-grained PAT
+          # scoped to this repo with Contents + Pull requests + Issues
+          # write permissions.
+          token: ${{ secrets.RELEASE_PLEASE_PAT }}
 
       # Auto-merge ONLY snapshot PRs (label autorelease: snapshot).
       # Release PRs (label autorelease: pending) stay manual — release timing
