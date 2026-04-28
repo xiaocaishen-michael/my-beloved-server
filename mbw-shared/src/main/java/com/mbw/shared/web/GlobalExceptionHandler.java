@@ -5,8 +5,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -57,6 +59,24 @@ public class GlobalExceptionHandler {
         pd.setTitle("Bad request");
         pd.setDetail(ex.getMessage());
         return pd;
+    }
+
+    /**
+     * Rate-limit hit. Returns HTTP 429 with {@code Retry-After} header
+     * (seconds, RFC 7231 §7.1.3 / RFC 6585 §4) so polite clients can
+     * back off without guessing.
+     */
+    @ExceptionHandler(RateLimitedException.class)
+    public ResponseEntity<ProblemDetail> handleRateLimited(RateLimitedException ex) {
+        long retryAfterSeconds = Math.max(1L, ex.getRetryAfter().toSeconds());
+        ProblemDetail pd = ProblemDetail.forStatus(HttpStatus.TOO_MANY_REQUESTS);
+        pd.setTitle("Too many requests");
+        pd.setDetail("Rate limit exceeded; retry after " + retryAfterSeconds + "s.");
+        pd.setProperty("limitKey", ex.getLimitKey());
+        pd.setProperty("retryAfterSeconds", retryAfterSeconds);
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                .header(HttpHeaders.RETRY_AFTER, String.valueOf(retryAfterSeconds))
+                .body(pd);
     }
 
     @ExceptionHandler(Throwable.class)
