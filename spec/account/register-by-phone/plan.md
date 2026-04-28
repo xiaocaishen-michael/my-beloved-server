@@ -105,8 +105,8 @@ mbw-account/src/main/java/com/mbw/account/
 │   │   └── RedisVerificationCodeRepository.java   # Redis backed
 │   ├── messaging/
 │   │   └── AccountEventPublisher.java       # Spring Modulith 事件发布
-│   ├── client/
-│   │   └── AliyunSmsClient.java             # 阿里云短信 SDK 适配
+│   ├── client/                              # mbw-account-specific clients only（如有）；
+│   │                                        # SMS gateway 公共接口在 mbw-shared.api.sms（见下"SmsCodeService 跨模块归属"）
 │   ├── crypto/
 │   │   ├── BCryptPasswordHasher.java        # 包 BCryptPasswordEncoder
 │   │   ├── TimingDefenseExecutor.java       # FR-013 constant-time wrapper（单方法 executeInConstantTime）
@@ -122,8 +122,25 @@ mbw-account/src/main/java/com/mbw/account/
     ├── request/RegisterByPhoneRequest.java
     ├── response/RegisterByPhoneResponse.java
     └── exception/                           # 业务异常映射（per FR-007 统一 INVALID_CREDENTIALS）
-        └── AccountWebExceptionAdvice.java   # @RestControllerAdvice，先于 mbw-shared.GlobalExceptionHandler
+        └── AccountWebExceptionAdvice.java   # @RestControllerAdvice + @Order(Ordered.HIGHEST_PRECEDENCE + 100)
+                                             # 显式高于 mbw-shared.GlobalExceptionHandler（LOWEST_PRECEDENCE 兜底）
 ```
+
+### SmsCodeService 跨模块归属（A2 修订）
+
+`mbw-shared` 是**共享内核**（错误码 / 基础工具 / 事件契约 / 领域基类），不是部署单元——**不能有 infrastructure 层**。SMS 服务的接口与实现分别归属：
+
+```text
+mbw-shared/src/main/java/com/mbw/shared/api/sms/
+├── SmsClient.java                    # 接口：send(phone, templateId, params)
+└── SmsCodeService.java               # 接口：generateAndStore(phone) / verify(phone, code)
+
+mbw-app/src/main/java/com/mbw/app/infrastructure/sms/
+├── AliyunSmsClient.java              # 阿里云 SDK 实现 + Resilience4j @Retry
+└── RedisSmsCodeService.java          # Redis 验证码存储 + Lua 原子 + SETNX 实现
+```
+
+业务模块（`mbw-account.application.RequestSmsCodeUseCase`）只注入 `mbw-shared.api.sms.SmsCodeService`；具体实现在 `mbw-app` 装配。M1.2 splitting 候选独立 `mbw-sms` 模块时只需挪 implementation，不动业务调用代码。
 
 ### Migrations
 
