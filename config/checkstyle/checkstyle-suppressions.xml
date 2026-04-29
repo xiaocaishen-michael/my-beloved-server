@@ -39,4 +39,14 @@
          (ADR-0011 amended). Listing each subtype individually would drift as the
          libraries evolve and miss new failure modes. -->
     <suppress files=".*RateLimitService\.java" checks="IllegalCatch"/>
+
+    <!-- AliyunSmsClient bridges two third-party API constraints we cannot change:
+         1) Aliyun SDK's `Client.sendSms()` declares `throws Exception` (overly
+            broad upstream signature)
+         2) Resilience4j's `CheckedRunnable.run()` declares `throws Throwable`.
+         A generic catch is unavoidable at this single integration boundary;
+         the catch body immediately re-maps to SmsSendException so the contract
+         outward stays narrow. Listing every concrete Tea SDK exception subtype
+         would drift as the SDK evolves. -->
+    <suppress files=".*AliyunSmsClient\.java" checks="IllegalCatch"/>
 </suppressions>
