@@ -1,0 +1,78 @@
+# Production compose for the App node (ECS 2c4g).
+#
+# Pairs with docker-compose.data.yml on a separate Data node (ECS 2c2g)
+# per ADR-0012 — see meta repo docs/architecture/deployment.md for the
+# full topology.
+#
+# Usage:
+#   # Pull the prebuilt image and start app + nginx:
+#   docker compose -f docker-compose.app.yml --env-file .env.app --profile nginx up -d
+#
+#   # App only (e.g. local dry-run without TLS):
+#   docker compose -f docker-compose.app.yml --env-file .env.app up -d app
+#
+#   # Local dry-run with a locally-built image (skip the ghcr.io pull):
+#   docker build -t mbw-app:dev .
+#   MBW_APP_IMAGE=mbw-app:dev DATA_NODE_HOST=host.docker.internal \
+#     docker compose -f docker-compose.app.yml --env-file .env.app up -d app
+
+name: mbw-app
+
+services:
+  app:
+    # Override MBW_APP_IMAGE for local dry-runs (e.g. mbw-app:dev).
+    image: ${MBW_APP_IMAGE:-ghcr.io/xiaocaishen-michael/my-beloved-server/mbw-app:${MBW_VERSION:-latest}}
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      # JVM — A-Split allocates 4GB to this node; 2g heap leaves room
+      # for metaspace / direct buffers / page cache. ExitOnOutOfMemoryError
+      # makes container restart policy do the recovery instead of swap.
+      JAVA_OPTS: "-Xms1g -Xmx2g -XX:MaxMetaspaceSize=256m -XX:MaxDirectMemorySize=256m -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -XX:+ExitOnOutOfMemoryError"
+      # Data layer endpoints — point to Data node's intranet IP.
+      DATASOURCE_URL: "jdbc:postgresql://${DATA_NODE_HOST}:5432/mbw"
+      DATASOURCE_USERNAME: ${DB_USERNAME}
+      DATASOURCE_PASSWORD: ${DB_PASSWORD}
+      FLYWAY_SCHEMAS: ${FLYWAY_SCHEMAS:-shared,account}
+      REDIS_HOST: ${DATA_NODE_HOST}
+      REDIS_PORT: 6379
+      SPRING_DATA_REDIS_PASSWORD: ${REDIS_PASSWORD}
+      # Auth
+      MBW_AUTH_JWT_SECRET: ${JWT_SECRET}
+      # SMS — T1b production gateway
+      MBW_SMS_PROVIDER: ${MBW_SMS_PROVIDER:-aliyun}
+      MBW_SMS_ALIYUN_ACCESSKEYID: ${ALIYUN_SMS_AK}
+      MBW_SMS_ALIYUN_ACCESSKEYSECRET: ${ALIYUN_SMS_SK}
+      MBW_SMS_ALIYUN_SIGNNAME: ${ALIYUN_SMS_SIGN}
+    healthcheck:
+      # Use wget (present in the base eclipse-temurin image) instead of curl.
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/actuator/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 60s
+
+  nginx:
+    # Optional — only starts with `--profile nginx`. Local dry-run can
+    # skip TLS termination and call app:8080 directly.
+    profiles: ["nginx"]
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./ops/nginx/conf.d:/etc/nginx/conf.d:ro
+      - mbw-letsencrypt:/etc/letsencrypt:ro
+    depends_on:
+      app:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost/healthz"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+
+volumes:
+  mbw-letsencrypt:

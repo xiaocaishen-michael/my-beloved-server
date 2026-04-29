@@ -12,7 +12,7 @@ COPY pom.xml ./
 COPY mbw-shared/pom.xml mbw-shared/
 COPY mbw-account/pom.xml mbw-account/
 COPY mbw-app/pom.xml mbw-app/
-RUN ./mvnw -B -ntp -pl mbw-app -am dependency:go-offline \
+RUN ./mvnw -B -ntp -s .mvn/settings.xml -pl mbw-app -am dependency:go-offline \
     -Dspotless.check.skip=true -Dcheckstyle.skip=true
 
 # Copy source and build (skip lint/tests in container build; CI handles those).
@@ -20,7 +20,7 @@ COPY mbw-shared/src mbw-shared/src
 COPY mbw-account/src mbw-account/src
 COPY mbw-app/src mbw-app/src
 COPY config config
-RUN ./mvnw -B -ntp -pl mbw-app -am package -DskipTests \
+RUN ./mvnw -B -ntp -s .mvn/settings.xml -pl mbw-app -am package -DskipTests \
     -Dspotless.check.skip=true -Dcheckstyle.skip=true
 
 # Spring Boot layered jar extraction for cache-friendly final image.

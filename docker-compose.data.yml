@@ -1,0 +1,76 @@
+# Production compose for the Data node (ECS 2c2g).
+#
+# Pairs with docker-compose.app.yml on a separate App node per ADR-0012.
+#
+# Security model: this node has NO public ingress. Postgres / Redis
+# ports are bound to all interfaces inside the container, but the
+# Aliyun security group + ufw on the host MUST whitelist only the App
+# node's intranet IP. Any public exposure of 5432 / 6379 is a critical
+# misconfiguration.
+#
+# Usage:
+#   docker compose -f docker-compose.data.yml --env-file .env.data up -d
+#   docker compose -f docker-compose.data.yml --env-file .env.data ps
+#   docker compose -f docker-compose.data.yml --env-file .env.data logs -f
+
+name: mbw-data
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: mbw
+      POSTGRES_USER: ${DB_USERNAME}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    command:
+      # Tune for a 2c2g host with PG as the main memory consumer.
+      - "postgres"
+      - "-c"
+      - "shared_buffers=384MB"
+      - "-c"
+      - "work_mem=8MB"
+      - "-c"
+      - "max_connections=100"
+      - "-c"
+      - "listen_addresses=*"
+    volumes:
+      - mbw-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME} -d mbw"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    command:
+      - "redis-server"
+      - "--maxmemory"
+      - "256mb"
+      - "--maxmemory-policy"
+      - "allkeys-lru"
+      - "--bind"
+      - "0.0.0.0"
+      - "--protected-mode"
+      - "yes"
+      - "--requirepass"
+      - "${REDIS_PASSWORD}"
+      - "--appendonly"
+      - "yes"
+    volumes:
+      - mbw-redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "--no-auth-warning", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+volumes:
+  mbw-pgdata:
+  mbw-redisdata:
