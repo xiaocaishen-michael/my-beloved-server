@@ -46,6 +46,13 @@
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-data-redis</artifactId>
     </dependency>
+    <!-- M1 SMS mock 通道（ADR-0013）：MockSmsCodeSender 通过
+         JavaMailSender 把验证码发邮件给写死收件人；切真 Aliyun 短信
+         （ADR-0013 触发收尾后）此 dep 可保留也可剔除。 -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-mail</artifactId>
+    </dependency>
 
     <!-- Spring Modulith -->
     <dependency>
