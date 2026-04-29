@@ -18,7 +18,26 @@
       <artifactId>mbw-shared</artifactId>
       <version>${project.version}</version>
     </dependency>
-    <!-- Use-case-specific Spring starters (data-jpa, web, security, etc.) added in PR-3+ -->
+
+    <!-- Persistence: JPA entities + Spring Data repos in infrastructure layer.
+         Domain stays framework-free (asserted by DomainLayerBoundaryTest). -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-data-jpa</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.flywaydb</groupId>
+      <artifactId>flyway-core</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.flywaydb</groupId>
+      <artifactId>flyway-database-postgresql</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.postgresql</groupId>
+      <artifactId>postgresql</artifactId>
+      <scope>runtime</scope>
+    </dependency>
 
     <!-- Test stack: JUnit 5 + AssertJ + Mockito (versions via Spring Boot BOM in parent). -->
     <dependency>
@@ -48,6 +67,24 @@
       <groupId>com.tngtech.archunit</groupId>
       <artifactId>archunit-junit5</artifactId>
       <version>1.3.0</version>
+      <scope>test</scope>
+    </dependency>
+
+    <!-- Spring Boot test slice + Testcontainers for IT
+         (AccountRepositoryImplIT runs Flyway against a real PG container). -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.testcontainers</groupId>
+      <artifactId>junit-jupiter</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.testcontainers</groupId>
+      <artifactId>postgresql</artifactId>
       <scope>test</scope>
     </dependency>
   </dependencies>
