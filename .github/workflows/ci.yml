@@ -29,7 +29,9 @@ jobs:
           cache: 'maven'
 
       - name: Maven verify (compile + test + spotless + checkstyle + jacoco)
-        run: ./mvnw -B -ntp verify
+        # `-Pfull-tests` includes @Tag("slow") tests (perf / timing-defense ITs).
+        # Local dev defaults skip them for fast feedback; CI runs them all.
+        run: ./mvnw -B -ntp verify -Pfull-tests
 
       - name: Upload JaCoCo report
         if: always()

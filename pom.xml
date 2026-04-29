@@ -38,6 +38,16 @@
 
     <!-- Pinned versions for enforcer -->
     <enforced.maven.version>3.9.6</enforced.maven.version>
+
+    <!--
+      JUnit 5 @Tag groups to exclude from test runs.
+      Default: skip @Tag("slow") — currently RegisterByPhoneP95IT (T17b)
+      and RegisterByPhoneTimingDefenseIT (T18) which together take ~150s
+      and dominate `mvn verify` wall time. Local dev gets fast feedback;
+      CI activates the `full-tests` profile to run them.
+      Override in profile `full-tests` (sets value to empty string).
+    -->
+    <test.excludedGroups>slow</test.excludedGroups>
   </properties>
 
   <dependencyManagement>
@@ -84,8 +94,29 @@
         </plugin>
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-surefire-plugin</artifactId>
+          <configuration>
+            <!--
+              Explicit `<includes>` overrides surefire's defaults (which would
+              accidentally pick up `*IT.java` in some configurations — observed
+              `OpenApiSnapshotIT` running in both surefire AND failsafe phases,
+              wasting ~7s per build). With this list surefire owns *Test.java /
+              *Tests.java, failsafe owns *IT.java, no overlap.
+            -->
+            <includes>
+              <include>**/*Test.java</include>
+              <include>**/*Tests.java</include>
+            </includes>
+            <excludedGroups>${test.excludedGroups}</excludedGroups>
+          </configuration>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-failsafe-plugin</artifactId>
           <version>${maven-failsafe-plugin.version}</version>
+          <configuration>
+            <excludedGroups>${test.excludedGroups}</excludedGroups>
+          </configuration>
           <executions>
             <execution>
               <goals>
@@ -300,8 +331,30 @@
       </plugin>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-failsafe-plugin</artifactId>
       </plugin>
     </plugins>
   </build>
+
+  <profiles>
+    <!--
+      Activate with `-Pfull-tests` to run the @Tag("slow") tests
+      (currently RegisterByPhoneP95IT + RegisterByPhoneTimingDefenseIT,
+      ~150s combined). CI uses this profile so every push / PR runs the
+      full coverage; local dev defaults skip slow tests for fast feedback.
+
+      Setting `<test.excludedGroups>` to empty string clears the default
+      `slow` exclusion so all @Tag groups run.
+    -->
+    <profile>
+      <id>full-tests</id>
+      <properties>
+        <test.excludedGroups/>
+      </properties>
+    </profile>
+  </profiles>
 </project>
