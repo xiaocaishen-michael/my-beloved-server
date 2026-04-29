@@ -27,18 +27,23 @@ package com.mbw.shared.api.sms;
 public interface SmsCodeService {
 
     /**
-     * Generate a fresh verification code for the given phone, persist it
-     * (BCrypt-hashed, with TTL), and overwrite any prior pending code for
-     * the same phone.
+     * Generate a fresh verification code for the given phone, persist
+     * its hash with TTL, and return the plaintext code so the caller
+     * can deliver it via {@link SmsClient}.
      *
-     * <p>Caller is responsible for sending the plaintext code via
-     * {@link SmsClient}; this service only handles storage. (Splitting
-     * generation from delivery lets {@code RequestSmsCodeUseCase} swap
-     * SMS templates per FR-012 without touching storage logic.)
+     * <p>Splitting generation from delivery lets
+     * {@code RequestSmsCodeUseCase} swap SMS templates per FR-012
+     * (Template A vs B) without touching storage logic.
+     *
+     * <p>Implementations may throw if a non-expired entry already
+     * exists for the phone; rate limiting upstream of this call
+     * (FR-006 60s window) is the primary guard against that race.
      *
      * @param phone E.164-formatted phone number
+     * @return plaintext 6-digit verification code (never logged in
+     *     production per CLAUDE.md § 四 log-safety)
      */
-    void generateAndStore(String phone);
+    String generateAndStore(String phone);
 
     /**
      * Verify a user-submitted code against the stored hash.
