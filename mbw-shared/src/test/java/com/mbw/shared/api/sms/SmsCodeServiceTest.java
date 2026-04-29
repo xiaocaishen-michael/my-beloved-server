@@ -9,12 +9,13 @@ import org.junit.jupiter.api.Test;
 class SmsCodeServiceTest {
 
     @Test
-    void should_pass_phone_through_to_generateAndStore() {
-        AtomicReference<String> captured = new AtomicReference<>();
+    void should_return_plaintext_from_generateAndStore_for_SMS_delivery() {
+        AtomicReference<String> capturedPhone = new AtomicReference<>();
         SmsCodeService service = new SmsCodeService() {
             @Override
-            public void generateAndStore(String phone) {
-                captured.set(phone);
+            public String generateAndStore(String phone) {
+                capturedPhone.set(phone);
+                return "123456";
             }
 
             @Override
@@ -23,16 +24,17 @@ class SmsCodeServiceTest {
             }
         };
 
-        service.generateAndStore("+8613800138000");
+        String code = service.generateAndStore("+8613800138000");
 
-        assertThat(captured.get()).isEqualTo("+8613800138000");
+        assertThat(capturedPhone.get()).isEqualTo("+8613800138000");
+        assertThat(code).isEqualTo("123456");
     }
 
     @Test
     void should_return_AttemptOutcome_from_verify() {
         SmsCodeService service = new SmsCodeService() {
             @Override
-            public void generateAndStore(String phone) {
+            public String generateAndStore(String phone) {
                 throw new UnsupportedOperationException();
             }
 
