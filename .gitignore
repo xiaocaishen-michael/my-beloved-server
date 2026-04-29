@@ -37,6 +37,7 @@ logs/
 .env
 .env.*
 !.env.example
+!.env.*.example
 .envrc
 *.local
 

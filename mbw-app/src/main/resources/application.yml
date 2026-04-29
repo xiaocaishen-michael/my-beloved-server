@@ -27,6 +27,7 @@ spring:
     enabled: true
     schemas: ${FLYWAY_SCHEMAS:shared,account}
     locations:
+      - classpath:db/migration/shared
       - classpath:db/migration/account
 
   data:
@@ -38,7 +39,11 @@ spring:
   modulith:
     events:
       jdbc-schema-initialization:
-        enabled: true
+        # Disabled — Flyway shared/V3__init_modulith_event_publication.sql
+        # creates the table before Hibernate validates the schema. Modulith's
+        # built-in initializer runs too late (after validate), causing boot
+        # to fail with "missing table [event_publication]".
+        enabled: false
 
 server:
   port: ${SERVER_PORT:8080}
