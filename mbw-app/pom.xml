@@ -122,6 +122,18 @@
       <plugin>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-maven-plugin</artifactId>
+        <configuration>
+          <!--
+            Attach the Spring Boot fat jar as a separate `-exec` artifact instead
+            of replacing the main jar. The thin jar remains the module's main
+            artifact, which keeps Maven failsafe's @SpringBootTest classpath
+            resolution happy (without this, repackage swaps in a launcher jar
+            with classes under BOOT-INF/classes/, and Spring's MergedAnnotations
+            lookup blows up with "Failed to find merged annotation for
+            @BootstrapWith(SpringBootTestContextBootstrapper.class)").
+          -->
+          <classifier>exec</classifier>
+        </configuration>
         <executions>
           <execution>
             <id>repackage</id>

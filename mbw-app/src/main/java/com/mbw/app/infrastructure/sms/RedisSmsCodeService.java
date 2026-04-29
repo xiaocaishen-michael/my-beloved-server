@@ -10,6 +10,7 @@ import java.security.SecureRandom;
 import java.time.Duration;
 import java.util.Locale;
 import java.util.Optional;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 /**
@@ -41,6 +42,7 @@ public class RedisSmsCodeService implements SmsCodeService {
     private final PasswordHasher passwordHasher;
     private final SecureRandom random;
 
+    @Autowired
     public RedisSmsCodeService(VerificationCodeRepository repository, PasswordHasher passwordHasher) {
         this(repository, passwordHasher, new SecureRandom());
     }

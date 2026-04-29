@@ -12,7 +12,7 @@
   <springProfile name="!prod">
     <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
       <encoder>
-        <!-- %X{key} pulls from MDC; -- preserves alignment when key absent -->
+        <!-- %X{key} pulls from MDC; the :- default keeps width when key absent -->
         <pattern>%d{HH:mm:ss.SSS} [%thread] %highlight(%-5level) %cyan(%-40.40logger{40}) [req=%X{requestId:--}] : %msg%n</pattern>
       </encoder>
     </appender>
