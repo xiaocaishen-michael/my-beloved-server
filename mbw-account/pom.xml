@@ -43,6 +43,16 @@
       <scope>runtime</scope>
     </dependency>
 
+    <!-- Servlet API for HttpServletRequest in controllers (provided scope —
+         the embedded Tomcat in mbw-app supplies it at runtime). mbw-shared
+         declares this as provided too; provided scope is not transitive,
+         so we re-declare here for compilation. -->
+    <dependency>
+      <groupId>jakarta.servlet</groupId>
+      <artifactId>jakarta.servlet-api</artifactId>
+      <scope>provided</scope>
+    </dependency>
+
     <!-- Security primitives: BCrypt + JWT (FR-008 / spec.md). Spring Security
          Crypto is the BCrypt source of truth across the project (no need for
          the full security starter; we don't use the auth filter chain in
