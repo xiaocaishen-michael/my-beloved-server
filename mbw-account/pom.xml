@@ -43,6 +43,21 @@
       <scope>runtime</scope>
     </dependency>
 
+    <!-- Security primitives: BCrypt + JWT (FR-008 / spec.md). Spring Security
+         Crypto is the BCrypt source of truth across the project (no need for
+         the full security starter; we don't use the auth filter chain in
+         this module). Nimbus JOSE is the project-canonical JWT toolkit per
+         tech-stack.md. -->
+    <dependency>
+      <groupId>org.springframework.security</groupId>
+      <artifactId>spring-security-crypto</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>com.nimbusds</groupId>
+      <artifactId>nimbus-jose-jwt</artifactId>
+      <version>9.40</version>
+    </dependency>
+
     <!-- Test stack: JUnit 5 + AssertJ + Mockito (versions via Spring Boot BOM in parent). -->
     <dependency>
       <groupId>org.junit.jupiter</groupId>
@@ -75,10 +90,17 @@
     </dependency>
 
     <!-- Spring Boot test slice + Testcontainers for IT
-         (AccountRepositoryImplIT runs Flyway against a real PG container). -->
+         (AccountRepositoryImplIT runs Flyway against a real PG container).
+         hibernate-validator provides the Jakarta Bean Validation provider
+         used by JwtPropertiesTest's standalone Validator. -->
     <dependency>
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-validation</artifactId>
       <scope>test</scope>
     </dependency>
     <dependency>
