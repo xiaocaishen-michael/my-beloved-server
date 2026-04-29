@@ -25,7 +25,7 @@ RUN ./mvnw -B -ntp -pl mbw-app -am package -DskipTests \
 
 # Spring Boot layered jar extraction for cache-friendly final image.
 WORKDIR /build/extracted
-RUN java -Djarmode=layertools -jar /build/mbw-app/target/mbw-app-*.jar extract
+RUN java -Djarmode=layertools -jar /build/mbw-app/target/mbw-app-*-exec.jar extract
 
 # ---- Stage 2: runtime ----
 FROM eclipse-temurin:21-jre AS runtime
