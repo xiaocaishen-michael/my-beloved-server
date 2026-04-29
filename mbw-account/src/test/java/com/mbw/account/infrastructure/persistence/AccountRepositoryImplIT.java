@@ -19,10 +19,13 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
+import org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration;
+import org.springframework.boot.autoconfigure.data.redis.RedisRepositoriesAutoConfiguration;
 import org.springframework.boot.autoconfigure.domain.EntityScan;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.context.annotation.ComponentScan;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 import org.springframework.test.context.DynamicPropertyRegistry;
@@ -190,14 +193,24 @@ class AccountRepositoryImplIT {
     }
 
     /**
-     * Minimal Spring Boot app for this IT — scans only the persistence
-     * package + enables JPA repositories there, so no other module's
-     * beans need to be on the classpath. Flyway is auto-configured by
-     * Spring Boot from {@code spring.flyway.*} properties.
+     * Minimal Spring Boot context — JPA-only. {@code @Configuration} +
+     * {@link EnableAutoConfiguration} (rather than
+     * {@code @SpringBootApplication}) skips the default
+     * {@code @ComponentScan} of this class's package — which would
+     * otherwise pull in {@code RedisVerificationCodeRepository} and
+     * require Redis wiring we deliberately exclude here. The repository
+     * impl is declared as an explicit {@code @Bean}; Flyway is
+     * auto-configured from {@code spring.flyway.*} dynamic properties.
      */
-    @SpringBootApplication
-    @ComponentScan(basePackageClasses = {AccountRepositoryImpl.class})
+    @Configuration
+    @EnableAutoConfiguration(exclude = {RedisAutoConfiguration.class, RedisRepositoriesAutoConfiguration.class})
     @EnableJpaRepositories(basePackageClasses = {AccountJpaRepository.class})
     @EntityScan(basePackageClasses = {AccountJpaEntity.class})
-    static class TestApp {}
+    static class TestApp {
+
+        @Bean
+        AccountRepositoryImpl accountRepositoryImpl(AccountJpaRepository jpa) {
+            return new AccountRepositoryImpl(jpa);
+        }
+    }
 }
