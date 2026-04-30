@@ -20,8 +20,10 @@
 #
 # What this does:
 #   1. apt update + base packages
-#   2. Create non-root deploy user `mbw` (auto-assigned UID, in docker group)
-#   3. Install Docker CE + compose plugin (Ubuntu official repo)
+#   2. Configure Aliyun's default `admin` user (uid 1000, sudo NOPASSWD + SSH
+#      keys pre-installed by the cloud image) — add to docker group only.
+#      No new user is created; we ride the cloud image's default identity.
+#   3. Install Docker CE + compose plugin (Aliyun mirror)
 #   4. Set timezone Asia/Shanghai + enable chrony for time sync
 #   5. Configure UFW (local firewall, double-defence with cloud security group):
 #      - tight: 22 from home_ip, 80/443 from anywhere (single node, no internal-only ports)
@@ -86,33 +88,21 @@ apt-get install -y -qq \
     chrony ufw \
     python3-pip jq
 
-# ---------- 2. deploy user ----------
-echo "==> [2/6] Create deploy user 'mbw'"
-if ! id -u mbw >/dev/null 2>&1; then
-    # Don't pin a specific UID — Aliyun's Ubuntu image ships with a
-    # default `ubuntu` user already occupying UID 1000. We just need
-    # a non-root user in the docker group; the actual UID doesn't
-    # matter (Docker named volumes handle uid mapping internally).
-    useradd -m -s /bin/bash mbw
-    # Allow passwordless sudo for `mbw` — convenience for first-deploy
-    # operations (certbot / mounts). Tighten later if multi-user.
-    echo 'mbw ALL=(ALL) NOPASSWD:ALL' >/etc/sudoers.d/90-mbw
-    chmod 440 /etc/sudoers.d/90-mbw
-    echo "    created user mbw (uid=$(id -u mbw))"
-else
-    echo "    user mbw already exists (uid=$(id -u mbw)), skipping"
+# ---------- 2. deploy user (use Aliyun's default `admin`) ----------
+# Aliyun's Ubuntu cloud image ships with a default `admin` user (uid 1000)
+# that already has:
+#   - sudo NOPASSWD via /etc/sudoers (`admin ALL=(ALL) NOPASSWD:ALL`)
+#   - SSH authorized_keys synced from the instance key pair
+#   - bash login shell + /home/admin
+# So we don't create a new deploy user — we just add `admin` to the
+# `docker` group so it can `docker compose` without sudo.
+echo "==> [2/6] Configure 'admin' deploy user (Aliyun cloud image default)"
+if ! id -u admin >/dev/null 2>&1; then
+    echo "    !! admin user not found — is this an Aliyun Ubuntu cloud image?" >&2
+    echo "    !! manual fix: useradd -m -s /bin/bash admin + add to sudo + add ssh keys" >&2
+    exit 1
 fi
-
-# Copy SSH authorized_keys from root → mbw on first run (so you can ssh
-# directly as `mbw` without re-uploading your key).
-if [[ -f /root/.ssh/authorized_keys && ! -f /home/mbw/.ssh/authorized_keys ]]; then
-    mkdir -p /home/mbw/.ssh
-    cp /root/.ssh/authorized_keys /home/mbw/.ssh/
-    chown -R mbw:mbw /home/mbw/.ssh
-    chmod 700 /home/mbw/.ssh
-    chmod 600 /home/mbw/.ssh/authorized_keys
-    echo "    copied root authorized_keys to mbw"
-fi
+echo "    admin user exists (uid=$(id -u admin)), home=/home/admin"
 
 # ---------- 3. Docker CE + compose plugin ----------
 # Use Aliyun's docker-ce mirror (mirrors.aliyun.com/docker-ce) — the
@@ -143,10 +133,12 @@ else
     echo "    Docker already installed: $(docker --version), skipping"
 fi
 
-# Add mbw to docker group (idempotent)
-if ! getent group docker | grep -q "\bmbw\b"; then
-    usermod -aG docker mbw
-    echo "    added mbw to docker group (re-login or 'newgrp docker' to take effect)"
+# Add admin to docker group (idempotent)
+if ! id -nG admin | grep -qw docker; then
+    usermod -aG docker admin
+    echo "    added admin to docker group (re-login or 'newgrp docker' to take effect)"
+else
+    echo "    admin already in docker group, skipping"
 fi
 
 # ---------- 4. timezone + chrony ----------
@@ -207,7 +199,7 @@ if [[ "$ROLE" == "data" ]]; then
 
         # Sub-dirs for PG / Redis / pg_dump backup
         mkdir -p /data/pg /data/redis /data/backup
-        chown -R mbw:mbw /data
+        chown -R admin:admin /data
         echo "    /data mounted; sub-dirs prepared (pg / redis / backup)"
     fi
 elif [[ "$ROLE" == "app" ]]; then
@@ -217,4 +209,4 @@ else
 fi
 
 echo
-echo "✅ Bootstrap done. Re-login as mbw (or 'su - mbw') and proceed with first-deploy.md."
+echo "✅ Bootstrap done. Re-login as admin (or 'su - admin') and proceed with single-node-deploy.md."

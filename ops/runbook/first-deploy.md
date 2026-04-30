@@ -71,9 +71,9 @@ cd /tmp/repo
 # home_ip 拿你本机 `curl ifconfig.me` 的结果
 sudo bash ops/runbook/ecs-bootstrap.sh app <YOUR_HOME_IP>
 
-# 完成后切换到 mbw 用户的 home
-sudo mv /tmp/repo /home/mbw/my-beloved-server
-sudo chown -R mbw:mbw /home/mbw/my-beloved-server
+# 完成后转交给 admin 用户（Aliyun cloud image 默认非 root 用户）
+sudo mv /tmp/repo /home/admin/my-beloved-server
+sudo chown -R admin:admin /home/admin/my-beloved-server
 ```
 
 ### 1.2 Data 节点
@@ -88,14 +88,14 @@ cd /tmp/repo
 # Args: role home_ip app_internal_ip
 sudo bash ops/runbook/ecs-bootstrap.sh data <YOUR_HOME_IP> <APP_INTERNAL_IP>
 
-sudo mv /tmp/repo /home/mbw/my-beloved-server
-sudo chown -R mbw:mbw /home/mbw/my-beloved-server
+sudo mv /tmp/repo /home/admin/my-beloved-server
+sudo chown -R admin:admin /home/admin/my-beloved-server
 ```
 
 bootstrap 脚本会：
 
 1. 装 Docker CE + compose plugin
-2. 建 `mbw` 用户（uid 1000，docker 组）
+2. 把 Aliyun 默认 `admin` 用户加入 docker 组（不创建新用户）
 3. 时区 Asia/Shanghai + chrony
 4. ufw 配规则（与上节安全组对应）
 5. Data 节点：格式化 + 挂载 `/dev/vdb` 到 `/data`，建 `pg/redis/backup` 子目录
@@ -107,8 +107,8 @@ bootstrap 脚本会：
 ## 2. Data 节点首次部署
 
 ```bash
-ssh mbw@<DATA_PUBLIC_IP>   # 还没解绑公网时
-# 或 ssh mbw@<DATA_INTERNAL_IP> 经 App 节点跳板
+ssh admin@<DATA_PUBLIC_IP>   # 还没解绑公网时
+# 或 ssh admin@<DATA_INTERNAL_IP> 经 App 节点跳板
 
 cd ~/my-beloved-server
 
@@ -142,7 +142,7 @@ aliyun ossutil config --profile mbw-server
 
 ```bash
 sudo tee /etc/cron.d/mbw-backup-pg <<'EOF'
-0 3 * * * mbw /home/mbw/my-beloved-server/ops/runbook/backup-pg.sh >> /var/log/mbw-backup.log 2>&1
+0 3 * * * mbw /home/admin/my-beloved-server/ops/runbook/backup-pg.sh >> /var/log/mbw-backup.log 2>&1
 EOF
 sudo touch /var/log/mbw-backup.log
 sudo chown mbw:mbw /var/log/mbw-backup.log
@@ -159,7 +159,7 @@ sudo chown mbw:mbw /var/log/mbw-backup.log
 ## 3. App 节点首次部署
 
 ```bash
-ssh mbw@<APP_PUBLIC_IP>
+ssh admin@<APP_PUBLIC_IP>
 
 cd ~/my-beloved-server
 

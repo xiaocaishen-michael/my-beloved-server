@@ -3,7 +3,7 @@
 # Daily PostgreSQL backup for the Data node — pg_dump | gzip | upload to OSS.
 #
 # Designed to run via cron on the Data node only:
-#   0 3 * * * /home/mbw/my-beloved-server/ops/runbook/backup-pg.sh \
+#   0 3 * * * /home/admin/my-beloved-server/ops/runbook/backup-pg.sh \
 #       >>/var/log/mbw-backup.log 2>&1
 #
 # Prereqs (one-time on Data node):
@@ -13,7 +13,7 @@
 #      (oss-cn-shanghai-internal.aliyuncs.com — see meta repo
 #      docs/plans/sdd-github-spec-kit-...md § OSS).
 #      Run once: aliyun ossutil config --profile mbw-server
-#   3. /data/backup writable by mbw user (created by ecs-bootstrap.sh)
+#   3. /data/backup writable by admin user (chown'd by ecs-bootstrap.sh)
 #
 # Retention:
 #   - Local: 7 days at /data/backup/
@@ -23,8 +23,8 @@
 set -euo pipefail
 
 # Config
-COMPOSE_FILE="/home/mbw/my-beloved-server/docker-compose.data.yml"
-ENV_FILE="/home/mbw/my-beloved-server/.env.data"
+COMPOSE_FILE="/home/admin/my-beloved-server/docker-compose.data.yml"
+ENV_FILE="/home/admin/my-beloved-server/.env.data"
 BACKUP_DIR="/data/backup"
 OSS_BUCKET="mbw-oss"
 OSS_PROFILE="mbw-server"
