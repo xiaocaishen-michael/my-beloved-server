@@ -20,7 +20,7 @@
 #
 # What this does:
 #   1. apt update + base packages
-#   2. Create non-root deploy user `mbw` (uid 1000, in docker group)
+#   2. Create non-root deploy user `mbw` (auto-assigned UID, in docker group)
 #   3. Install Docker CE + compose plugin (Ubuntu official repo)
 #   4. Set timezone Asia/Shanghai + enable chrony for time sync
 #   5. Configure UFW (local firewall, double-defence with cloud security group):
@@ -73,6 +73,13 @@ echo "==> Home IP allowed for SSH: $HOME_IP"
 # ---------- 1. apt update + base packages ----------
 echo "==> [1/6] apt update + base packages"
 export DEBIAN_FRONTEND=noninteractive
+# Ubuntu 22.04+ ships needrestart which prompts (TUI) after package
+# install — NEEDRESTART_MODE=a forces automatic restart of services
+# without interaction. Without this, apt-get hangs waiting for user
+# input even when DEBIAN_FRONTEND=noninteractive (the two flags are
+# independent).
+export NEEDRESTART_MODE=a
+export NEEDRESTART_SUSPEND=1
 apt-get update -qq
 apt-get install -y -qq \
     ca-certificates curl gnupg lsb-release \
@@ -80,16 +87,20 @@ apt-get install -y -qq \
     python3-pip jq
 
 # ---------- 2. deploy user ----------
-echo "==> [2/6] Create deploy user 'mbw' (uid 1000)"
+echo "==> [2/6] Create deploy user 'mbw'"
 if ! id -u mbw >/dev/null 2>&1; then
-    useradd -m -u 1000 -s /bin/bash mbw
+    # Don't pin a specific UID — Aliyun's Ubuntu image ships with a
+    # default `ubuntu` user already occupying UID 1000. We just need
+    # a non-root user in the docker group; the actual UID doesn't
+    # matter (Docker named volumes handle uid mapping internally).
+    useradd -m -s /bin/bash mbw
     # Allow passwordless sudo for `mbw` — convenience for first-deploy
     # operations (certbot / mounts). Tighten later if multi-user.
     echo 'mbw ALL=(ALL) NOPASSWD:ALL' >/etc/sudoers.d/90-mbw
     chmod 440 /etc/sudoers.d/90-mbw
-    echo "    created user mbw"
+    echo "    created user mbw (uid=$(id -u mbw))"
 else
-    echo "    user mbw already exists, skipping"
+    echo "    user mbw already exists (uid=$(id -u mbw)), skipping"
 fi
 
 # Copy SSH authorized_keys from root → mbw on first run (so you can ssh
@@ -104,20 +115,26 @@ if [[ -f /root/.ssh/authorized_keys && ! -f /home/mbw/.ssh/authorized_keys ]]; t
 fi
 
 # ---------- 3. Docker CE + compose plugin ----------
-echo "==> [3/6] Install Docker CE + compose plugin"
+# Use Aliyun's docker-ce mirror (mirrors.aliyun.com/docker-ce) — the
+# upstream download.docker.com is on an international link and routinely
+# delivers 50-200 KB/s from China-mainland ECS, making the ~200MB Docker
+# install take 5-15 minutes. The Aliyun mirror is byte-for-byte identical
+# (Aliyun publishes a synced copy) and runs on intra-China gigabit, so
+# the same install completes in ~30 seconds.
+echo "==> [3/6] Install Docker CE + compose plugin (via Aliyun mirror)"
 if ! command -v docker >/dev/null 2>&1; then
     install -m 0755 -d /etc/apt/keyrings
-    curl -fsSL https://download.docker.com/linux/ubuntu/gpg | \
+    curl -fsSL https://mirrors.aliyun.com/docker-ce/linux/ubuntu/gpg | \
         gpg --dearmor -o /etc/apt/keyrings/docker.gpg
     chmod a+r /etc/apt/keyrings/docker.gpg
 
     UBUNTU_CODENAME=$(lsb_release -cs)
     cat >/etc/apt/sources.list.d/docker.list <<EOF
-deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $UBUNTU_CODENAME stable
+deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://mirrors.aliyun.com/docker-ce/linux/ubuntu $UBUNTU_CODENAME stable
 EOF
 
     apt-get update -qq
-    apt-get install -y -qq \
+    NEEDRESTART_MODE=a NEEDRESTART_SUSPEND=1 apt-get install -y -qq \
         docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
 
     systemctl enable --now docker
