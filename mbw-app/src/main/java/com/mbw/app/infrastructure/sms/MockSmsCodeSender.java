@@ -1,5 +1,8 @@
 package com.mbw.app.infrastructure.sms;
 
+import com.mbw.shared.api.email.EmailMessage;
+import com.mbw.shared.api.email.EmailSendException;
+import com.mbw.shared.api.email.EmailSender;
 import com.mbw.shared.api.sms.SmsClient;
 import com.mbw.shared.api.sms.SmsSendException;
 import java.util.Map;
@@ -7,9 +10,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
-import org.springframework.mail.MailException;
-import org.springframework.mail.SimpleMailMessage;
-import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Component;
 
 /**
@@ -17,15 +17,22 @@ import org.springframework.stereotype.Component;
  * 到阿里云短信资质审核就绪（详 ADR-0013）。
  *
  * <p>激活条件：{@code mbw.sms.provider=mock}（M1 默认）。生产 ECS
- * 在 {@code .env.app} 里设这个 + SMTP_*；切真短信时改成
- * {@code mbw.sms.provider=aliyun} 即由 {@code AliyunSmsClient}（PR #72
- * 待 merge）接管，业务代码零改动。
+ * 在 {@code .env.app} 里设这个 + {@code mbw.email.provider=resend} +
+ * RESEND_API_KEY；切真短信时改成 {@code mbw.sms.provider=aliyun} 即由
+ * {@code AliyunSmsClient} 接管，业务代码零改动。
+ *
+ * <p>实现细节经 ADR-0013 二次 amend（2026-04-30）从 Spring
+ * {@code JavaMailSender}（SMTP）切到 {@link EmailSender} 抽象 —
+ * production 通道走 Resend HTTPS API，更适合发到 Gmail / Outlook 等
+ * 海外邮箱（DirectMail IP 池声誉对 Gmail 投递有硬伤，新约束下不可用）。
  *
  * <p>邮件内容**包含验证码原文**（这是 mock 的目的：让 dev / 演示能拿
  * 到 code 跑 E2E）。这跟 LoggingSmsClient 的 log-safety 原则不冲突 —
  * 邮件写死个人收件人不外发，不会落到生产 stdout / 集中日志。
  *
- * <p>切真 SMS 后**必须删除本类**（详 ADR-0013 § 触发收尾的条件）。
+ * <p>切真 SMS 后**必须删除本类**（详 ADR-0013 § 触发收尾的条件）；
+ * EmailSender 抽象与 ResendEmailClient 实现保留，作 M2+ 邮箱注册 /
+ * 业务通知发件通道。
  */
 @Component
 @ConditionalOnProperty(prefix = "mbw.sms", name = "provider", havingValue = "mock")
@@ -34,11 +41,11 @@ public class MockSmsCodeSender implements SmsClient {
 
     private static final Logger LOG = LoggerFactory.getLogger(MockSmsCodeSender.class);
 
-    private final JavaMailSender mailSender;
+    private final EmailSender emailSender;
     private final MockSmsProperties properties;
 
-    public MockSmsCodeSender(JavaMailSender mailSender, MockSmsProperties properties) {
-        this.mailSender = mailSender;
+    public MockSmsCodeSender(EmailSender emailSender, MockSmsProperties properties) {
+        this.emailSender = emailSender;
         this.properties = properties;
         // Validate at consumer-side rather than @NotBlank on Properties,
         // so dev/test ConfigurationPropertiesScan does not fail boot
@@ -56,15 +63,15 @@ public class MockSmsCodeSender implements SmsClient {
 
     @Override
     public void send(String phone, String templateId, Map<String, String> params) {
-        SimpleMailMessage msg = new SimpleMailMessage();
-        msg.setFrom(properties.from());
-        msg.setTo(properties.recipient());
-        msg.setSubject("[mbw mock SMS] code for " + phone);
-        msg.setText(buildBody(phone, templateId, params));
+        EmailMessage msg = new EmailMessage(
+                properties.from(),
+                properties.recipient(),
+                "[mbw mock SMS] code for " + phone,
+                buildBody(phone, templateId, params));
 
         try {
-            mailSender.send(msg);
-        } catch (MailException ex) {
+            emailSender.send(msg);
+        } catch (EmailSendException ex) {
             // 邮件 mock 失败 → 抛 SmsSendException，与真 SMS 失败语义一致；
             // 上层会映射为 HTTP 503 SMS_SEND_FAILED（FR-009）。
             throw new SmsSendException("Mock SMS send failed (email gateway error: " + ex.getMessage() + ")", ex);

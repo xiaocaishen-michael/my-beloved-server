@@ -41,16 +41,20 @@ services:
       # Auth
       MBW_AUTH_JWT_SECRET: ${JWT_SECRET}
       # SMS 通道选择（ADR-0013）：M1 默认 mock；切真 SMS 时设
-      # provider=aliyun（待 PR #72 merge 后启用对应 ALIYUN_SMS_* 段）。
+      # provider=aliyun（营业执照 + 阿里云签名审核通过后启用 ALIYUN_SMS_* 段）。
       MBW_SMS_PROVIDER: ${MBW_SMS_PROVIDER:-mock}
-      # Mock 通道：把验证码发邮件给写死收件人（M1 默认）
-      SMTP_HOST: ${SMTP_HOST:-}
-      SMTP_PORT: ${SMTP_PORT:-465}
-      SMTP_USERNAME: ${SMTP_USERNAME:-}
-      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      # Mock 通道：发件 / 收件邮箱（MockSmsCodeSender 通过 EmailSender 抽象 → ResendEmailClient）
       MOCK_SMS_RECIPIENT: ${MOCK_SMS_RECIPIENT:-}
       MOCK_SMS_FROM: ${MOCK_SMS_FROM:-}
-      # Aliyun 真发短信占位（M1 不激活；PR #72 / 切 provider=aliyun 时启用）
+      # Email 通道选择（ADR-0013 二次 amend, 2026-04-30）：
+      # provider=resend → ResendEmailClient（HTTPS API，Gmail 投递好）；
+      # 未设 → LoggingEmailSender 仅 log 兜底（开发期 / dry-run 用）。
+      MBW_EMAIL_PROVIDER: ${MBW_EMAIL_PROVIDER:-}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      RESEND_BASE_URL: ${RESEND_BASE_URL:-https://api.resend.com}
+      RESEND_CONNECT_TIMEOUT: ${RESEND_CONNECT_TIMEOUT:-5s}
+      RESEND_READ_TIMEOUT: ${RESEND_READ_TIMEOUT:-10s}
+      # Aliyun 真发短信占位（M1 不激活；切 provider=aliyun 时启用）
       MBW_SMS_ALIYUN_ACCESSKEYID: ${ALIYUN_SMS_AK:-}
       MBW_SMS_ALIYUN_ACCESSKEYSECRET: ${ALIYUN_SMS_SK:-}
       MBW_SMS_ALIYUN_SIGNNAME: ${ALIYUN_SMS_SIGN:-}

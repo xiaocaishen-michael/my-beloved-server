@@ -49,4 +49,12 @@
          outward stays narrow. Listing every concrete Tea SDK exception subtype
          would drift as the SDK evolves. -->
     <suppress files=".*AliyunSmsClient\.java" checks="IllegalCatch"/>
+
+    <!-- ResendEmailClient mirrors the AliyunSmsClient pattern: Resilience4j's
+         `CheckedRunnable.run()` declares `throws Throwable`, so the wrapper
+         catch around `Retry.decorateCheckedRunnable(...).run()` must be
+         `catch (Throwable)` — narrower types do not compile. The catch body
+         immediately re-maps to EmailSendException, so the outward contract
+         stays narrow. -->
+    <suppress files=".*ResendEmailClient\.java" checks="IllegalCatch"/>
 </suppressions>

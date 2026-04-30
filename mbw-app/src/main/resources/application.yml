@@ -36,24 +36,6 @@ spring:
       port: ${REDIS_PORT:6379}
       timeout: 2s
 
-  mail:
-    # M1 mock 通道（ADR-0013）：把验证码发给写死收件人。生产 ECS
-    # 在 .env.app 配齐 SMTP_HOST/PORT/USERNAME/PASSWORD；本地 dev 不
-    # 配也能起（mailSender 启动时不验证，runtime 失败时由 MockSms-
-    # CodeSender 抛 SmsSendException 兜住）。SSL 端口默认 465（阿里
-    # 云 / 个人邮箱常用），明文 25 不要在生产用。
-    host: ${SMTP_HOST:}
-    port: ${SMTP_PORT:465}
-    username: ${SMTP_USERNAME:}
-    password: ${SMTP_PASSWORD:}
-    properties:
-      mail.smtp.auth: true
-      mail.smtp.ssl.enable: true
-      mail.smtp.starttls.enable: false
-      mail.smtp.connectiontimeout: 5000
-      mail.smtp.timeout: 5000
-      mail.smtp.writetimeout: 5000
-
   modulith:
     events:
       jdbc-schema-initialization:
@@ -66,8 +48,8 @@ spring:
 mbw:
   sms:
     # SMS 通道选择（ADR-0013）：
-    #   mock   — MockSmsCodeSender 通过 SMTP 发邮件给 mock.recipient（M1 默认推荐）
-    #   aliyun — AliyunSmsClient（待 PR #72 merge；切真 SMS 时启用）
+    #   mock   — MockSmsCodeSender 通过 EmailSender 发邮件给 mock.recipient（M1 默认推荐）
+    #   aliyun — AliyunSmsClient（切真 SMS 时启用，营业执照 + 签名审核通过后）
     #   log    — LoggingSmsClient 仅 log（开发期有用）
     #
     # 故意不写 `provider:` 默认值。Spring Boot Relaxed Binding 让 env
@@ -80,6 +62,18 @@ mbw:
     mock:
       recipient: ${MOCK_SMS_RECIPIENT:}
       from: ${MOCK_SMS_FROM:}
+  email:
+    # Email 通道选择（ADR-0013 二次 amend，2026-04-30）：
+    #   resend — ResendEmailClient 通过 HTTPS API 发件（生产推荐；Gmail / 国内邮箱投递好）
+    #   log    — LoggingEmailSender 仅 log（开发期 / 无 RESEND_API_KEY 兜底）
+    #
+    # 与 mbw.sms.provider 同样不写默认值 — 让 env 未设时 LoggingEmailSender
+    # 的 matchIfMissing=true 正确兜底。
+    resend:
+      api-key: ${RESEND_API_KEY:}
+      base-url: ${RESEND_BASE_URL:https://api.resend.com}
+      connect-timeout: ${RESEND_CONNECT_TIMEOUT:5s}
+      read-timeout: ${RESEND_READ_TIMEOUT:10s}
 
 server:
   port: ${SERVER_PORT:8080}
