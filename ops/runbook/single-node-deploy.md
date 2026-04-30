@@ -46,7 +46,7 @@ ssh 到 ECS（root），git clone 仓库，跑 `ecs-bootstrap.sh tight`。
 ```bash
 ssh root@101.133.128.62
 
-apt-get update -qq && apt-get install -y -qq git
+# git 已预装在 Aliyun Ubuntu 镜像里；如未装则 apt-get install -y -qq git
 git clone https://github.com/xiaocaishen-michael/my-beloved-server.git /tmp/repo
 cd /tmp/repo
 
@@ -54,15 +54,15 @@ cd /tmp/repo
 # home_ip 拿你本机 `curl ifconfig.me` 的结果
 sudo bash ops/runbook/ecs-bootstrap.sh tight 138.128.221.158
 
-# 完成后切到 mbw 用户的 home
-sudo mv /tmp/repo /home/mbw/my-beloved-server
-sudo chown -R mbw:mbw /home/mbw/my-beloved-server
+# 完成后转交给 admin 用户（Aliyun cloud image 默认非 root 用户，已预配 sudo + ssh keys）
+sudo mv /tmp/repo /home/admin/my-beloved-server
+sudo chown -R admin:admin /home/admin/my-beloved-server
 ```
 
 bootstrap 脚本会：
 
-1. 装 Docker CE + compose plugin（Ubuntu 官方 repo）
-2. 建 `mbw` 用户（uid 1000，docker 组）
+1. 装 Docker CE + compose plugin（走 Aliyun mirror，~30s）
+2. 把 Aliyun 默认 `admin` 用户加入 docker 组（不创建新用户）
 3. 时区 Asia/Shanghai + chrony NTP
 4. ufw 配规则（22 限源 + 80/443 公网；与安全组双保险）
 5. **跳过**数据盘步骤（per ADR-0002 § Update 2026-04-30）
@@ -74,7 +74,7 @@ bootstrap 脚本会：
 ## 2. 配置 .env.app + 启动全栈
 
 ```bash
-ssh mbw@101.133.128.62
+ssh admin@101.133.128.62
 
 cd ~/my-beloved-server
 
@@ -168,13 +168,13 @@ aliyun ossutil config --profile mbw-server
 
 # 备份 cron — 写到 /etc/cron.d
 sudo tee /etc/cron.d/mbw-backup-pg <<'EOF'
-0 3 * * * mbw /home/mbw/my-beloved-server/ops/runbook/backup-pg.sh >> /var/log/mbw-backup.log 2>&1
+0 3 * * * admin /home/admin/my-beloved-server/ops/runbook/backup-pg.sh >> /var/log/mbw-backup.log 2>&1
 EOF
 sudo touch /var/log/mbw-backup.log
-sudo chown mbw:mbw /var/log/mbw-backup.log
+sudo chown admin:admin /var/log/mbw-backup.log
 
 # 手动跑一次验证
-bash /home/mbw/my-beloved-server/ops/runbook/backup-pg.sh
+bash /home/admin/my-beloved-server/ops/runbook/backup-pg.sh
 aliyun ossutil ls oss://mbw-oss/pg/ --profile mbw-server
 # 期望见到刚生成的 .sql.gz 文件
 ```
@@ -185,7 +185,7 @@ aliyun ossutil ls oss://mbw-oss/pg/ --profile mbw-server
 
 ```bash
 sed -i 's|docker-compose.data.yml|docker-compose.tight.yml|g' \
-    /home/mbw/my-beloved-server/ops/runbook/backup-pg.sh
+    /home/admin/my-beloved-server/ops/runbook/backup-pg.sh
 ```
 
 ---
