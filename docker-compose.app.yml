@@ -1,20 +1,23 @@
-# Production compose for the App node (ECS 2c4g).
+# [FUTURE-SPLIT REFERENCE — NOT ACTIVE IN M1]
 #
-# Pairs with docker-compose.data.yml on a separate Data node (ECS 2c2g)
-# per ADR-0012 — see meta repo docs/architecture/deployment.md for the
-# full topology.
+# A-Split topology App-node compose. Originally ADR-0012 (Accepted
+# 2026-04-29) but **superseded 2026-04-30** when M1 reverted to
+# A-Tight single-node — see meta repo
+# docs/adr/0012-deployment-a-split.md § Amendment 2026-04-30.
 #
-# Usage:
-#   # Pull the prebuilt image and start app + nginx:
+# This file is preserved as the implementation reference for a future
+# split (when load demands it per the upgrade path in
+# docs/architecture/deployment.md). Do NOT use this for M1 production.
+#
+# Active M1 compose: docker-compose.tight.yml (single ECS, all services).
+#
+# When the time comes to revive this:
+#   - Pair with docker-compose.data.yml on a separate Data ECS (same VPC + AZ)
+#   - Restore JAVA_OPTS to -Xmx=2g (App node has dedicated 4GB)
+#   - .env.app needs DATA_NODE_HOST pointing to Data node's intranet IP
+#
+# Original usage (kept for future reference):
 #   docker compose -f docker-compose.app.yml --env-file .env.app --profile nginx up -d
-#
-#   # App only (e.g. local dry-run without TLS):
-#   docker compose -f docker-compose.app.yml --env-file .env.app up -d app
-#
-#   # Local dry-run with a locally-built image (skip the ghcr.io pull):
-#   docker build -t mbw-app:dev .
-#   MBW_APP_IMAGE=mbw-app:dev DATA_NODE_HOST=host.docker.internal \
-#     docker compose -f docker-compose.app.yml --env-file .env.app up -d app
 
 name: mbw-app
 

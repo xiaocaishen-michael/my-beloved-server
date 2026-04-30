@@ -1,13 +1,16 @@
 #!/usr/bin/env bash
 #
-# One-time ECS bootstrap script for the M1 A-Split deployment topology.
-# Run as root (or with sudo) on each ECS — once per machine.
+# One-time ECS bootstrap script for M1 deployment.
+# Run as root (or with sudo) on the ECS — once per machine.
 #
 # Usage:
 #   sudo bash ecs-bootstrap.sh <role> <home_ip> [app_internal_ip]
 #
 # Args:
-#   role             — "app" or "data". Determines which UFW ports open.
+#   role             — "tight" (M1 active) | "app" | "data" (future-split):
+#                      tight: single ECS hosting all services (current M1)
+#                      app:   future-split App node (kept for future use)
+#                      data:  future-split Data node (kept for future use)
 #   home_ip          — Your home/office public IP (allowed to SSH on :22).
 #                      `curl ifconfig.me` from your laptop. Use CIDR /32 if
 #                      you want exactly that one address.
@@ -21,9 +24,13 @@
 #   3. Install Docker CE + compose plugin (Ubuntu official repo)
 #   4. Set timezone Asia/Shanghai + enable chrony for time sync
 #   5. Configure UFW (local firewall, double-defence with cloud security group):
-#      - app: 22 from home_ip, 80/443 from anywhere
-#      - data: 22 from home_ip, 5432/6379 from app_internal_ip
-#   6. Data node only: format + mount /dev/vdb at /data (PG/Redis volumes)
+#      - tight: 22 from home_ip, 80/443 from anywhere (single node, no internal-only ports)
+#      - app:   22 from home_ip, 80/443 from anywhere
+#      - data:  22 from home_ip, 5432/6379 from app_internal_ip
+#   6. Data node only: format + mount /dev/vdb at /data (PG/Redis volumes).
+#      tight role does NOT mount a data disk — per ADR-0002 § Update 2026-04-30
+#      decision to drop data disk; PG/Redis fall back to system disk + pg_dump
+#      → OSS daily backup as the data protection mechanism.
 #
 # Idempotency: re-running this script should be a no-op. Each step
 # checks before applying. Exception: data disk format only runs if
@@ -36,7 +43,7 @@ set -euo pipefail
 
 # ---------- args ----------
 if [[ $# -lt 2 ]]; then
-    echo "Usage: $0 <app|data> <home_ip> [app_internal_ip]" >&2
+    echo "Usage: $0 <tight|app|data> <home_ip> [app_internal_ip]" >&2
     exit 1
 fi
 
@@ -44,8 +51,8 @@ ROLE="$1"
 HOME_IP="$2"
 APP_INTERNAL_IP="${3:-}"
 
-if [[ "$ROLE" != "app" && "$ROLE" != "data" ]]; then
-    echo "Error: role must be 'app' or 'data', got '$ROLE'" >&2
+if [[ "$ROLE" != "tight" && "$ROLE" != "app" && "$ROLE" != "data" ]]; then
+    echo "Error: role must be 'tight', 'app', or 'data', got '$ROLE'" >&2
     exit 1
 fi
 
@@ -140,18 +147,22 @@ ufw default allow outgoing
 # SSH from home IP only — not from anywhere
 ufw allow from "$HOME_IP" to any port 22 proto tcp comment 'home SSH'
 
-if [[ "$ROLE" == "app" ]]; then
+if [[ "$ROLE" == "tight" || "$ROLE" == "app" ]]; then
     ufw allow 80/tcp comment 'public HTTP'
     ufw allow 443/tcp comment 'public HTTPS'
-elif [[ "$ROLE" == "data" ]]; then
+fi
+if [[ "$ROLE" == "data" ]]; then
     ufw allow from "$APP_INTERNAL_IP" to any port 5432 proto tcp comment 'PG from app'
     ufw allow from "$APP_INTERNAL_IP" to any port 6379 proto tcp comment 'Redis from app'
 fi
+# tight role: PG/Redis only inside docker network (no host port exposure),
+# so no extra ufw rules needed beyond 22/80/443.
 
 ufw --force enable
 ufw status verbose
 
 # ---------- 6. Data node — format + mount /dev/vdb at /data ----------
+# tight role: skipped (no data disk per ADR-0002 § Update 2026-04-30).
 if [[ "$ROLE" == "data" ]]; then
     echo "==> [6/6] Data disk: ensure /dev/vdb mounted at /data"
     if [[ ! -b /dev/vdb ]]; then
@@ -182,8 +193,10 @@ if [[ "$ROLE" == "data" ]]; then
         chown -R mbw:mbw /data
         echo "    /data mounted; sub-dirs prepared (pg / redis / backup)"
     fi
+elif [[ "$ROLE" == "app" ]]; then
+    echo "==> [6/6] role=app — skipping data disk step (data lives on Data node)"
 else
-    echo "==> [6/6] role=app — skipping data disk step"
+    echo "==> [6/6] role=tight — skipping data disk step (per ADR-0002 § Update 2026-04-30)"
 fi
 
 echo
