@@ -1,0 +1,154 @@
+# Production compose for M1 A-Tight v2 — single ECS 2c4g hosting all services
+# (Spring Boot + PostgreSQL + Redis + Nginx).
+#
+# This is the M1 active production compose. The split-topology files
+# (docker-compose.app.yml + docker-compose.data.yml) are kept in the
+# repo as future-A-Split reference but NOT activated for M1 — see
+# meta repo docs/adr/0012-deployment-a-split.md § Amendment 2026-04-30
+# for the un-pivot rationale.
+#
+# Usage on the production ECS:
+#   docker compose -f docker-compose.tight.yml --env-file .env.app up -d
+#   docker compose -f docker-compose.tight.yml --env-file .env.app ps
+#   docker compose -f docker-compose.tight.yml --env-file .env.app logs -f app
+#
+# Local dry-run with a self-built image:
+#   docker build -t mbw-app:dev .
+#   MBW_APP_IMAGE=mbw-app:dev \
+#     docker compose -f docker-compose.tight.yml --env-file .env.app up -d
+#
+# Memory budget on 2c4g (per meta deployment.md):
+#   OS + Docker daemon              ~280 MB
+#   JVM (Spring Boot, -Xmx=1.5g)    ~1.9 GB
+#   PostgreSQL (shared_buffers=256) ~350 MB
+#   Redis (maxmemory=256mb)         ~280 MB
+#   Nginx                           ~50  MB
+#   ----------------------------------------
+#   committed                       ~2.86 GB
+#   free for page cache + spike     ~1.14 GB
+
+name: mbw-tight
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    # No public port — accessible to app via docker network only (service
+    # name "postgres"). Single-node A-Tight has no cross-host comms.
+    environment:
+      POSTGRES_DB: mbw
+      POSTGRES_USER: ${DB_USERNAME}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    command:
+      # Tighter than A-Split data node settings — single 4GB host shared
+      # with JVM 1.5g + Redis 256m + nginx + OS, can't afford 384MB shared_buffers.
+      - "postgres"
+      - "-c"
+      - "shared_buffers=256MB"
+      - "-c"
+      - "work_mem=4MB"
+      - "-c"
+      - "max_connections=50"
+    volumes:
+      - mbw-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME} -d mbw"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    # No public port — accessible via docker network only.
+    command:
+      - "redis-server"
+      - "--maxmemory"
+      - "256mb"
+      - "--maxmemory-policy"
+      - "allkeys-lru"
+      - "--protected-mode"
+      - "yes"
+      - "--requirepass"
+      - "${REDIS_PASSWORD}"
+      - "--appendonly"
+      - "yes"
+    volumes:
+      - mbw-redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "--no-auth-warning", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  app:
+    image: ${MBW_APP_IMAGE:-ghcr.io/xiaocaishen-michael/my-beloved-server/mbw-app:${MBW_VERSION:-latest}}
+    restart: unless-stopped
+    # No public port — nginx talks to app:8080 via docker network.
+    environment:
+      # JVM — A-Tight v2 single 4GB host shared with PG/Redis/nginx;
+      # heap caps at 1.5g (vs A-Split's 2g). ExitOnOutOfMemoryError
+      # makes container restart policy do the recovery instead of swap.
+      JAVA_OPTS: "-Xms512m -Xmx1500m -XX:MaxMetaspaceSize=256m -XX:MaxDirectMemorySize=128m -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -XX:+ExitOnOutOfMemoryError"
+      # Data layer — service names resolve via docker network.
+      DATASOURCE_URL: "jdbc:postgresql://postgres:5432/mbw"
+      DATASOURCE_USERNAME: ${DB_USERNAME}
+      DATASOURCE_PASSWORD: ${DB_PASSWORD}
+      FLYWAY_SCHEMAS: ${FLYWAY_SCHEMAS:-shared,account}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      SPRING_DATA_REDIS_PASSWORD: ${REDIS_PASSWORD}
+      # Auth
+      MBW_AUTH_JWT_SECRET: ${JWT_SECRET}
+      # SMS 通道选择（ADR-0013）：M1 默认 mock；切真 SMS 时设
+      # provider=aliyun（营业执照 + 阿里云签名审核通过后启用 ALIYUN_SMS_* 段）。
+      MBW_SMS_PROVIDER: ${MBW_SMS_PROVIDER:-mock}
+      # Mock 通道：发件 / 收件邮箱（MockSmsCodeSender 通过 EmailSender 抽象 → ResendEmailClient）
+      MOCK_SMS_RECIPIENT: ${MOCK_SMS_RECIPIENT:-}
+      MOCK_SMS_FROM: ${MOCK_SMS_FROM:-}
+      # Email 通道选择（ADR-0013 二次 amend, 2026-04-30）：
+      # provider=resend → ResendEmailClient（HTTPS API，Gmail 投递好）；
+      # 未设 → LoggingEmailSender 仅 log 兜底（dry-run 用）。
+      MBW_EMAIL_PROVIDER: ${MBW_EMAIL_PROVIDER:-}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      RESEND_BASE_URL: ${RESEND_BASE_URL:-https://api.resend.com}
+      RESEND_CONNECT_TIMEOUT: ${RESEND_CONNECT_TIMEOUT:-5s}
+      RESEND_READ_TIMEOUT: ${RESEND_READ_TIMEOUT:-10s}
+      # Aliyun 真发短信占位（M1 不激活；切 provider=aliyun 时启用）
+      MBW_SMS_ALIYUN_ACCESSKEYID: ${ALIYUN_SMS_AK:-}
+      MBW_SMS_ALIYUN_ACCESSKEYSECRET: ${ALIYUN_SMS_SK:-}
+      MBW_SMS_ALIYUN_SIGNNAME: ${ALIYUN_SMS_SIGN:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/actuator/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 60s
+
+  nginx:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./ops/nginx/conf.d:/etc/nginx/conf.d:ro
+      - mbw-letsencrypt:/etc/letsencrypt:ro
+    depends_on:
+      app:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost/healthz"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+
+volumes:
+  mbw-pgdata:
+  mbw-redisdata:
+  mbw-letsencrypt:

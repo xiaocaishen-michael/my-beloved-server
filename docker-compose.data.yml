@@ -1,17 +1,21 @@
-# Production compose for the Data node (ECS 2c2g).
+# [FUTURE-SPLIT REFERENCE — NOT ACTIVE IN M1]
 #
-# Pairs with docker-compose.app.yml on a separate App node per ADR-0012.
+# A-Split topology Data-node compose. Originally ADR-0012 (Accepted
+# 2026-04-29) but **superseded 2026-04-30** when M1 reverted to
+# A-Tight single-node — see meta repo
+# docs/adr/0012-deployment-a-split.md § Amendment 2026-04-30.
 #
-# Security model: this node has NO public ingress. Postgres / Redis
-# ports are bound to all interfaces inside the container, but the
-# Aliyun security group + ufw on the host MUST whitelist only the App
-# node's intranet IP. Any public exposure of 5432 / 6379 is a critical
-# misconfiguration.
+# This file is preserved as the implementation reference for a future
+# split. M1 production uses docker-compose.tight.yml (single ECS).
 #
-# Usage:
+# Original security model (kept for future reference): this Data node
+# has NO public ingress. Postgres / Redis ports bound to all interfaces
+# inside the container, but Aliyun security group + ufw on the host
+# MUST whitelist only the App node's intranet IP. Any public exposure
+# of 5432 / 6379 is a critical misconfiguration.
+#
+# Original usage (kept for future reference):
 #   docker compose -f docker-compose.data.yml --env-file .env.data up -d
-#   docker compose -f docker-compose.data.yml --env-file .env.data ps
-#   docker compose -f docker-compose.data.yml --env-file .env.data logs -f
 
 name: mbw-data
 

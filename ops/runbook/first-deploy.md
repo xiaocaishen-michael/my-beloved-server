@@ -1,6 +1,12 @@
-# M1 A-Split 首次部署 Runbook
+# [FUTURE-SPLIT REFERENCE — NOT ACTIVE IN M1] A-Split 双节点首次部署 Runbook
 
-跨两台 Aliyun ECS 的 hand-on 部署手册。**对照执行，遇到偏差停下排查 — 不要硬跑**。
+> ⚠️ **M1 当前 active runbook 是 [`./single-node-deploy.md`](./single-node-deploy.md)**（A-Tight v2 单节点）。本文档保留作未来真分裂时的实施参考。
+>
+> ADR-0012 A-Split（Accepted 2026-04-29）在 2026-04-30 实操遇到 VPC + AZ + SWAS 三联问题被撤回，详 [ADR-0012 § Amendment 2026-04-30](https://github.com/xiaocaishen-michael/no-vain-years/blob/main/docs/adr/0012-deployment-a-split.md)。下面的内容**当前不要执行**，等 M3 / 真实压力到来时（按 deployment.md § 升级路径）再激活。
+
+---
+
+跨两台 Aliyun ECS 的 hand-on 部署手册（future-split 参考）。**对照执行，遇到偏差停下排查 — 不要硬跑**。
 
 > 拓扑见 meta 仓 [`docs/architecture/deployment.md`](https://github.com/xiaocaishen-michael/no-vain-years/blob/main/docs/architecture/deployment.md)；高层决策见 [ADR-0012](https://github.com/xiaocaishen-michael/no-vain-years/blob/main/docs/adr/0012-deployment-a-split.md)。
 
