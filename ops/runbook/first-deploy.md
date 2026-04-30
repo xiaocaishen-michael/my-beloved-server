@@ -87,6 +87,7 @@ sudo chown -R mbw:mbw /home/mbw/my-beloved-server
 ```
 
 bootstrap 脚本会：
+
 1. 装 Docker CE + compose plugin
 2. 建 `mbw` 用户（uid 1000，docker 组）
 3. 时区 Asia/Shanghai + chrony
