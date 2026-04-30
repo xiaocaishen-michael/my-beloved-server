@@ -6,6 +6,9 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 
+import com.mbw.shared.api.email.EmailMessage;
+import com.mbw.shared.api.email.EmailSendException;
+import com.mbw.shared.api.email.EmailSender;
 import com.mbw.shared.api.sms.SmsSendException;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -14,61 +17,59 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
-import org.springframework.mail.MailSendException;
-import org.springframework.mail.SimpleMailMessage;
-import org.springframework.mail.javamail.JavaMailSender;
 
 /**
  * Drives {@link MockSmsCodeSender} with a Mockito-stubbed
- * {@link JavaMailSender} to verify the email mock channel writes the
- * verification code to the configured recipient (ADR-0013).
+ * {@link EmailSender} to verify the email mock channel writes the
+ * verification code to the configured recipient (ADR-0013 second
+ * amendment — channel = Resend HTTPS, abstracted behind EmailSender).
  *
  * <p>Covers:
  *
  * <ul>
- *   <li>邮件 to / from / subject / body 内容
- *   <li>SMTP 失败时抛 {@link SmsSendException}（与真 SMS 失败语义对齐）
+ *   <li>EmailMessage from / to / subject / body 内容
+ *   <li>EmailSender 失败时抛 {@link SmsSendException}（与真 SMS 失败语义对齐）
  * </ul>
  */
 class MockSmsCodeSenderTest {
 
     private static final MockSmsProperties PROPS =
-            new MockSmsProperties("zhangleipd@aliyun.com", "noreply@example.com");
+            new MockSmsProperties("zhangleipd@aliyun.com", "noreply@mail.xiaocaishen.me");
 
-    private JavaMailSender mailSender;
+    private EmailSender emailSender;
     private MockSmsCodeSender sender;
 
     @BeforeEach
     void setUp() {
-        mailSender = Mockito.mock(JavaMailSender.class);
-        sender = new MockSmsCodeSender(mailSender, PROPS);
+        emailSender = Mockito.mock(EmailSender.class);
+        sender = new MockSmsCodeSender(emailSender, PROPS);
     }
 
     @Test
-    @DisplayName("邮件 to / from / subject / body 包含 phone + code")
+    @DisplayName("EmailMessage to / from / subject / text 包含 phone + code")
     void sends_email_with_phone_and_code() {
         Map<String, String> params = new LinkedHashMap<>();
         params.put("code", "123456");
 
         sender.send("+8613800138000", "SMS_REGISTER_A", params);
 
-        ArgumentCaptor<SimpleMailMessage> captor = ArgumentCaptor.forClass(SimpleMailMessage.class);
-        verify(mailSender).send(captor.capture());
-        SimpleMailMessage sent = captor.getValue();
+        ArgumentCaptor<EmailMessage> captor = ArgumentCaptor.forClass(EmailMessage.class);
+        verify(emailSender).send(captor.capture());
+        EmailMessage sent = captor.getValue();
 
-        assertThat(sent.getTo()).containsExactly("zhangleipd@aliyun.com");
-        assertThat(sent.getFrom()).isEqualTo("noreply@example.com");
-        assertThat(sent.getSubject()).contains("+8613800138000");
-        assertThat(sent.getText())
+        assertThat(sent.to()).isEqualTo("zhangleipd@aliyun.com");
+        assertThat(sent.from()).isEqualTo("noreply@mail.xiaocaishen.me");
+        assertThat(sent.subject()).contains("+8613800138000");
+        assertThat(sent.text())
                 .contains("Phone: +8613800138000")
                 .contains("Template: SMS_REGISTER_A")
                 .contains("code=123456");
     }
 
     @Test
-    @DisplayName("SMTP 失败抛 SmsSendException（与真 SMS 失败语义一致）")
-    void smtp_failure_surfaces_as_sms_send_exception() {
-        doThrow(new MailSendException("smtp down")).when(mailSender).send(any(SimpleMailMessage.class));
+    @DisplayName("EmailSender 失败抛 SmsSendException（与真 SMS 失败语义一致）")
+    void email_failure_surfaces_as_sms_send_exception() {
+        doThrow(new EmailSendException("resend down")).when(emailSender).send(any(EmailMessage.class));
 
         assertThatThrownBy(() -> sender.send("+8613800138000", "SMS_REGISTER_A", Map.of("code", "123456")))
                 .isInstanceOf(SmsSendException.class)
@@ -85,10 +86,10 @@ class MockSmsCodeSenderTest {
 
         sender.send("+8615900001234", "SMS_LOGIN_B", params);
 
-        ArgumentCaptor<SimpleMailMessage> captor = ArgumentCaptor.forClass(SimpleMailMessage.class);
-        verify(mailSender).send(captor.capture());
+        ArgumentCaptor<EmailMessage> captor = ArgumentCaptor.forClass(EmailMessage.class);
+        verify(emailSender).send(captor.capture());
 
-        String body = captor.getValue().getText();
+        String body = captor.getValue().text();
         assertThat(body).contains("code=654321").contains("validity=5min").contains("appName=MBW");
     }
 }
