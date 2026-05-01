@@ -19,6 +19,7 @@ import java.util.Map;
 import java.util.function.Predicate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
@@ -56,6 +57,11 @@ public class AliyunSmsClient implements SmsClient {
     private final ObjectMapper objectMapper;
     private final Retry retry;
 
+    // Spring sees two declared constructors and can't auto-pick — the
+    // single-public-constructor inference (4.3+) only fires when there's
+    // exactly one. The other ctor (package-private, no @Autowired) stays
+    // for tests so we can drive backoff with 1ms intervals.
+    @Autowired
     public AliyunSmsClient(Client sdkClient, AliyunSmsProperties properties, ObjectMapper objectMapper) {
         this.sdkClient = sdkClient;
         this.properties = properties;
