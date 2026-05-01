@@ -102,7 +102,7 @@ nano .env.app
 # 登录 Aliyun ACR（cn-shanghai 同 region intranet 拉取，~5s for 180MB）
 # 凭证 = ACR 个人版控制台设的"固定密码"（不是 AccessKey）；
 # 用户名格式 `<RAM 子用户名>@<阿里云账号 ID>.onaliyun.com`，如 mbw-server@x.onaliyun.com
-echo "$ACR_PASSWORD" | docker login registry.cn-shanghai.aliyuncs.com -u "$ACR_USERNAME" --password-stdin
+echo "$ACR_PASSWORD" | docker login crpi-uy44w7zpjef3f9w1.cn-shanghai.personal.cr.aliyuncs.com -u "$ACR_USERNAME" --password-stdin
 
 # 拉镜像（image URL 由 docker-compose.tight.yml 默认 → ACR；可选 MBW_VERSION env 锁版本）
 MBW_VERSION=v0.1.x docker compose -f docker-compose.tight.yml --env-file .env.app pull app
