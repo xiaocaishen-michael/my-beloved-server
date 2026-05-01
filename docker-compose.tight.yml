@@ -82,7 +82,11 @@ services:
       retries: 5
 
   app:
-    image: ${MBW_APP_IMAGE:-ghcr.io/xiaocaishen-michael/my-beloved-server/mbw-app:${MBW_VERSION:-latest}}
+    # Default registry is Aliyun ACR (cn-shanghai) for fast intranet pulls
+    # from production ECS (~5s for 180MB vs 5-30min for ghcr.io international
+    # link). Override MBW_APP_IMAGE for local dry-run with a self-built image
+    # (e.g. mbw-app:dev). See meta repo Phase 4 plan for the rationale.
+    image: ${MBW_APP_IMAGE:-registry.cn-shanghai.aliyuncs.com/mbw/mbw-app:${MBW_VERSION:-latest}}
     restart: unless-stopped
     # No public port — nginx talks to app:8080 via docker network.
     environment:
