@@ -151,41 +151,45 @@ EOF
 ## 4. 配置 ossutil + 备份 cron
 
 ```bash
-# 装 aliyun-cli（Aliyun Linux 没预装；Ubuntu 也没）
+# 装 aliyun-cli（Aliyun Ubuntu 镜像没预装）
 curl -o aliyun-cli.tgz https://aliyuncli.alicdn.com/aliyun-cli-linux-latest-amd64.tgz
 tar xzf aliyun-cli.tgz
 sudo mv aliyun /usr/local/bin/
 aliyun version
 
-# 配 ossutil profile（pg_dump 上传 OSS 用）
-aliyun ossutil config --profile mbw-server
+# 1) wrapper-level config（aliyun-cli v3.3.12 在跑 ossutil 前先验自己的
+#    ~/.aliyun/config.json 有 region — 这步不能跳）
+aliyun configure --profile mbw-server
 # 按提示输入：
-#   AccessKey ID:        <RAM 子用户 mbw-server 的 AK>
-#   AccessKey Secret:    <对应的 SK>
-#   Region:              cn-shanghai
-#   Endpoint:            oss-cn-shanghai-internal.aliyuncs.com
-#   （ECS 同 region 走 internal endpoint 免流量费）
+#   Default Region Id:           cn-shanghai
+#   Default Access Key Id:       <RAM 子用户 mbw-server 的 AK>
+#   Default Access Key Secret:   <对应 SK>
+#   Default Output Format:       json
+#   Default Language:            en
 
-# 备份 cron — 写到 /etc/cron.d
+# 2) ossutil-level config（写 ~/.ossutilconfig，ossutil 运行时读这个）
+#    交互式 `aliyun ossutil config --profile mbw-server` 在 v3.3.12 撞
+#    "region can't be empty" 死循环（aliyun-cli 集成 bug），直写文件最稳
+cat > ~/.ossutilconfig <<EOF
+[profile mbw-server]
+accessKeyID=<同上 AK>
+accessKeySecret=<同上 SK>
+region=cn-shanghai
+endpoint=https://oss-cn-shanghai-internal.aliyuncs.com
+EOF
+chmod 600 ~/.ossutilconfig
+
+# 3) 备份 cron — 写到 /etc/cron.d
 sudo tee /etc/cron.d/mbw-backup-pg <<'EOF'
 0 3 * * * admin /home/admin/my-beloved-server/ops/runbook/backup-pg.sh >> /var/log/mbw-backup.log 2>&1
 EOF
 sudo touch /var/log/mbw-backup.log
 sudo chown admin:admin /var/log/mbw-backup.log
 
-# 手动跑一次验证
+# 4) 手动跑一次验证（backup-pg.sh 默认值已是 A-Tight 形态，不再需要 sed）
 bash /home/admin/my-beloved-server/ops/runbook/backup-pg.sh
 aliyun ossutil ls oss://mbw-oss/pg/ --profile mbw-server
 # 期望见到刚生成的 .sql.gz 文件
-```
-
-> 注：`backup-pg.sh` 内的 `COMPOSE_FILE` 默认指向 `docker-compose.data.yml`（A-Split 形态）。M1 A-Tight 单节点形态下要把脚本里的 `COMPOSE_FILE` 改为 `docker-compose.tight.yml`，或者改用 `docker exec` 直接对 `mbw-tight-postgres-1` 容器跑 pg_dump。这步**手动调整一次**即可，下面 4.1 给具体改法。
-
-### 4.1 调整 backup-pg.sh 给单节点用
-
-```bash
-sed -i 's|docker-compose.data.yml|docker-compose.tight.yml|g' \
-    /home/admin/my-beloved-server/ops/runbook/backup-pg.sh
 ```
 
 ---
