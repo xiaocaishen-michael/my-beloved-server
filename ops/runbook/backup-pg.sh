@@ -2,18 +2,26 @@
 #
 # Daily PostgreSQL backup for the Data node — pg_dump | gzip | upload to OSS.
 #
-# Designed to run via cron on the Data node only:
-#   0 3 * * * /home/admin/my-beloved-server/ops/runbook/backup-pg.sh \
+# Designed to run via cron on the production node:
+#   0 3 * * * admin /home/admin/my-beloved-server/ops/runbook/backup-pg.sh \
 #       >>/var/log/mbw-backup.log 2>&1
 #
-# Prereqs (one-time on Data node):
-#   1. .env.data exists at the repo root with DB_USERNAME / DB_PASSWORD
-#   2. ~/.ossutilconfig configured with profile mbw-server pointing at
-#      mbw-oss bucket via internal endpoint
-#      (oss-cn-shanghai-internal.aliyuncs.com — see meta repo
-#      docs/plans/sdd-github-spec-kit-...md § OSS).
-#      Run once: aliyun ossutil config --profile mbw-server
-#   3. /data/backup writable by admin user (chown'd by ecs-bootstrap.sh)
+# Prereqs (one-time on the node):
+#   1. .env.app exists at the repo root with DB_USERNAME / DB_PASSWORD
+#      (M1 A-Tight v2 single-node — uses the same env file as the app)
+#   2. aliyun-cli installed + ~/.aliyun/config.json configured for profile
+#      mbw-server (region cn-shanghai); ~/.ossutilconfig also needed (Aliyun
+#      v3.3.12 ossutil checks both wrapper config and ossutil config). Set up:
+#        aliyun configure --profile mbw-server
+#        cat > ~/.ossutilconfig <<EOF
+#        [profile mbw-server]
+#        accessKeyID=<AK>
+#        accessKeySecret=<SK>
+#        region=cn-shanghai
+#        endpoint=https://oss-cn-shanghai-internal.aliyuncs.com
+#        EOF
+#   3. BACKUP_DIR (default /home/admin/backup) writable by admin user.
+#      Created on first run if absent.
 #
 # Retention:
 #   - Local: 7 days at /data/backup/
@@ -22,13 +30,15 @@
 
 set -euo pipefail
 
-# Config
-COMPOSE_FILE="/home/admin/my-beloved-server/docker-compose.data.yml"
-ENV_FILE="/home/admin/my-beloved-server/.env.data"
-BACKUP_DIR="/data/backup"
-OSS_BUCKET="mbw-oss"
-OSS_PROFILE="mbw-server"
-RETENTION_DAYS=7
+# Config — defaults for M1 A-Tight v2 single-node form. For future-split
+# (real A-Split topology) override BACKUP_DIR=/data/backup,
+# COMPOSE_FILE=docker-compose.data.yml, ENV_FILE=.env.data.
+COMPOSE_FILE="${COMPOSE_FILE:-/home/admin/my-beloved-server/docker-compose.tight.yml}"
+ENV_FILE="${ENV_FILE:-/home/admin/my-beloved-server/.env.app}"
+BACKUP_DIR="${BACKUP_DIR:-/home/admin/backup}"
+OSS_BUCKET="${OSS_BUCKET:-mbw-oss}"
+OSS_PROFILE="${OSS_PROFILE:-mbw-server}"
+RETENTION_DAYS="${RETENTION_DAYS:-7}"
 
 # Verify prereqs
 if [[ ! -f "$ENV_FILE" ]]; then
@@ -44,7 +54,11 @@ if [[ -z "${DB_USERNAME:-}" ]]; then
 fi
 
 if [[ ! -d "$BACKUP_DIR" ]]; then
-    echo "Error: $BACKUP_DIR does not exist (run ecs-bootstrap.sh first)" >&2
+    mkdir -p "$BACKUP_DIR"
+fi
+
+if [[ ! -w "$BACKUP_DIR" ]]; then
+    echo "Error: $BACKUP_DIR not writable" >&2
     exit 1
 fi
 
