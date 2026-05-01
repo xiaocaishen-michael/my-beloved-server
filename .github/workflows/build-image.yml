@@ -49,15 +49,12 @@ jobs:
           echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
           echo "Resolved image tag: ${TAG}"
 
-      - name: Set up JDK 21
-        uses: actions/setup-java@v5
-        with:
-          distribution: 'temurin'
-          java-version: '21'
-          cache: 'maven'
-
-      - name: Maven package (skip tests — CI workflow already ran them)
-        run: ./mvnw -B -ntp -pl mbw-app -am package -DskipTests
+      # JDK setup not needed — Dockerfile's builder stage runs mvn package
+      # inside the container with eclipse-temurin:21-jdk base. Earlier
+      # workflow had a duplicate `./mvnw package` step on the runner; the
+      # output (target/*.jar) was never read by docker build (which COPY's
+      # mbw-app/src/, not target/), so it was pure waste — 13s when Maven
+      # cache hit, 1-2min when cold. Removed 2026-05-01.
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
