@@ -70,7 +70,7 @@ docker login crpi-uy44w7zpjef3f9w1.cn-shanghai.personal.cr.aliyuncs.com
 
 ## 2. RAM 子用户 mbw-server 加 ACR 权限（仅"安全升级路径"用，M1 暂时不需要）
 
-M1 测试期 GHA 用主账号凭证（见 § 4.2）。M3 内测前必须切到 mbw-server 子用户身份，本节说明那时的操作。**M1 跳过本节**。
+M1 测试初期曾用主账号凭证（见 § 4.2 历史记录），**已于 2026-05-01 切换到 mbw-server 子用户**（详 § 7）。本节是切换的具体步骤记录，新部署 / 重置子用户密码时复读。
 
 ### 2.1 加 ACR FullAccess 权限
 
@@ -154,7 +154,7 @@ ssh -i ~/.ssh/mbw_gha_deploy admin@101.133.128.62 'whoami && hostname'
 
 [my-beloved-server Settings](https://github.com/xiaocaishen-michael/my-beloved-server/settings) → 左侧 **Secrets and variables → Actions** → **Repository secrets** 区。
 
-### 4.2 添加 5 个 secrets — Option A（M1 主账号路径）
+### 4.2 添加 5 个 secrets — Option A（**历史记录**：M1 测试初期主账号路径，2026-05-01 已切到 § 4.2-bis）
 
 | 名称 | 值 |
 |---|---|
@@ -169,9 +169,9 @@ ssh -i ~/.ssh/mbw_gha_deploy admin@101.133.128.62 'whoami && hostname'
 * **不要**手动 copy，用：`pbcopy < ~/.ssh/mbw_gha_deploy`（mac 自动拷贝到剪贴板）
 * 必须含完整的 `BEGIN ... END` 包裹
 
-### 4.2-bis 添加 5 个 secrets — Option B（M3 升级路径，子用户）
+### 4.2-bis 添加 5 个 secrets — Option B（**当前生效**，子用户路径）
 
-需要先完成 § 2 全部步骤后才能切到这里。
+需要先完成 § 2 全部步骤后才能切到这里。**2026-05-01 之后所有新部署都从这开始**。
 
 | 名称 | 值 |
 |---|---|
@@ -241,16 +241,34 @@ feat(...) commit → main → release-please PR → merge → git tag vX.Y.Z →
 
 ---
 
-## 7. 安全升级路径（Option A → Option B，M3 内测前必做）
+## 7. 安全升级 Option A → Option B（**已完成 2026-05-01**）
 
-M1 用主账号凭证 = GHA secret 持有主账号的 ACR 密钥。如果 GHA secret 被泄漏（罕见但要意识到），攻击者能往 ACR 任意 push / 删 image。**M1 测试期单 dev 可接受**（私有 repo + 凭证仅 GHA 内可见 + 单 image），M3 真用户上来后必须收紧到子用户：
+> ✅ **Status: Completed 2026-05-01**（原计划 M3 内测前必做，**实际提前到 Phase 4 验证当晚顺手做完**，子用户路径通过 build-image + deploy.yml 端到端 release tag 验证全绿）
 
-```text
-1. 完成本 runbook § 2 全部步骤
-2. GHA secrets 改 § 4.2-bis（Option B）
-3. 触发一次 build 验证 mbw-server 子用户能 push
-4. ACR 主账号固定密码（§ 1.2）建议 rotate 一次
-```
+### 完成的步骤
+
+| # | 操作 | 完成方式 |
+|---|---|---|
+| 1 | mbw-server 子用户加 `AliyunContainerRegistryFullAccess` 系统策略 | RAM 控制台手动 |
+| 2 | 启用 mbw-server 控制台访问 + 设临时控制台密码 | RAM 控制台手动 |
+| 3 | 切换登录身份到 mbw-server，进 ACR 控制台设子用户**专属固定密码**（与主账号固定密码独立）| ACR 控制台手动 |
+| 4 | 本机 `docker login crpi-uy44w7zpjef3f9w1.cn-shanghai.personal.cr.aliyuncs.com -u mbw-server@<accountid>` 验证 → `Login Succeeded` | 本机命令行验证 |
+| 5 | GHA Secrets 更新 `ACR_USERNAME` / `ACR_PASSWORD` 为子用户凭证 | GitHub Settings UI |
+| 6 | `git tag v0.1.99-subuser-test && git push origin v0.1.99-subuser-test` 触发完整 build-image → workflow_run → deploy.yml 链路 | release tag 自动闭环 |
+| 7 | ECS 上 `docker inspect mbw-tight-app-1` 确认 image 是 ACR `mbw_xcs/mbw-app:v0.1.99-subuser-test` + `actuator/health` 200 | 端到端 smoke |
+
+### 当前安全模型
+
+| 维度 | 现状（Option B）|
+|---|---|
+| GHA Secrets 持有的凭证 | mbw-server 子用户 ACR 凭证（仅 `mbw_xcs/mbw-app` 仓库 push/pull 权限） |
+| 凭证泄漏 blast radius | 仅 `mbw_xcs/mbw-app` 单仓库可被任意推 / 删；主账号 + 其他 RAM 子用户 + OSS / RAM 全栈不受影响 |
+| 凭证 rotate | 子用户固定密码可独立 rotate，不影响主账号 docker login 习惯 |
+
+### 残留 TODO（可选、低优先）
+
+* ⚪ **rotate 主账号 ACR 固定密码**：Option A 期间主账号密码曾在 GHA Secrets 内驻留过几小时，原则上做 best-practice rotation 减少历史泄漏风险。M3 内测前手动做即可，不阻塞业务。
+* ⚪ 关闭 mbw-server 子用户的"管理控制台登录"（设固定密码后不再需要交互登录；保留控制台访问只是方便未来 rotate 子用户密码）。可缓延到子用户首次 rotate 时一并处理。
 
 ---
 
