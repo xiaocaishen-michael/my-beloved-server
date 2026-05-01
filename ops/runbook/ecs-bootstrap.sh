@@ -26,9 +26,11 @@
 #   3. Install Docker CE + compose plugin (Aliyun mirror)
 #   4. Set timezone Asia/Shanghai + enable chrony for time sync
 #   5. Configure UFW (local firewall, double-defence with cloud security group):
-#      - tight: 22 from home_ip, 80/443 from anywhere (single node, no internal-only ports)
-#      - app:   22 from home_ip, 80/443 from anywhere
-#      - data:  22 from home_ip, 5432/6379 from app_internal_ip
+#      - tight: SKIPPED on Aliyun SWAS (incompat with SWAS management plane;
+#               2026-05-01 incident — host-side ufw isolates the instance).
+#               Cloud-side firewall (SWAS console) is the single boundary.
+#      - app:   22 from home_ip, 80/443 from anywhere (real ECS scenario)
+#      - data:  22 from home_ip, 5432/6379 from app_internal_ip (real ECS scenario)
 #   6. Data node only: format + mount /dev/vdb at /data (PG/Redis volumes).
 #      tight role does NOT mount a data disk — per ADR-0002 § Update 2026-04-30
 #      decision to drop data disk; PG/Redis fall back to system disk + pg_dump
@@ -146,29 +148,45 @@ echo "==> [4/6] Timezone Asia/Shanghai + chrony NTP"
 timedatectl set-timezone Asia/Shanghai
 systemctl enable --now chrony
 
-# ---------- 5. UFW ----------
-echo "==> [5/6] UFW firewall (local, complementing the cloud security group)"
-# Reset → clean slate, idempotent
-ufw --force reset >/dev/null
-ufw default deny incoming
-ufw default allow outgoing
+# ---------- 5. UFW (skipped for tight role on Aliyun SWAS) ----------
+# UFW is incompatible with Aliyun's "Lightweight Application Server" (SWAS,
+# 轻量应用服务器) — enabling host-side firewall makes SWAS management plane
+# heartbeat lose access, the instance gets flagged unhealthy, and Aliyun
+# isolates it (ssh + ICMP-only afterwards). Confirmed twice 2026-04-30 +
+# 2026-05-01 during M1 bootstrap.
+#
+# On real ECS this scenario does not happen — VPC routes a dedicated path
+# for management plane that ufw default-deny cannot intercept. So `app` /
+# `data` (future-split with real ECS) keep ufw as defense-in-depth.
+#
+# For tight role (M1 single SWAS): cloud-side firewall (SWAS console) is
+# the single security boundary. Configure 80/443 public + 22 home-IP-only
+# in the SWAS console "防火墙" (Firewall) page.
+if [[ "$ROLE" == "tight" ]]; then
+    echo "==> [5/6] role=tight on Aliyun SWAS — skipping ufw (incompat with SWAS management plane)"
+    echo "    Cloud-side firewall (SWAS console) is the single security boundary"
+else
+    echo "==> [5/6] UFW firewall (local, complementing the cloud security group)"
+    # Reset → clean slate, idempotent
+    ufw --force reset >/dev/null
+    ufw default deny incoming
+    ufw default allow outgoing
 
-# SSH from home IP only — not from anywhere
-ufw allow from "$HOME_IP" to any port 22 proto tcp comment 'home SSH'
+    # SSH from home IP only — not from anywhere
+    ufw allow from "$HOME_IP" to any port 22 proto tcp comment 'home SSH'
 
-if [[ "$ROLE" == "tight" || "$ROLE" == "app" ]]; then
-    ufw allow 80/tcp comment 'public HTTP'
-    ufw allow 443/tcp comment 'public HTTPS'
+    if [[ "$ROLE" == "app" ]]; then
+        ufw allow 80/tcp comment 'public HTTP'
+        ufw allow 443/tcp comment 'public HTTPS'
+    fi
+    if [[ "$ROLE" == "data" ]]; then
+        ufw allow from "$APP_INTERNAL_IP" to any port 5432 proto tcp comment 'PG from app'
+        ufw allow from "$APP_INTERNAL_IP" to any port 6379 proto tcp comment 'Redis from app'
+    fi
+
+    ufw --force enable
+    ufw status verbose
 fi
-if [[ "$ROLE" == "data" ]]; then
-    ufw allow from "$APP_INTERNAL_IP" to any port 5432 proto tcp comment 'PG from app'
-    ufw allow from "$APP_INTERNAL_IP" to any port 6379 proto tcp comment 'Redis from app'
-fi
-# tight role: PG/Redis only inside docker network (no host port exposure),
-# so no extra ufw rules needed beyond 22/80/443.
-
-ufw --force enable
-ufw status verbose
 
 # ---------- 6. Data node — format + mount /dev/vdb at /data ----------
 # tight role: skipped (no data disk per ADR-0002 § Update 2026-04-30).

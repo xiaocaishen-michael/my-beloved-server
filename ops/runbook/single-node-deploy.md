@@ -64,10 +64,18 @@ bootstrap 脚本会：
 1. 装 Docker CE + compose plugin（走 Aliyun mirror，~30s）
 2. 把 Aliyun 默认 `admin` 用户加入 docker 组（不创建新用户）
 3. 时区 Asia/Shanghai + chrony NTP
-4. ufw 配规则（22 限源 + 80/443 公网；与安全组双保险）
+4. **跳过 ufw**（per 2026-05-01 incident — Aliyun SWAS 与 host 层 ufw 不兼容，导致管理面失联。云边界防火墙在 SWAS 控制台单层防护）
 5. **跳过**数据盘步骤（per ADR-0002 § Update 2026-04-30）
 
 跑完 `reboot` 一次确认开机自启 OK。
+
+**重要**：因 OS 层 ufw 不启用，**请务必在 SWAS 控制台 → 实例 → "防火墙" 页面**配规则：
+
+| 应用类型 | 协议 | 端口 | 来源 |
+|---|---|---|---|
+| HTTP | TCP | 80 | `0.0.0.0/0` |
+| HTTPS | TCP | 443 | `0.0.0.0/0` |
+| SSH（测试期可全开）| TCP | 22 | 测试期 `0.0.0.0/0`；M3 内测前必须改成 `<家庭 IP>/32` |
 
 ---
 
