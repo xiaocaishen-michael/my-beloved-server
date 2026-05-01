@@ -78,8 +78,22 @@ jobs:
 
           cd /home/admin/my-beloved-server
 
-          # Refresh compose configs / runbook (in case main moved while build ran)
-          git fetch --tags origin main
+          # Refresh compose configs / runbook (in case main moved while build ran).
+          # ECS → GitHub goes via international link — TLS抖 is common (撞过两次,
+          # 2026-04-30 + 2026-05-01). Retry 3 × 5s before giving up.
+          GIT_OK=false
+          for i in 1 2 3; do
+            if git fetch --tags origin main; then
+              GIT_OK=true
+              break
+            fi
+            echo "git fetch attempt $i/3 failed (likely international link blip), retrying in 5s..."
+            sleep 5
+          done
+          if [ "$GIT_OK" != "true" ]; then
+            echo "::error::git fetch failed after 3 retries — re-trigger deploy when network stabilizes"
+            exit 1
+          fi
           git reset --hard origin/main
 
           # Update .env.app to use ACR image at target tag.
