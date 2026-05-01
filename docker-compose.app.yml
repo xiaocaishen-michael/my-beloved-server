@@ -27,7 +27,7 @@ services:
     # [Future-split reference] Default registry is Aliyun ACR (cn-shanghai)
     # to match the active tight compose. Override MBW_APP_IMAGE for non-prod
     # builds. See Phase 4 plan for the registry rationale.
-    image: ${MBW_APP_IMAGE:-crpi-uy44w7zpjef3f9w1.cn-shanghai.personal.cr.aliyuncs.com/mbw/mbw-app:${MBW_VERSION:-latest}}
+    image: ${MBW_APP_IMAGE:-crpi-uy44w7zpjef3f9w1.cn-shanghai.personal.cr.aliyuncs.com/mbw_xcs/mbw-app:${MBW_VERSION:-latest}}
     restart: unless-stopped
     ports:
       - "8080:8080"
