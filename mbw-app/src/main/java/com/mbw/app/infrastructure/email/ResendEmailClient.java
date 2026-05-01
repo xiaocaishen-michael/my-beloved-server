@@ -12,6 +12,7 @@ import java.util.List;
 import java.util.function.Predicate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.http.MediaType;
@@ -57,6 +58,11 @@ public class ResendEmailClient implements EmailSender {
     private final ResendProperties props;
     private final Retry retry;
 
+    // Spring sees two declared constructors and can't auto-pick — the
+    // single-public-constructor inference (4.3+) only fires when there's
+    // exactly one. The other ctor (package-private, no @Autowired) stays
+    // for tests so we can drive backoff with 1ms intervals.
+    @Autowired
     public ResendEmailClient(ResendProperties props) {
         this(props, DEFAULT_MAX_ATTEMPTS, DEFAULT_INITIAL_BACKOFF, DEFAULT_BACKOFF_MULTIPLIER);
     }
