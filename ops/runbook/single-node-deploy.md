@@ -22,7 +22,8 @@
 | `RESEND_API_KEY` | resend.com → API Keys（Sending access on `mail.xiaocaishen.me`）| `.env.app` |
 | `MOCK_SMS_RECIPIENT` | `zhangleipd@aliyun.com`（写死，[ADR-0013](https://github.com/xiaocaishen-michael/no-vain-years/blob/main/docs/adr/0013-defer-sms-to-business-license.md)）| `.env.app` |
 | `MOCK_SMS_FROM` | `noreply@mail.xiaocaishen.me` | `.env.app` |
-| `GHCR_TOKEN` | GitHub PAT（read:packages 权限）| 临时使用，不持久化 |
+| `ACR_USERNAME` | RAM 子用户全名 `mbw-server@<accountid>.onaliyun.com`（去 RAM 控制台 → 用户详情查"登录名"）| 临时使用，docker login 后无需持久化 |
+| `ACR_PASSWORD` | Aliyun 容器镜像服务 → 个人版实例 → 访问凭证 → 设置的固定密码 | 同上 |
 
 ---
 
@@ -98,11 +99,13 @@ nano .env.app
 #   DATA_NODE_HOST                                  ← 删掉，docker-compose.tight.yml
 #                                                     使用服务名 postgres / redis 内部解析
 
-# 登录 ghcr.io
-echo $GHCR_TOKEN | docker login ghcr.io -u xiaocaishen-michael --password-stdin
+# 登录 Aliyun ACR（cn-shanghai 同 region intranet 拉取，~5s for 180MB）
+# 凭证 = ACR 个人版控制台设的"固定密码"（不是 AccessKey）；
+# 用户名格式 `<RAM 子用户名>@<阿里云账号 ID>.onaliyun.com`，如 mbw-server@x.onaliyun.com
+echo "$ACR_PASSWORD" | docker login registry.cn-shanghai.aliyuncs.com -u "$ACR_USERNAME" --password-stdin
 
-# 拉镜像
-docker compose -f docker-compose.tight.yml --env-file .env.app pull app
+# 拉镜像（image URL 由 docker-compose.tight.yml 默认 → ACR；可选 MBW_VERSION env 锁版本）
+MBW_VERSION=v0.1.x docker compose -f docker-compose.tight.yml --env-file .env.app pull app
 
 # 启动 PG + Redis + app（暂不起 nginx，等 Let's Encrypt 拿证书后再起）
 docker compose -f docker-compose.tight.yml --env-file .env.app up -d postgres redis app
