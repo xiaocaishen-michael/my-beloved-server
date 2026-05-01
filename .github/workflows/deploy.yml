@@ -1,0 +1,130 @@
+name: Deploy
+
+# Triggered when build-image.yml succeeds (auto deploy after a release tag),
+# or manually via workflow_dispatch (hotfix path; pick a tag to deploy).
+#
+# Steps run on the production ECS via SSH:
+#   1. git pull main (refresh compose configs / runbook)
+#   2. Update .env.app: disable MBW_APP_IMAGE override + set MBW_VERSION
+#      → docker-compose.tight.yml's default ${MBW_APP_IMAGE:-crpi-...} kicks in
+#        and pulls from Aliyun ACR with the right tag
+#   3. docker login ACR → pull → up -d --force-recreate app
+#   4. Wait up to 120s for healthcheck to flip to "healthy"
+#   5. Final smoke via public HTTPS
+#
+# No automatic rollback — solo dev re-triggers with previous tag if needed.
+# Phase 5 may add SLB-style blue-green if M3 internal alpha load demands it.
+
+on:
+  workflow_run:
+    workflows: [Build & Push Image]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Image tag to deploy (e.g. v0.1.5)"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Deploy to production ECS
+    runs-on: ubuntu-latest
+    # workflow_run only deploys on success; workflow_dispatch always runs.
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    steps:
+      - name: Resolve image tag
+        id: tag
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            TAG="${{ inputs.tag }}"
+          else
+            # workflow_run was triggered by tag push; head_branch == tag name
+            TAG="${{ github.event.workflow_run.head_branch }}"
+          fi
+          if [[ -z "$TAG" ]]; then
+            echo "::error::Could not resolve tag from trigger"
+            exit 1
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "Deploying tag: $TAG"
+
+      - name: Configure SSH agent
+        uses: webfactory/ssh-agent@v0.9.1
+        with:
+          ssh-private-key: ${{ secrets.APP_SSH_KEY }}
+
+      - name: Deploy via SSH
+        env:
+          TAG: ${{ steps.tag.outputs.tag }}
+          ACR_USERNAME: ${{ secrets.ACR_USERNAME }}
+          ACR_PASSWORD: ${{ secrets.ACR_PASSWORD }}
+          APP_HOST: ${{ secrets.APP_HOST }}
+          APP_SSH_USER: ${{ secrets.APP_SSH_USER }}
+        run: |
+          # Pass secrets as positional args to remote bash so the heredoc can be
+          # quoted (no client-side $-expansion → no SC2087, no accidental local
+          # leak). Remote bash binds $1/$2/$3 to TAG/ACR_USERNAME/ACR_PASSWORD.
+          ssh -o StrictHostKeyChecking=accept-new "$APP_SSH_USER@$APP_HOST" \
+              bash -s "$TAG" "$ACR_USERNAME" "$ACR_PASSWORD" <<'REMOTE'
+          set -e
+          TAG="$1"
+          ACR_USERNAME="$2"
+          ACR_PASSWORD="$3"
+          ACR_REGISTRY="crpi-uy44w7zpjef3f9w1.cn-shanghai.personal.cr.aliyuncs.com"
+
+          cd /home/admin/my-beloved-server
+
+          # Refresh compose configs / runbook (in case main moved while build ran)
+          git fetch --tags origin main
+          git reset --hard origin/main
+
+          # Update .env.app to use ACR image at target tag.
+          # 1) Disable any local MBW_APP_IMAGE override (docker-compose.tight.yml's
+          #    default ${MBW_APP_IMAGE:-crpi-.../mbw_xcs/mbw-app:${MBW_VERSION:-latest}}
+          #    will fall through to the ACR URL).
+          sed -i 's|^MBW_APP_IMAGE=.*|# MBW_APP_IMAGE= (disabled by deploy.yml)|' .env.app
+          # 2) Set MBW_VERSION to the target tag.
+          if grep -q '^MBW_VERSION=' .env.app; then
+            sed -i "s|^MBW_VERSION=.*|MBW_VERSION=$TAG|" .env.app
+          else
+            echo "MBW_VERSION=$TAG" >> .env.app
+          fi
+
+          # Login to Aliyun ACR (intranet pull, ~5s for 180MB).
+          echo "$ACR_PASSWORD" | docker login "$ACR_REGISTRY" \
+              -u "$ACR_USERNAME" --password-stdin
+
+          # Pull new image + recreate app container only (postgres / redis / nginx untouched).
+          docker compose -f docker-compose.tight.yml --env-file .env.app pull app
+          docker compose -f docker-compose.tight.yml --env-file .env.app up -d --force-recreate app
+
+          # Wait up to 120s for app healthcheck.
+          HEALTHY=false
+          for i in 1 2 3 4 5 6 7 8 9 10 11 12; do
+            sleep 10
+            STATE=$(docker inspect mbw-tight-app-1 --format='{{.State.Health.Status}}' 2>/dev/null || echo none)
+            echo "[t+$((i*10))s] app health = $STATE"
+            if [ "$STATE" = "healthy" ]; then
+              HEALTHY=true
+              break
+            fi
+          done
+
+          if [ "$HEALTHY" != "true" ]; then
+            echo "::error::App did not become healthy within 120s — last logs:"
+            docker compose -f docker-compose.tight.yml --env-file .env.app logs --tail=80 app
+            exit 1
+          fi
+
+          # Final smoke via public HTTPS (validates nginx + Let's Encrypt + reverse-proxy).
+          curl -fsS --retry 3 https://api.xiaocaishen.me/actuator/health
+
+          # Cleanup: remove docker login creds from /root or admin home.
+          docker logout "$ACR_REGISTRY" >/dev/null 2>&1 || true
+
+          echo "✅ Deploy of $TAG completed."
+          REMOTE
