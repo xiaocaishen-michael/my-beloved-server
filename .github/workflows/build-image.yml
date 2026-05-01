@@ -28,7 +28,7 @@ permissions:
 
 env:
   ACR_REGISTRY: crpi-uy44w7zpjef3f9w1.cn-shanghai.personal.cr.aliyuncs.com
-  ACR_NAMESPACE: mbw
+  ACR_NAMESPACE: mbw_xcs
   ACR_REPOSITORY: mbw-app
 
 jobs:
