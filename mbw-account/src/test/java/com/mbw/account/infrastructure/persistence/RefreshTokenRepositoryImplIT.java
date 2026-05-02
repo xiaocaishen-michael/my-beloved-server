@@ -8,6 +8,7 @@ import com.mbw.account.domain.model.RefreshTokenHash;
 import com.mbw.account.domain.model.RefreshTokenRecord;
 import com.mbw.account.domain.repository.RefreshTokenRepository;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.Optional;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -68,7 +69,7 @@ class RefreshTokenRepositoryImplIT {
     void save_should_assign_id_and_round_trip_via_findByTokenHash() {
         RefreshTokenHash hash = uniqueHash();
         AccountId accountId = new AccountId(1L);
-        Instant now = Instant.now();
+        Instant now = Instant.now().truncatedTo(ChronoUnit.MICROS); // PG TIMESTAMPTZ stores µs precision
         Instant expiresAt = now.plusSeconds(30L * 24 * 3600);
 
         RefreshTokenRecord saved =
@@ -93,7 +94,7 @@ class RefreshTokenRepositoryImplIT {
     @Test
     void duplicate_token_hash_should_raise_DataIntegrityViolation() {
         RefreshTokenHash hash = uniqueHash();
-        Instant now = Instant.now();
+        Instant now = Instant.now().truncatedTo(ChronoUnit.MICROS); // PG TIMESTAMPTZ stores µs precision
         Instant expiresAt = now.plusSeconds(3600);
         refreshTokenRepository.save(RefreshTokenRecord.createActive(hash, new AccountId(1L), expiresAt, now));
 
@@ -105,7 +106,7 @@ class RefreshTokenRepositoryImplIT {
     @Test
     void revoke_should_set_revokedAt_on_active_record() {
         RefreshTokenHash hash = uniqueHash();
-        Instant now = Instant.now();
+        Instant now = Instant.now().truncatedTo(ChronoUnit.MICROS); // PG TIMESTAMPTZ stores µs precision
         RefreshTokenRecord saved = refreshTokenRepository.save(
                 RefreshTokenRecord.createActive(hash, new AccountId(1L), now.plusSeconds(3600), now));
 
@@ -121,7 +122,7 @@ class RefreshTokenRepositoryImplIT {
     @Test
     void revoke_should_be_noop_when_already_revoked() {
         RefreshTokenHash hash = uniqueHash();
-        Instant now = Instant.now();
+        Instant now = Instant.now().truncatedTo(ChronoUnit.MICROS); // PG TIMESTAMPTZ stores µs precision
         RefreshTokenRecord saved = refreshTokenRepository.save(
                 RefreshTokenRecord.createActive(hash, new AccountId(1L), now.plusSeconds(3600), now));
 
@@ -142,7 +143,7 @@ class RefreshTokenRepositoryImplIT {
     @Test
     void revokeAllForAccount_should_revoke_only_active_records() {
         AccountId target = new AccountId(7L);
-        Instant now = Instant.now();
+        Instant now = Instant.now().truncatedTo(ChronoUnit.MICROS); // PG TIMESTAMPTZ stores µs precision
         Instant expiresAt = now.plusSeconds(3600);
 
         RefreshTokenRecord r1 =
