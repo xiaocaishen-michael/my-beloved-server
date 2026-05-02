@@ -1,15 +1,16 @@
 name: Nightly Full Tests
 
-# Second-line defense for the CI tier strategy in ci.yml:
-#   - PR runs skip @Tag("slow") perf / timing-defense ITs (fast feedback)
-#   - main push runs include them (catches regressions ~10min after merge)
-#   - this nightly run is a third pass — catches anything the main push
-#     missed (e.g., flaky-then-passed slow tests that shipped a real
-#     regression, or a regression that landed via a dependency update)
+# Second-line defense for the CI tier strategy in ci.yml. Two jobs:
 #
-# Schedule: 19:00 UTC = 03:00 Asia/Shanghai. On fail, opens a GitHub
-# Issue tagged `ci-regression` so it shows up in the issue tracker
-# without needing Slack.
+# 1. full-tests — `-Pfull-tests` (slow @Tag perf / timing-defense ITs)
+#    PR skips, main push runs. This is third-pass for slow tests.
+#
+# 2. trivy-image — Docker image CVE scan
+#    PR skips, main push runs. This is third-pass for image scan AND
+#    catches CVE feed updates (same image, freshly disclosed CVE).
+#
+# Schedule: 19:00 UTC = 03:00 Asia/Shanghai. On any job fail, opens a
+# GitHub Issue tagged `ci-regression`.
 
 on:
   schedule:
@@ -62,4 +63,46 @@ jobs:
                 `_(Auto-opened by nightly-full-tests.yml; close after triage.)_`,
               ].join('\n'),
               labels: ['ci-regression'],
+            });
+
+  trivy-image:
+    name: Nightly Trivy image scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Build Docker image
+        run: docker build -t mbw-app:nightly .
+
+      - name: Run Trivy image scan
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: 'mbw-app:nightly'
+          severity: 'CRITICAL,HIGH'
+          exit-code: '1'
+          ignore-unfixed: true
+
+      - name: Open CVE issue on failure
+        if: failure()
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const today = new Date().toISOString().split('T')[0];
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `Nightly Trivy image scan found CRITICAL/HIGH CVE (${today})`,
+              body: [
+                `Nightly cron Trivy scan of the freshly-built mbw-app image failed.`,
+                ``,
+                `**Run**: ${runUrl}`,
+                ``,
+                `**Likely cause**: a newly-disclosed CRITICAL/HIGH CVE landed in the CVE feed against a base-image package or a transitive Java dep. The image content has not changed — the threat model has.`,
+                ``,
+                `**Action**: open the run, see Trivy table for the CVE id + affected package. Bump base image (eclipse-temurin:21-jre tag) or upgrade the Maven dep that pulls the affected jar. If unfixed upstream, evaluate whether \`ignore-unfixed: true\` already covers it; if not, an exception entry may be needed.`,
+                ``,
+                `_(Auto-opened by nightly-full-tests.yml; close after triage.)_`,
+              ].join('\n'),
+              labels: ['ci-regression', 'security'],
             });
