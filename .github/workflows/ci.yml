@@ -29,9 +29,15 @@ jobs:
           cache: 'maven'
 
       - name: Maven verify (compile + test + spotless + checkstyle + jacoco)
-        # `-Pfull-tests` includes @Tag("slow") tests (perf / timing-defense ITs).
-        # Local dev defaults skip them for fast feedback; CI runs them all.
-        run: ./mvnw -B -ntp verify -Pfull-tests
+        # Tier strategy:
+        #   - PR (pull_request): skip @Tag("slow") perf / timing-defense ITs
+        #     (~5 min worth) so feedback loop stays under ~3 min
+        #   - main push: include slow via `-Pfull-tests` — catches P95 /
+        #     timing regression after auto-merge, ~10min revert window
+        #   - nightly cron (nightly-full-tests.yml): full-tests as
+        #     second-line defense in case main push slipped
+        # Acceptable at M1.2 (no real users); revisit M3+ pre-launch.
+        run: ./mvnw -B -ntp verify ${{ github.event_name == 'push' && '-Pfull-tests' || '' }}
 
       - name: Upload JaCoCo report
         if: always()
