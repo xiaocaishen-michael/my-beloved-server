@@ -69,4 +69,38 @@ class AccountStateMachineTest {
         Account account = new Account(PHONE, CREATED_AT);
         assertThatThrownBy(() -> AccountStateMachine.activate(account, null)).isInstanceOf(NullPointerException.class);
     }
+
+    @Test
+    void canLogin_should_return_true_when_status_is_ACTIVE() {
+        Account account = Account.reconstitute(new AccountId(1L), PHONE, AccountStatus.ACTIVE, CREATED_AT, CREATED_AT);
+
+        assertThat(AccountStateMachine.canLogin(account)).isTrue();
+    }
+
+    @Test
+    void canLogin_should_return_false_when_status_is_FROZEN() {
+        Account account = Account.reconstitute(new AccountId(1L), PHONE, AccountStatus.FROZEN, CREATED_AT, CREATED_AT);
+
+        assertThat(AccountStateMachine.canLogin(account)).isFalse();
+    }
+
+    @Test
+    void canLogin_should_return_false_when_status_is_ANONYMIZED() {
+        Account account =
+                Account.reconstitute(new AccountId(1L), PHONE, AccountStatus.ANONYMIZED, CREATED_AT, CREATED_AT);
+
+        assertThat(AccountStateMachine.canLogin(account)).isFalse();
+    }
+
+    @Test
+    void canLogin_should_return_false_when_status_is_null() {
+        Account account = new Account(PHONE, CREATED_AT); // status=null
+
+        assertThat(AccountStateMachine.canLogin(account)).isFalse();
+    }
+
+    @Test
+    void canLogin_should_reject_null_account() {
+        assertThatThrownBy(() -> AccountStateMachine.canLogin(null)).isInstanceOf(NullPointerException.class);
+    }
 }

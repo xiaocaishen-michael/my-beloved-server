@@ -4,8 +4,10 @@ import com.mbw.account.domain.model.Account;
 import com.mbw.account.domain.model.AccountId;
 import com.mbw.account.domain.model.PhoneNumber;
 import com.mbw.account.domain.repository.AccountRepository;
+import java.time.Instant;
 import java.util.Optional;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * JPA-backed adapter for {@link AccountRepository}. Domain code never
@@ -49,5 +51,27 @@ public class AccountRepositoryImpl implements AccountRepository {
             account.assignId(new AccountId(saved.getId()));
         }
         return account;
+    }
+
+    /**
+     * Targeted single-row UPDATE for {@code last_login_at} +
+     * {@code updated_at}. {@code @Modifying} requires a transaction;
+     * the use case layer typically owns the outer transaction, but we
+     * also guard here so direct callers (tests / future read-paths) get
+     * a session of their own.
+     *
+     * <p>The Spring Data {@code @Modifying} return value is the number
+     * of rows affected; 0 means no row matched the supplied id, which
+     * for this use case is a programming error (caller already loaded
+     * the account). Surface as {@link IllegalStateException} per the
+     * domain interface contract.
+     */
+    @Override
+    @Transactional
+    public void updateLastLoginAt(AccountId accountId, Instant lastLoginAt) {
+        int affected = jpa.updateLastLoginAt(accountId.value(), lastLoginAt);
+        if (affected == 0) {
+            throw new IllegalStateException("No account row found for id=" + accountId.value());
+        }
     }
 }

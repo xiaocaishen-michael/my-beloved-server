@@ -37,6 +37,7 @@ public final class Account {
     private AccountStatus status;
     private final Instant createdAt;
     private Instant updatedAt;
+    private Instant lastLoginAt;
 
     public Account(PhoneNumber phone, Instant createdAt) {
         this.phone = Objects.requireNonNull(phone, "phone must not be null");
@@ -51,6 +52,22 @@ public final class Account {
      */
     public static Account reconstitute(
             AccountId id, PhoneNumber phone, AccountStatus status, Instant createdAt, Instant updatedAt) {
+        return reconstitute(id, phone, status, createdAt, updatedAt, /* lastLoginAt= */ null);
+    }
+
+    /**
+     * Reconstruct including {@link #lastLoginAt}. Use this overload when
+     * the persisted row carries a non-null {@code last_login_at}; the
+     * 5-arg overload remains for older callers that pre-date the
+     * {@code login-by-phone-sms} use case (FR-004 / V3 migration).
+     */
+    public static Account reconstitute(
+            AccountId id,
+            PhoneNumber phone,
+            AccountStatus status,
+            Instant createdAt,
+            Instant updatedAt,
+            Instant lastLoginAt) {
         Objects.requireNonNull(id, "id must not be null");
         Objects.requireNonNull(status, "status must not be null");
         Objects.requireNonNull(updatedAt, "updatedAt must not be null");
@@ -58,6 +75,7 @@ public final class Account {
         account.id = id;
         account.status = status;
         account.updatedAt = updatedAt;
+        account.lastLoginAt = lastLoginAt;
         return account;
     }
 
@@ -79,6 +97,10 @@ public final class Account {
 
     public Instant updatedAt() {
         return updatedAt;
+    }
+
+    public Instant lastLoginAt() {
+        return lastLoginAt;
     }
 
     /**
@@ -107,6 +129,23 @@ public final class Account {
                     "Account already in status " + this.status + ", cannot transition to ACTIVE");
         }
         this.status = AccountStatus.ACTIVE;
+        this.updatedAt = at;
+    }
+
+    /**
+     * Package-private mutator for successful-login bookkeeping
+     * (login-by-phone-sms FR-004). Only callable through
+     * {@link AccountStateMachine#markLoggedIn} so the canLogin invariant
+     * stays in one place. Updates {@link #lastLoginAt} and
+     * {@link #updatedAt} to {@code at}.
+     */
+    void markLoggedIn(Instant at) {
+        Objects.requireNonNull(at, "at must not be null");
+        if (this.status != AccountStatus.ACTIVE) {
+            throw new IllegalStateException(
+                    "Account status is " + this.status + ", cannot mark loggedIn (only ACTIVE permitted)");
+        }
+        this.lastLoginAt = at;
         this.updatedAt = at;
     }
 }

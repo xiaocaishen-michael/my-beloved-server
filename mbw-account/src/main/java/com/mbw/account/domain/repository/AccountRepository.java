@@ -1,7 +1,9 @@
 package com.mbw.account.domain.repository;
 
 import com.mbw.account.domain.model.Account;
+import com.mbw.account.domain.model.AccountId;
 import com.mbw.account.domain.model.PhoneNumber;
+import java.time.Instant;
 import java.util.Optional;
 
 /**
@@ -32,4 +34,18 @@ public interface AccountRepository {
      * the same instance.
      */
     Account save(Account account);
+
+    /**
+     * Targeted update of {@code last_login_at} (and {@code updated_at})
+     * on a single account, used by the login-by-phone-sms use case
+     * (FR-004 + V3 migration). Implementations issue a focused
+     * {@code UPDATE ... WHERE id = ?} so login does not contend with
+     * concurrent full-aggregate writes.
+     *
+     * @param accountId the account to update; must exist (caller has
+     *     already loaded + verified it via {@link #findByPhone})
+     * @param lastLoginAt UTC instant of the successful login
+     * @throws IllegalStateException if no row matches {@code accountId}
+     */
+    void updateLastLoginAt(AccountId accountId, Instant lastLoginAt);
 }

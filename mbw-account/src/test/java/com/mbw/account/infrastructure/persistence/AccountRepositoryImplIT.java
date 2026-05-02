@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.mbw.account.domain.model.Account;
+import com.mbw.account.domain.model.AccountId;
 import com.mbw.account.domain.model.AccountStateMachine;
 import com.mbw.account.domain.model.AccountStatus;
 import com.mbw.account.domain.model.PhoneNumber;
@@ -183,6 +184,62 @@ class AccountRepositoryImplIT {
                 .as("the other 9 threads fail with DataIntegrityViolation")
                 .isEqualTo(9);
         assertThat(accountJpaRepository.count()).as("only one row persisted").isEqualTo(1L);
+    }
+
+    @Test
+    void updateLastLoginAt_should_persist_new_lastLoginAt_and_updatedAt() {
+        Instant savedAt = Instant.parse("2026-05-02T10:00:00Z");
+        PhoneNumber phone = uniquePhone();
+        Account fresh = AccountStateMachine.activate(new Account(phone, savedAt), savedAt);
+        Account saved = accountRepository.save(fresh);
+
+        Instant loginAt = Instant.parse("2026-05-02T11:30:00Z");
+        accountRepository.updateLastLoginAt(saved.id(), loginAt);
+
+        Account reloaded = accountRepository.findByPhone(phone).orElseThrow();
+        assertThat(reloaded.lastLoginAt()).isEqualTo(loginAt);
+        assertThat(reloaded.updatedAt()).isEqualTo(loginAt);
+        // createdAt is immutable on the row level
+        assertThat(reloaded.createdAt()).isEqualTo(savedAt);
+    }
+
+    @Test
+    void updateLastLoginAt_should_throw_when_account_id_not_found() {
+        Instant loginAt = Instant.parse("2026-05-02T11:30:00Z");
+        AccountId nonExistent = new AccountId(999_999L);
+
+        // Spring's @Repository exception translation wraps our
+        // IllegalStateException in DataAccessException; assert behavior
+        // (message) rather than concrete exception class so Spring upgrades
+        // do not break the test.
+        assertThatThrownBy(() -> accountRepository.updateLastLoginAt(nonExistent, loginAt))
+                .hasMessageContaining("No account row found")
+                .hasRootCauseInstanceOf(IllegalStateException.class);
+    }
+
+    @Test
+    void findByPhone_should_carry_lastLoginAt_after_update() {
+        Instant savedAt = Instant.parse("2026-05-02T10:00:00Z");
+        PhoneNumber phone = uniquePhone();
+        Account fresh = AccountStateMachine.activate(new Account(phone, savedAt), savedAt);
+        Account saved = accountRepository.save(fresh);
+
+        // Initial state: lastLoginAt is null on freshly registered account
+        assertThat(accountRepository.findByPhone(phone).orElseThrow().lastLoginAt())
+                .isNull();
+
+        Instant firstLogin = Instant.parse("2026-05-02T11:00:00Z");
+        accountRepository.updateLastLoginAt(saved.id(), firstLogin);
+
+        assertThat(accountRepository.findByPhone(phone).orElseThrow().lastLoginAt())
+                .isEqualTo(firstLogin);
+
+        // Subsequent login overwrites
+        Instant secondLogin = Instant.parse("2026-05-02T12:30:00Z");
+        accountRepository.updateLastLoginAt(saved.id(), secondLogin);
+
+        assertThat(accountRepository.findByPhone(phone).orElseThrow().lastLoginAt())
+                .isEqualTo(secondLogin);
     }
 
     private static PhoneNumber uniquePhone() {
