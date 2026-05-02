@@ -33,6 +33,11 @@ public class AccountRepositoryImpl implements AccountRepository {
     }
 
     @Override
+    public Optional<Account> findById(AccountId accountId) {
+        return jpa.findById(accountId.value()).map(AccountMapper::toDomain);
+    }
+
+    @Override
     public boolean existsByPhone(PhoneNumber phone) {
         return jpa.existsByPhone(phone.e164());
     }

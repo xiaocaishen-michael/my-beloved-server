@@ -10,11 +10,14 @@ import com.mbw.account.domain.model.PasswordCredential;
 import com.mbw.account.domain.model.PasswordHash;
 import com.mbw.account.domain.model.PhoneCredential;
 import com.mbw.account.domain.model.PhoneNumber;
+import com.mbw.account.domain.model.RefreshTokenRecord;
 import com.mbw.account.domain.repository.AccountRepository;
 import com.mbw.account.domain.repository.CredentialRepository;
+import com.mbw.account.domain.repository.RefreshTokenRepository;
 import com.mbw.account.domain.service.PasswordHasher;
 import com.mbw.account.domain.service.PasswordPolicy;
 import com.mbw.account.domain.service.PhonePolicy;
+import com.mbw.account.domain.service.RefreshTokenHasher;
 import com.mbw.account.domain.service.TimingDefenseExecutor;
 import com.mbw.account.domain.service.TokenIssuer;
 import com.mbw.shared.api.sms.AttemptOutcome;
@@ -82,6 +85,7 @@ public class RegisterByPhoneUseCase {
             .refillIntervally(5, Duration.ofHours(24))
             .build();
     static final Duration TIMING_TARGET = Duration.ofMillis(400);
+    static final Duration REFRESH_TOKEN_TTL = Duration.ofDays(30);
 
     private final RateLimitService rateLimitService;
     private final SmsCodeService smsCodeService;
@@ -89,6 +93,7 @@ public class RegisterByPhoneUseCase {
     private final CredentialRepository credentialRepository;
     private final PasswordHasher passwordHasher;
     private final TokenIssuer tokenIssuer;
+    private final RefreshTokenRepository refreshTokenRepository;
     private final TransactionTemplate transactionTemplate;
 
     public RegisterByPhoneUseCase(
@@ -98,6 +103,7 @@ public class RegisterByPhoneUseCase {
             CredentialRepository credentialRepository,
             PasswordHasher passwordHasher,
             TokenIssuer tokenIssuer,
+            RefreshTokenRepository refreshTokenRepository,
             TransactionTemplate transactionTemplate) {
         this.rateLimitService = rateLimitService;
         this.smsCodeService = smsCodeService;
@@ -105,6 +111,7 @@ public class RegisterByPhoneUseCase {
         this.credentialRepository = credentialRepository;
         this.passwordHasher = passwordHasher;
         this.tokenIssuer = tokenIssuer;
+        this.refreshTokenRepository = refreshTokenRepository;
         this.transactionTemplate = transactionTemplate;
     }
 
@@ -147,6 +154,12 @@ public class RegisterByPhoneUseCase {
 
         String access = tokenIssuer.signAccess(id);
         String refresh = tokenIssuer.signRefresh();
+
+        // Phase 1.3 retrofit: persist the refresh token for server-side
+        // rotation / revocation. Failure rolls back the whole tx
+        // (account + credentials + token record stay atomic).
+        refreshTokenRepository.save(RefreshTokenRecord.createActive(
+                RefreshTokenHasher.hash(refresh), id, now.plus(REFRESH_TOKEN_TTL), now));
 
         return new RegisterByPhoneResult(id.value(), access, refresh);
     }

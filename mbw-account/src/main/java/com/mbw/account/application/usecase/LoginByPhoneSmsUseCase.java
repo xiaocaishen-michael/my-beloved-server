@@ -6,8 +6,11 @@ import com.mbw.account.domain.exception.InvalidCredentialsException;
 import com.mbw.account.domain.model.Account;
 import com.mbw.account.domain.model.AccountStateMachine;
 import com.mbw.account.domain.model.PhoneNumber;
+import com.mbw.account.domain.model.RefreshTokenRecord;
 import com.mbw.account.domain.repository.AccountRepository;
+import com.mbw.account.domain.repository.RefreshTokenRepository;
 import com.mbw.account.domain.service.PhonePolicy;
+import com.mbw.account.domain.service.RefreshTokenHasher;
 import com.mbw.account.domain.service.TimingDefenseExecutor;
 import com.mbw.account.domain.service.TokenIssuer;
 import com.mbw.shared.api.sms.AttemptOutcome;
@@ -66,11 +69,13 @@ public class LoginByPhoneSmsUseCase {
             .refillIntervally(5, Duration.ofHours(24))
             .build();
     static final Duration TIMING_TARGET = Duration.ofMillis(400);
+    static final Duration REFRESH_TOKEN_TTL = Duration.ofDays(30);
 
     private final RateLimitService rateLimitService;
     private final SmsCodeService smsCodeService;
     private final AccountRepository accountRepository;
     private final TokenIssuer tokenIssuer;
+    private final RefreshTokenRepository refreshTokenRepository;
     private final TransactionTemplate transactionTemplate;
 
     public LoginByPhoneSmsUseCase(
@@ -78,11 +83,13 @@ public class LoginByPhoneSmsUseCase {
             SmsCodeService smsCodeService,
             AccountRepository accountRepository,
             TokenIssuer tokenIssuer,
+            RefreshTokenRepository refreshTokenRepository,
             TransactionTemplate transactionTemplate) {
         this.rateLimitService = rateLimitService;
         this.smsCodeService = smsCodeService;
         this.accountRepository = accountRepository;
         this.tokenIssuer = tokenIssuer;
+        this.refreshTokenRepository = refreshTokenRepository;
         this.transactionTemplate = transactionTemplate;
     }
 
@@ -125,6 +132,10 @@ public class LoginByPhoneSmsUseCase {
         // signAccess/signRefresh throws, the lastLoginAt UPDATE rolls back.
         String access = tokenIssuer.signAccess(account.id());
         String refresh = tokenIssuer.signRefresh();
+
+        // Phase 1.3 retrofit: persist the refresh token (FR-009 of 1.3)
+        refreshTokenRepository.save(RefreshTokenRecord.createActive(
+                RefreshTokenHasher.hash(refresh), account.id(), now.plus(REFRESH_TOKEN_TTL), now));
 
         return new LoginByPhoneSmsResult(account.id().value(), access, refresh);
     }

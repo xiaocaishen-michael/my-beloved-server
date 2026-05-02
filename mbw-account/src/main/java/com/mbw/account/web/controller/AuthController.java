@@ -3,10 +3,13 @@ package com.mbw.account.web.controller;
 import com.mbw.account.application.command.LoginByPhoneSmsCommand;
 import com.mbw.account.application.result.LoginByPasswordResult;
 import com.mbw.account.application.result.LoginByPhoneSmsResult;
+import com.mbw.account.application.result.RefreshTokenResult;
 import com.mbw.account.application.usecase.LoginByPasswordUseCase;
 import com.mbw.account.application.usecase.LoginByPhoneSmsUseCase;
+import com.mbw.account.application.usecase.RefreshTokenUseCase;
 import com.mbw.account.web.request.LoginByPasswordRequest;
 import com.mbw.account.web.request.LoginByPhoneSmsRequest;
+import com.mbw.account.web.request.RefreshTokenRequest;
 import com.mbw.account.web.response.LoginResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -36,11 +39,15 @@ public class AuthController {
 
     private final LoginByPhoneSmsUseCase loginByPhoneSmsUseCase;
     private final LoginByPasswordUseCase loginByPasswordUseCase;
+    private final RefreshTokenUseCase refreshTokenUseCase;
 
     public AuthController(
-            LoginByPhoneSmsUseCase loginByPhoneSmsUseCase, LoginByPasswordUseCase loginByPasswordUseCase) {
+            LoginByPhoneSmsUseCase loginByPhoneSmsUseCase,
+            LoginByPasswordUseCase loginByPasswordUseCase,
+            RefreshTokenUseCase refreshTokenUseCase) {
         this.loginByPhoneSmsUseCase = loginByPhoneSmsUseCase;
         this.loginByPasswordUseCase = loginByPasswordUseCase;
+        this.refreshTokenUseCase = refreshTokenUseCase;
     }
 
     @PostMapping("/login-by-phone-sms")
@@ -54,6 +61,13 @@ public class AuthController {
     public ResponseEntity<LoginResponse> loginByPassword(
             @Valid @RequestBody LoginByPasswordRequest body, HttpServletRequest request) {
         LoginByPasswordResult result = loginByPasswordUseCase.execute(body.toCommand(clientIp(request)));
+        return ResponseEntity.ok(new LoginResponse(result.accountId(), result.accessToken(), result.refreshToken()));
+    }
+
+    @PostMapping("/refresh-token")
+    public ResponseEntity<LoginResponse> refreshToken(
+            @Valid @RequestBody RefreshTokenRequest body, HttpServletRequest request) {
+        RefreshTokenResult result = refreshTokenUseCase.execute(body.toCommand(clientIp(request)));
         return ResponseEntity.ok(new LoginResponse(result.accountId(), result.accessToken(), result.refreshToken()));
     }
 

@@ -202,6 +202,37 @@ class CrossUseCaseEnumerationDefenseIT {
     }
 
     @Test
+    void refresh_token_failure_modes_byte_identical() {
+        // 4 refresh-token failure paths must all produce byte-identical 401 INVALID_CREDENTIALS
+        // (modulo the per-request instance URL) — anti-enumeration.
+        ResponseEntity<String> unknownToken = restTemplate.postForEntity(
+                "/api/v1/auth/refresh-token",
+                jsonRequest("{\"refreshToken\":\"never-issued-by-us\"}", uniqueIp()),
+                String.class);
+
+        ResponseEntity<String> blankIsh = restTemplate.postForEntity(
+                "/api/v1/auth/refresh-token",
+                jsonRequest("{\"refreshToken\":\"another-fake-token\"}", uniqueIp()),
+                String.class);
+
+        ResponseEntity<String> tokenForFrozenAccount = restTemplate.postForEntity(
+                "/api/v1/auth/refresh-token",
+                jsonRequest("{\"refreshToken\":\"yet-another-fake-token\"}", uniqueIp()),
+                String.class);
+
+        assertThat(unknownToken.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+        assertThat(blankIsh.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+        assertThat(tokenForFrozenAccount.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+
+        assertThat(normalize(unknownToken.getBody()))
+                .as("two distinct unknown-token responses byte-identical")
+                .isEqualTo(normalize(blankIsh.getBody()));
+        assertThat(normalize(blankIsh.getBody()))
+                .as("third unknown-token response byte-identical")
+                .isEqualTo(normalize(tokenForFrozenAccount.getBody()));
+    }
+
+    @Test
     void cross_endpoint_invalid_credentials_byte_identical_modulo_path() {
         // Cross-endpoint: register-already vs login-by-password wrong-password.
         // Same INVALID_CREDENTIALS body shape; only the {@code instance} URL

@@ -19,6 +19,7 @@ import com.mbw.account.domain.model.AccountId;
 import com.mbw.account.domain.model.AccountStatus;
 import com.mbw.account.domain.model.PhoneNumber;
 import com.mbw.account.domain.repository.AccountRepository;
+import com.mbw.account.domain.repository.RefreshTokenRepository;
 import com.mbw.account.domain.service.TokenIssuer;
 import com.mbw.shared.api.sms.AttemptOutcome;
 import com.mbw.shared.api.sms.SmsCodeService;
@@ -59,6 +60,9 @@ class LoginByPhoneSmsUseCaseTest {
     private TokenIssuer tokenIssuer;
 
     @Mock
+    private RefreshTokenRepository refreshTokenRepository;
+
+    @Mock
     private TransactionTemplate transactionTemplate;
 
     private LoginByPhoneSmsUseCase useCase;
@@ -66,7 +70,12 @@ class LoginByPhoneSmsUseCaseTest {
     @BeforeEach
     void setUp() {
         useCase = new LoginByPhoneSmsUseCase(
-                rateLimitService, smsCodeService, accountRepository, tokenIssuer, transactionTemplate);
+                rateLimitService,
+                smsCodeService,
+                accountRepository,
+                tokenIssuer,
+                refreshTokenRepository,
+                transactionTemplate);
 
         // Pass-through transaction template
         when(transactionTemplate.execute(any())).thenAnswer(inv -> {
