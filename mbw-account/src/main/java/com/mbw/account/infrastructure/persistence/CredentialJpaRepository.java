@@ -1,6 +1,7 @@
 package com.mbw.account.infrastructure.persistence;
 
 import java.util.List;
+import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 /**
@@ -13,4 +14,6 @@ import org.springframework.data.jpa.repository.JpaRepository;
 interface CredentialJpaRepository extends JpaRepository<CredentialJpaEntity, Long> {
 
     List<CredentialJpaEntity> findByAccountId(Long accountId);
+
+    Optional<CredentialJpaEntity> findFirstByAccountIdAndType(Long accountId, String type);
 }

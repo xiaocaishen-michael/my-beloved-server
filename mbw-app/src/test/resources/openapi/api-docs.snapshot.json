@@ -53,6 +53,34 @@
         }
       }
     },
+    "/api/v1/auth/login-by-password" : {
+      "post" : {
+        "tags" : [ "auth-controller" ],
+        "operationId" : "loginByPassword",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/LoginByPasswordRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/LoginResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/accounts/register-by-phone" : {
       "post" : {
         "tags" : [ "account-register-controller" ],
@@ -127,6 +155,20 @@
             "type" : "string"
           }
         }
+      },
+      "LoginByPasswordRequest" : {
+        "type" : "object",
+        "properties" : {
+          "phone" : {
+            "type" : "string",
+            "minLength" : 1
+          },
+          "password" : {
+            "type" : "string",
+            "minLength" : 1
+          }
+        },
+        "required" : [ "password", "phone" ]
       },
       "RegisterByPhoneRequest" : {
         "type" : "object",
