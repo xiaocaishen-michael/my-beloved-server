@@ -3,6 +3,7 @@ package com.mbw.account.domain.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.mbw.account.domain.model.PasswordHash;
 import java.time.Duration;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -108,6 +109,96 @@ class TimingDefenseExecutorTest {
             Thread.sleep(millis);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
+        }
+    }
+
+    @Test
+    void executeWithBCryptVerify_should_invoke_onMatch_when_password_matches_hash() {
+        // FakeHasher.matches → true regardless; ensures onMatch path
+        FakeHasher hasher = new FakeHasher(true);
+        AtomicInteger matchCalls = new AtomicInteger();
+        AtomicInteger mismatchCalls = new AtomicInteger();
+
+        String result = TimingDefenseExecutor.executeWithBCryptVerify(
+                hasher,
+                "anything",
+                () -> realLikeHash(),
+                () -> {
+                    matchCalls.incrementAndGet();
+                    return "matched";
+                },
+                () -> {
+                    mismatchCalls.incrementAndGet();
+                    return "skipped";
+                });
+
+        assertThat(result).isEqualTo("matched");
+        assertThat(matchCalls.get()).isOne();
+        assertThat(mismatchCalls.get()).isZero();
+    }
+
+    @Test
+    void executeWithBCryptVerify_should_invoke_onMismatch_when_password_does_not_match_hash() {
+        FakeHasher hasher = new FakeHasher(false);
+        AtomicInteger mismatchCalls = new AtomicInteger();
+
+        String result = TimingDefenseExecutor.executeWithBCryptVerify(
+                hasher, "anything", () -> realLikeHash(), () -> "skipped", () -> {
+                    mismatchCalls.incrementAndGet();
+                    return "rejected";
+                });
+
+        assertThat(result).isEqualTo("rejected");
+        assertThat(mismatchCalls.get()).isOne();
+    }
+
+    @Test
+    void executeWithBCryptVerify_should_invoke_onMismatch_when_hashSupplier_returns_DUMMY_HASH() {
+        // Real BCrypt cannot match user input against the canned dummy hash,
+        // so the unit test models that with a hasher that returns false
+        FakeHasher hasher = new FakeHasher(false);
+
+        String result = TimingDefenseExecutor.executeWithBCryptVerify(
+                hasher,
+                "user-input-not-yet-leaked",
+                () -> TimingDefenseExecutor.DUMMY_HASH,
+                () -> "wrong-this-must-not-fire",
+                () -> "rejected-anti-enumeration");
+
+        assertThat(result).isEqualTo("rejected-anti-enumeration");
+    }
+
+    @Test
+    void executeWithBCryptVerify_should_reject_null_hashSupplier_value() {
+        FakeHasher hasher = new FakeHasher(false);
+
+        assertThatThrownBy(() -> TimingDefenseExecutor.executeWithBCryptVerify(
+                        hasher, "anything", () -> null, () -> "x", () -> "y"))
+                .isInstanceOf(NullPointerException.class)
+                .hasMessageContaining("hashSupplier");
+    }
+
+    private static PasswordHash realLikeHash() {
+        return TimingDefenseExecutor.DUMMY_HASH;
+    }
+
+    /** Test double for {@link PasswordHasher} with a fixed boolean response. */
+    private static final class FakeHasher implements PasswordHasher {
+
+        private final boolean matchResult;
+
+        FakeHasher(boolean matchResult) {
+            this.matchResult = matchResult;
+        }
+
+        @Override
+        public PasswordHash hash(String plaintext) {
+            return TimingDefenseExecutor.DUMMY_HASH;
+        }
+
+        @Override
+        public boolean matches(String plaintext, PasswordHash hash) {
+            return matchResult;
         }
     }
 }

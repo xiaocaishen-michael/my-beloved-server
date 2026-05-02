@@ -41,4 +41,38 @@ public final class AccountStateMachine {
         account.markActive(at);
         return account;
     }
+
+    /**
+     * Record a successful login on an {@link AccountStatus#ACTIVE}
+     * account (FR-004 / login-by-phone-sms). Sets
+     * {@link Account#lastLoginAt} and {@link Account#updatedAt} to
+     * {@code at}; rejects non-ACTIVE accounts with
+     * {@link IllegalStateException}.
+     *
+     * @param account the account; status must be {@code ACTIVE}
+     * @param at the login instant; UTC
+     * @return the same account (mutated in place) for fluent use case
+     *     composition
+     */
+    public static Account markLoggedIn(Account account, Instant at) {
+        Objects.requireNonNull(account, "account must not be null");
+        account.markLoggedIn(at);
+        return account;
+    }
+
+    /**
+     * Read-only predicate for "may this account log in" (FR-003 of the
+     * login-by-phone-sms use case). Returns {@code true} only for
+     * {@link AccountStatus#ACTIVE}; all other states (including
+     * {@code null}, i.e. an account never persisted) return false.
+     *
+     * <p>UseCases (e.g. {@code LoginByPhoneSmsUseCase}) call this before
+     * {@link #markLoggedIn} so the negative path collapses to the same
+     * INVALID_CREDENTIALS response (FR-006), preventing enumeration of
+     * "frozen vs active" via differential responses.
+     */
+    public static boolean canLogin(Account account) {
+        Objects.requireNonNull(account, "account must not be null");
+        return account.status() == AccountStatus.ACTIVE;
+    }
 }

@@ -1,19 +1,22 @@
 package com.mbw.account.application.usecase;
 
 import com.mbw.account.application.command.RequestSmsCodeCommand;
+import com.mbw.account.application.command.SmsCodePurpose;
 import com.mbw.account.domain.model.PhoneNumber;
 import com.mbw.account.domain.repository.AccountRepository;
 import com.mbw.account.domain.service.PhonePolicy;
+import com.mbw.account.domain.service.TimingDefenseExecutor;
 import com.mbw.shared.api.sms.SmsClient;
 import com.mbw.shared.api.sms.SmsCodeService;
 import com.mbw.shared.web.RateLimitService;
 import io.github.bucket4j.Bandwidth;
 import java.time.Duration;
 import java.util.Map;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 /**
- * "Request SMS verification code" use case (FR-006 + FR-012).
+ * "Request SMS verification code" use case (FR-006 / FR-009 / FR-012).
  *
  * <p>Pipeline:
  *
@@ -21,32 +24,38 @@ import org.springframework.stereotype.Service;
  *   <li>{@code PhonePolicy.validate} — FR-001 E.164 + mainland
  *   <li>3 rate-limit gates (FR-006): {@code sms-60s:<phone>} 1/min,
  *       {@code sms-24h:<phone>} 10/day, {@code sms-ip:<ip>} 50/day.
- *       Distinct keys for distinct windows so each Bucket4j bucket
- *       has its own bandwidth (a single shared key would lose either
- *       the 60s or the 24h limit).
- *   <li>{@code accountRepo.existsByPhone} — branch by registration
- *       state per FR-012:
+ *   <li>{@code accountRepo.existsByPhone} + {@link SmsCodePurpose}
+ *       dispatch per FR-009:
  *       <ul>
- *         <li>not registered: {@code SmsCodeService.generateAndStore}
- *             returns plaintext, sent via {@code SmsClient} with
- *             Template A (variable: {@code code})
- *         <li>already registered: {@code SmsClient} sends Template B
- *             (no code; the message is "this phone is already
- *             registered, please log in"). Same {@code sms:*}
- *             rate-limit bucket as Template A so wall-clock latency
- *             is indistinguishable to an enumeration attacker
+ *         <li>REGISTER + unregistered → Template A (real code)
+ *         <li>REGISTER + registered → Template B (already registered)
+ *         <li>LOGIN + registered → Template A (real code, login flow)
+ *         <li>LOGIN + unregistered + Template C approved → Template C
+ *             (login on unregistered, advise register)
+ *         <li>LOGIN + unregistered + Template C unavailable → no SMS
+ *             sent, but wall-clock padded via
+ *             {@link TimingDefenseExecutor} so an enumeration attacker
+ *             cannot detect the absence
  *       </ul>
  * </ol>
  *
  * <p>Per spec §US-3 AS-1, the HTTP-layer response from this use case
- * is byte-identical for both branches. This class returns nothing;
- * the controller maps it to an empty 200/202.
+ * is byte-identical for all branches. This class returns nothing; the
+ * controller maps it to an empty 200/202.
  */
 @Service
 public class RequestSmsCodeUseCase {
 
     static final String SMS_TEMPLATE_REGISTER = "SMS_REGISTER_A";
     static final String SMS_TEMPLATE_ALREADY_REGISTERED = "SMS_REGISTERED_B";
+
+    /**
+     * Target wall-clock duration for the LOGIN+unregistered+Template-C-
+     * unavailable fallback path. Calibrated to typical Aliyun SMS
+     * gateway latency (~150ms) so the absence of a real send is not
+     * detectable by a timing observer.
+     */
+    static final Duration TIMING_TARGET_FALLBACK = Duration.ofMillis(150);
 
     static final Bandwidth PER_PHONE_60S = Bandwidth.builder()
             .capacity(1)
@@ -66,15 +75,26 @@ public class RequestSmsCodeUseCase {
     private final SmsCodeService smsCodeService;
     private final SmsClient smsClient;
 
+    /**
+     * Aliyun template id for the "login on unregistered phone" message
+     * (Template C). Empty string means the template has not yet been
+     * approved by Aliyun; the LOGIN+unregistered branch then runs the
+     * fallback (no SMS + pad time). Configured via
+     * {@code mbw.sms.template.login-unregistered}.
+     */
+    private final String smsTemplateLoginUnregistered;
+
     public RequestSmsCodeUseCase(
             RateLimitService rateLimitService,
             AccountRepository accountRepository,
             SmsCodeService smsCodeService,
-            SmsClient smsClient) {
+            SmsClient smsClient,
+            @Value("${mbw.sms.template.login-unregistered:}") String smsTemplateLoginUnregistered) {
         this.rateLimitService = rateLimitService;
         this.accountRepository = accountRepository;
         this.smsCodeService = smsCodeService;
         this.smsClient = smsClient;
+        this.smsTemplateLoginUnregistered = smsTemplateLoginUnregistered == null ? "" : smsTemplateLoginUnregistered;
     }
 
     public void execute(RequestSmsCodeCommand cmd) {
@@ -84,13 +104,43 @@ public class RequestSmsCodeUseCase {
         rateLimitService.consumeOrThrow("sms-24h:" + phone.e164(), PER_PHONE_24H);
         rateLimitService.consumeOrThrow("sms-ip:" + cmd.clientIp(), PER_IP_24H);
 
-        if (accountRepository.existsByPhone(phone)) {
-            // FR-012 alternate template — never reveals the registration
-            // boundary via response shape or latency
+        boolean registered = accountRepository.existsByPhone(phone);
+        switch (cmd.purpose()) {
+            case REGISTER -> dispatchRegister(phone, registered);
+            case LOGIN -> dispatchLogin(phone, registered);
+            default -> throw new IllegalStateException("unhandled purpose: " + cmd.purpose());
+        }
+    }
+
+    private void dispatchRegister(PhoneNumber phone, boolean registered) {
+        if (registered) {
+            // FR-012 alternate template — never reveals registration boundary
             smsClient.send(phone.e164(), SMS_TEMPLATE_ALREADY_REGISTERED, Map.of());
         } else {
             String plaintext = smsCodeService.generateAndStore(phone.e164());
             smsClient.send(phone.e164(), SMS_TEMPLATE_REGISTER, Map.of("code", plaintext));
         }
+    }
+
+    private void dispatchLogin(PhoneNumber phone, boolean registered) {
+        if (registered) {
+            // LOGIN + registered: same Template A as register-unregistered;
+            // generate + send a real code so the user can complete login
+            String plaintext = smsCodeService.generateAndStore(phone.e164());
+            smsClient.send(phone.e164(), SMS_TEMPLATE_REGISTER, Map.of("code", plaintext));
+        } else if (templateCAvailable()) {
+            // Template C approved: send the "login attempted on unregistered"
+            // notice so the user knows to register first
+            smsClient.send(phone.e164(), smsTemplateLoginUnregistered, Map.of());
+        } else {
+            // Template C not yet approved (per ADR-0013 / Assumption A-006):
+            // skip the SMS but pad the wall clock so the absence is invisible
+            // to a timing-side-channel observer
+            TimingDefenseExecutor.executeInConstantTime(TIMING_TARGET_FALLBACK, () -> null);
+        }
+    }
+
+    private boolean templateCAvailable() {
+        return !smsTemplateLoginUnregistered.isBlank();
     }
 }

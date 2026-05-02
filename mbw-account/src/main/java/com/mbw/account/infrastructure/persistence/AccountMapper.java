@@ -34,7 +34,8 @@ public final class AccountMapper {
                 new PhoneNumber(entity.getPhone()),
                 AccountStatus.valueOf(entity.getStatus()),
                 entity.getCreatedAt(),
-                entity.getUpdatedAt());
+                entity.getUpdatedAt(),
+                entity.getLastLoginAt());
     }
 
     /**
@@ -51,6 +52,7 @@ public final class AccountMapper {
         entity.setStatus(account.status() == null ? null : account.status().name());
         entity.setCreatedAt(account.createdAt());
         entity.setUpdatedAt(account.updatedAt());
+        entity.setLastLoginAt(account.lastLoginAt());
         return entity;
     }
 

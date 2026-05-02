@@ -51,7 +51,8 @@ public class AccountRegisterController {
     @PostMapping("/sms-codes")
     public ResponseEntity<Void> requestSmsCode(
             @Valid @RequestBody RequestSmsCodeRequest body, HttpServletRequest request) {
-        requestSmsCodeUseCase.execute(new RequestSmsCodeCommand(body.phone(), clientIp(request)));
+        requestSmsCodeUseCase.execute(
+                new RequestSmsCodeCommand(body.phone(), clientIp(request), body.purposeOrDefault()));
         return ResponseEntity.status(HttpStatus.OK).build();
     }
 
