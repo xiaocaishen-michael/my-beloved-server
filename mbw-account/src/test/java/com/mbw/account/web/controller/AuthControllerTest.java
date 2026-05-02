@@ -10,17 +10,23 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.mbw.account.application.command.LoginByPasswordCommand;
 import com.mbw.account.application.command.LoginByPhoneSmsCommand;
+import com.mbw.account.application.command.LogoutAllSessionsCommand;
 import com.mbw.account.application.command.RefreshTokenCommand;
 import com.mbw.account.application.result.LoginByPasswordResult;
 import com.mbw.account.application.result.LoginByPhoneSmsResult;
+import com.mbw.account.application.result.LogoutAllSessionsResult;
 import com.mbw.account.application.result.RefreshTokenResult;
 import com.mbw.account.application.usecase.LoginByPasswordUseCase;
 import com.mbw.account.application.usecase.LoginByPhoneSmsUseCase;
+import com.mbw.account.application.usecase.LogoutAllSessionsUseCase;
 import com.mbw.account.application.usecase.RefreshTokenUseCase;
 import com.mbw.account.domain.exception.InvalidCredentialsException;
+import com.mbw.account.domain.model.AccountId;
+import com.mbw.account.domain.service.TokenIssuer;
 import com.mbw.account.web.exception.AccountWebExceptionAdvice;
 import com.mbw.shared.web.RateLimitedException;
 import java.time.Duration;
+import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -54,12 +60,22 @@ class AuthControllerTest {
     @Mock
     private RefreshTokenUseCase refreshTokenUseCase;
 
+    @Mock
+    private LogoutAllSessionsUseCase logoutAllSessionsUseCase;
+
+    @Mock
+    private TokenIssuer tokenIssuer;
+
     private MockMvc mockMvc;
 
     @BeforeEach
     void setUp() {
-        mockMvc = MockMvcBuilders.standaloneSetup(
-                        new AuthController(loginByPhoneSmsUseCase, loginByPasswordUseCase, refreshTokenUseCase))
+        mockMvc = MockMvcBuilders.standaloneSetup(new AuthController(
+                        loginByPhoneSmsUseCase,
+                        loginByPasswordUseCase,
+                        refreshTokenUseCase,
+                        logoutAllSessionsUseCase,
+                        tokenIssuer))
                 .setControllerAdvice(new AccountWebExceptionAdvice())
                 .build();
     }
@@ -219,5 +235,48 @@ class AuthControllerTest {
                 .andExpect(status().isTooManyRequests())
                 .andExpect(header().string("Retry-After", "60"))
                 .andExpect(jsonPath("$.code").value("RATE_LIMITED"));
+    }
+
+    @Test
+    void POST_logout_all_should_return_204_when_valid_bearer_token() throws Exception {
+        when(tokenIssuer.verifyAccess(any())).thenReturn(Optional.of(new AccountId(42L)));
+        when(logoutAllSessionsUseCase.execute(any(LogoutAllSessionsCommand.class)))
+                .thenReturn(new LogoutAllSessionsResult(3));
+
+        mockMvc.perform(post("/api/v1/auth/logout-all").header("Authorization", "Bearer valid.access.jwt"))
+                .andExpect(status().isNoContent());
+    }
+
+    @Test
+    void POST_logout_all_should_return_401_when_no_authorization_header() throws Exception {
+        mockMvc.perform(post("/api/v1/auth/logout-all"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value(InvalidCredentialsException.CODE));
+    }
+
+    @Test
+    void POST_logout_all_should_return_401_when_authorization_format_malformed() throws Exception {
+        mockMvc.perform(post("/api/v1/auth/logout-all").header("Authorization", "not-a-bearer-format"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void POST_logout_all_should_return_401_when_token_verification_fails() throws Exception {
+        when(tokenIssuer.verifyAccess(any())).thenReturn(Optional.empty());
+
+        mockMvc.perform(post("/api/v1/auth/logout-all").header("Authorization", "Bearer expired.or.bad.jwt"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void POST_logout_all_should_return_429_when_use_case_rate_limits() throws Exception {
+        when(tokenIssuer.verifyAccess(any())).thenReturn(Optional.of(new AccountId(42L)));
+        doThrow(new RateLimitedException("logout-all:42", Duration.ofSeconds(30)))
+                .when(logoutAllSessionsUseCase)
+                .execute(any());
+
+        mockMvc.perform(post("/api/v1/auth/logout-all").header("Authorization", "Bearer ok.jwt"))
+                .andExpect(status().isTooManyRequests())
+                .andExpect(header().string("Retry-After", "30"));
     }
 }

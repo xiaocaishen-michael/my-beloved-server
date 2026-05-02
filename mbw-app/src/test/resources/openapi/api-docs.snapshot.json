@@ -53,6 +53,17 @@
         }
       }
     },
+    "/api/v1/auth/logout-all" : {
+      "post" : {
+        "tags" : [ "auth-controller" ],
+        "operationId" : "logoutAll",
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          }
+        }
+      }
+    },
     "/api/v1/auth/login-by-phone-sms" : {
       "post" : {
         "tags" : [ "auth-controller" ],

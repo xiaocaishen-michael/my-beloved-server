@@ -1,18 +1,24 @@
 package com.mbw.account.web.controller;
 
 import com.mbw.account.application.command.LoginByPhoneSmsCommand;
+import com.mbw.account.application.command.LogoutAllSessionsCommand;
 import com.mbw.account.application.result.LoginByPasswordResult;
 import com.mbw.account.application.result.LoginByPhoneSmsResult;
 import com.mbw.account.application.result.RefreshTokenResult;
 import com.mbw.account.application.usecase.LoginByPasswordUseCase;
 import com.mbw.account.application.usecase.LoginByPhoneSmsUseCase;
+import com.mbw.account.application.usecase.LogoutAllSessionsUseCase;
 import com.mbw.account.application.usecase.RefreshTokenUseCase;
+import com.mbw.account.domain.exception.InvalidCredentialsException;
+import com.mbw.account.domain.model.AccountId;
+import com.mbw.account.domain.service.TokenIssuer;
 import com.mbw.account.web.request.LoginByPasswordRequest;
 import com.mbw.account.web.request.LoginByPhoneSmsRequest;
 import com.mbw.account.web.request.RefreshTokenRequest;
 import com.mbw.account.web.response.LoginResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
+import java.util.Optional;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -40,14 +46,20 @@ public class AuthController {
     private final LoginByPhoneSmsUseCase loginByPhoneSmsUseCase;
     private final LoginByPasswordUseCase loginByPasswordUseCase;
     private final RefreshTokenUseCase refreshTokenUseCase;
+    private final LogoutAllSessionsUseCase logoutAllSessionsUseCase;
+    private final TokenIssuer tokenIssuer;
 
     public AuthController(
             LoginByPhoneSmsUseCase loginByPhoneSmsUseCase,
             LoginByPasswordUseCase loginByPasswordUseCase,
-            RefreshTokenUseCase refreshTokenUseCase) {
+            RefreshTokenUseCase refreshTokenUseCase,
+            LogoutAllSessionsUseCase logoutAllSessionsUseCase,
+            TokenIssuer tokenIssuer) {
         this.loginByPhoneSmsUseCase = loginByPhoneSmsUseCase;
         this.loginByPasswordUseCase = loginByPasswordUseCase;
         this.refreshTokenUseCase = refreshTokenUseCase;
+        this.logoutAllSessionsUseCase = logoutAllSessionsUseCase;
+        this.tokenIssuer = tokenIssuer;
     }
 
     @PostMapping("/login-by-phone-sms")
@@ -69,6 +81,28 @@ public class AuthController {
             @Valid @RequestBody RefreshTokenRequest body, HttpServletRequest request) {
         RefreshTokenResult result = refreshTokenUseCase.execute(body.toCommand(clientIp(request)));
         return ResponseEntity.ok(new LoginResponse(result.accountId(), result.accessToken(), result.refreshToken()));
+    }
+
+    @PostMapping("/logout-all")
+    public ResponseEntity<Void> logoutAll(HttpServletRequest request) {
+        // Manual JWT verification — there is no Spring Security filter
+        // chain in M1.2 (per server pom: only spring-security-crypto for
+        // BCrypt + nimbus-jose-jwt). When a real filter chain ships in
+        // M3+, this controller-side check moves up into the filter and
+        // logout-all simply consumes @AuthenticationPrincipal.
+        AccountId accountId = extractAccountIdOrThrow(request);
+        logoutAllSessionsUseCase.execute(new LogoutAllSessionsCommand(accountId, clientIp(request)));
+        return ResponseEntity.noContent().build();
+    }
+
+    private AccountId extractAccountIdOrThrow(HttpServletRequest request) {
+        String authorization = request.getHeader("Authorization");
+        if (authorization == null || !authorization.startsWith("Bearer ")) {
+            throw new InvalidCredentialsException();
+        }
+        String token = authorization.substring("Bearer ".length()).trim();
+        Optional<AccountId> verified = tokenIssuer.verifyAccess(token);
+        return verified.orElseThrow(InvalidCredentialsException::new);
     }
 
     /**
