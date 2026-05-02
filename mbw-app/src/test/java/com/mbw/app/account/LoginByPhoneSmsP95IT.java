@@ -6,7 +6,14 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 
 import com.mbw.MbwApplication;
+import com.mbw.account.domain.model.Account;
+import com.mbw.account.domain.model.AccountStateMachine;
+import com.mbw.account.domain.model.PhoneCredential;
+import com.mbw.account.domain.model.PhoneNumber;
+import com.mbw.account.domain.repository.AccountRepository;
+import com.mbw.account.domain.repository.CredentialRepository;
 import com.mbw.shared.api.sms.SmsClient;
+import java.time.Instant;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.UUID;
@@ -24,6 +31,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
@@ -79,6 +87,15 @@ class LoginByPhoneSmsP95IT {
     @Autowired
     private TestRestTemplate restTemplate;
 
+    @Autowired
+    private AccountRepository accountRepository;
+
+    @Autowired
+    private CredentialRepository credentialRepository;
+
+    @Autowired
+    private TransactionTemplate transactionTemplate;
+
     @MockBean
     private SmsClient smsClient;
 
@@ -118,13 +135,14 @@ class LoginByPhoneSmsP95IT {
     }
 
     /**
-     * One full sample = register + request login code + login. The
-     * register portion sets up the persistent state; only the
-     * {@code login-by-phone-sms} call's wall clock is measured.
+     * One full sample = pre-seed account via repos + request login code +
+     * login. Only the {@code login-by-phone-sms} call's wall clock is
+     * measured. Pre-seeding bypasses {@code /sms-codes} for the register
+     * setup so the per-phone 60s rate-limit bucket stays fresh for the
+     * subsequent LOGIN-purpose code request.
      */
     private long runOneLogin() {
         String phone = uniquePhone();
-        String ip = uniqueIp();
         AtomicReference<String> capturedCode = new AtomicReference<>();
         doAnswer(inv -> {
                     Map<String, String> params = inv.getArgument(2);
@@ -136,28 +154,16 @@ class LoginByPhoneSmsP95IT {
                 .when(smsClient)
                 .send(eq(phone), any(), any());
 
-        // Setup: register the account (untimed)
-        ResponseEntity<Void> smsResp1 = restTemplate.postForEntity(
-                "/api/v1/sms-codes", jsonRequest("{\"phone\":\"" + phone + "\"}", ip), Void.class);
-        if (smsResp1.getStatusCode() != HttpStatus.OK) {
-            throw new AssertionError("setup sms-codes returned " + smsResp1.getStatusCode());
-        }
-        ResponseEntity<Void> registerResp = restTemplate.postForEntity(
-                "/api/v1/accounts/register-by-phone",
-                jsonRequest("{\"phone\":\"" + phone + "\",\"code\":\"" + capturedCode.get() + "\"}", ip),
-                Void.class);
-        if (registerResp.getStatusCode() != HttpStatus.OK) {
-            throw new AssertionError("setup register returned " + registerResp.getStatusCode());
-        }
+        // Setup: pre-seed an ACTIVE account directly via repos (untimed)
+        seedActiveAccount(phone);
 
         // Issue a fresh LOGIN code (untimed)
-        capturedCode.set(null);
-        ResponseEntity<Void> smsResp2 = restTemplate.postForEntity(
+        ResponseEntity<Void> smsResp = restTemplate.postForEntity(
                 "/api/v1/sms-codes",
                 jsonRequest("{\"phone\":\"" + phone + "\",\"purpose\":\"LOGIN\"}", uniqueIp()),
                 Void.class);
-        if (smsResp2.getStatusCode() != HttpStatus.OK) {
-            throw new AssertionError("login sms-codes returned " + smsResp2.getStatusCode());
+        if (smsResp.getStatusCode() != HttpStatus.OK) {
+            throw new AssertionError("login sms-codes returned " + smsResp.getStatusCode());
         }
 
         // Timed: login
@@ -171,6 +177,17 @@ class LoginByPhoneSmsP95IT {
             throw new AssertionError("login returned " + loginResp.getStatusCode());
         }
         return elapsedMs;
+    }
+
+    private void seedActiveAccount(String phone) {
+        transactionTemplate.executeWithoutResult(status -> {
+            Instant now = Instant.now();
+            PhoneNumber phoneNumber = new PhoneNumber(phone);
+            Account account = new Account(phoneNumber, now);
+            AccountStateMachine.activate(account, now);
+            Account saved = accountRepository.save(account);
+            credentialRepository.save(new PhoneCredential(saved.id(), phoneNumber, now));
+        });
     }
 
     private static long percentile(long[] samples, int pct) {
