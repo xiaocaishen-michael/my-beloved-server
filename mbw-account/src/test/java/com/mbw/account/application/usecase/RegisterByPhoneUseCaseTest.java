@@ -22,6 +22,7 @@ import com.mbw.account.domain.model.PasswordHash;
 import com.mbw.account.domain.model.PhoneCredential;
 import com.mbw.account.domain.repository.AccountRepository;
 import com.mbw.account.domain.repository.CredentialRepository;
+import com.mbw.account.domain.repository.RefreshTokenRepository;
 import com.mbw.account.domain.service.PasswordHasher;
 import com.mbw.account.domain.service.TokenIssuer;
 import com.mbw.shared.api.sms.AttemptOutcome;
@@ -70,6 +71,9 @@ class RegisterByPhoneUseCaseTest {
     private TokenIssuer tokenIssuer;
 
     @Mock
+    private RefreshTokenRepository refreshTokenRepository;
+
+    @Mock
     private TransactionTemplate transactionTemplate;
 
     private RegisterByPhoneUseCase useCase;
@@ -83,6 +87,7 @@ class RegisterByPhoneUseCaseTest {
                 credentialRepository,
                 passwordHasher,
                 tokenIssuer,
+                refreshTokenRepository,
                 transactionTemplate);
 
         // Pass-through transaction template: invoke the callback directly

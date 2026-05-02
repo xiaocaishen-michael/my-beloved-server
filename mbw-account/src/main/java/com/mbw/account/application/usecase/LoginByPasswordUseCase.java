@@ -7,10 +7,13 @@ import com.mbw.account.domain.model.Account;
 import com.mbw.account.domain.model.AccountStateMachine;
 import com.mbw.account.domain.model.PasswordHash;
 import com.mbw.account.domain.model.PhoneNumber;
+import com.mbw.account.domain.model.RefreshTokenRecord;
 import com.mbw.account.domain.repository.AccountRepository;
 import com.mbw.account.domain.repository.CredentialRepository;
+import com.mbw.account.domain.repository.RefreshTokenRepository;
 import com.mbw.account.domain.service.PasswordHasher;
 import com.mbw.account.domain.service.PhonePolicy;
+import com.mbw.account.domain.service.RefreshTokenHasher;
 import com.mbw.account.domain.service.TimingDefenseExecutor;
 import com.mbw.account.domain.service.TokenIssuer;
 import com.mbw.shared.web.RateLimitService;
@@ -70,12 +73,14 @@ public class LoginByPasswordUseCase {
             .capacity(100)
             .refillIntervally(100, Duration.ofHours(24))
             .build();
+    static final Duration REFRESH_TOKEN_TTL = Duration.ofDays(30);
 
     private final RateLimitService rateLimitService;
     private final AccountRepository accountRepository;
     private final CredentialRepository credentialRepository;
     private final PasswordHasher passwordHasher;
     private final TokenIssuer tokenIssuer;
+    private final RefreshTokenRepository refreshTokenRepository;
     private final TransactionTemplate transactionTemplate;
 
     public LoginByPasswordUseCase(
@@ -84,12 +89,14 @@ public class LoginByPasswordUseCase {
             CredentialRepository credentialRepository,
             PasswordHasher passwordHasher,
             TokenIssuer tokenIssuer,
+            RefreshTokenRepository refreshTokenRepository,
             TransactionTemplate transactionTemplate) {
         this.rateLimitService = rateLimitService;
         this.accountRepository = accountRepository;
         this.credentialRepository = credentialRepository;
         this.passwordHasher = passwordHasher;
         this.tokenIssuer = tokenIssuer;
+        this.refreshTokenRepository = refreshTokenRepository;
         this.transactionTemplate = transactionTemplate;
     }
 
@@ -125,7 +132,11 @@ public class LoginByPasswordUseCase {
             Account account = accountRepository.findByPhone(phone).orElseThrow();
             String access = tokenIssuer.signAccess(account.id());
             String refresh = tokenIssuer.signRefresh();
-            accountRepository.updateLastLoginAt(account.id(), Instant.now());
+            Instant now = Instant.now();
+            accountRepository.updateLastLoginAt(account.id(), now);
+            // Phase 1.3 retrofit: persist the refresh token (FR-009 of 1.3)
+            refreshTokenRepository.save(RefreshTokenRecord.createActive(
+                    RefreshTokenHasher.hash(refresh), account.id(), now.plus(REFRESH_TOKEN_TTL), now));
             return new LoginByPasswordResult(account.id().value(), access, refresh);
         });
     }

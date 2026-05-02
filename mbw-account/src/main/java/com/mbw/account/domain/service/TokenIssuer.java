@@ -1,6 +1,7 @@
 package com.mbw.account.domain.service;
 
 import com.mbw.account.domain.model.AccountId;
+import java.util.Optional;
 
 /**
  * Domain-side abstraction for issuing post-authentication tokens
@@ -23,4 +24,14 @@ public interface TokenIssuer {
 
     /** @return URL-safe base64-encoded 256-bit random opaque token */
     String signRefresh();
+
+    /**
+     * Verify a JWT access token and extract its {@code sub} claim as an
+     * {@link AccountId}. Returns empty when the token is malformed,
+     * signed with a different secret, or expired (any failure mode
+     * collapses to "not a usable identity"). Used by Phase 1.4
+     * logout-all to authenticate the requester without a full Spring
+     * Security filter chain.
+     */
+    Optional<AccountId> verifyAccess(String token);
 }

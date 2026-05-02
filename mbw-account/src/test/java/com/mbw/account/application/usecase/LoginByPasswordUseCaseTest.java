@@ -22,6 +22,7 @@ import com.mbw.account.domain.model.PasswordHash;
 import com.mbw.account.domain.model.PhoneNumber;
 import com.mbw.account.domain.repository.AccountRepository;
 import com.mbw.account.domain.repository.CredentialRepository;
+import com.mbw.account.domain.repository.RefreshTokenRepository;
 import com.mbw.account.domain.service.PasswordHasher;
 import com.mbw.account.domain.service.TimingDefenseExecutor;
 import com.mbw.account.domain.service.TokenIssuer;
@@ -68,6 +69,9 @@ class LoginByPasswordUseCaseTest {
     private TokenIssuer tokenIssuer;
 
     @Mock
+    private RefreshTokenRepository refreshTokenRepository;
+
+    @Mock
     private TransactionTemplate transactionTemplate;
 
     private LoginByPasswordUseCase useCase;
@@ -80,6 +84,7 @@ class LoginByPasswordUseCaseTest {
                 credentialRepository,
                 passwordHasher,
                 tokenIssuer,
+                refreshTokenRepository,
                 transactionTemplate);
 
         // Pass-through transaction template

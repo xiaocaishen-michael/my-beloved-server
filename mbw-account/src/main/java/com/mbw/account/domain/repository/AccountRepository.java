@@ -19,6 +19,13 @@ public interface AccountRepository {
     Optional<Account> findByPhone(PhoneNumber phone);
 
     /**
+     * Look up by id. Used by use cases that already hold an
+     * {@link AccountId} (e.g. RefreshTokenUseCase resolving the
+     * account linked to a refresh token record).
+     */
+    Optional<Account> findById(AccountId accountId);
+
+    /**
      * Pre-flight uniqueness check for FR-005. Note this does <b>not</b>
      * substitute for the database's UNIQUE constraint — concurrent
      * registers can both pass {@code !existsByPhone} and only one will
