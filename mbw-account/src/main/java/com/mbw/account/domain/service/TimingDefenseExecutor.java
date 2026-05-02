@@ -1,6 +1,8 @@
 package com.mbw.account.domain.service;
 
+import com.mbw.account.domain.model.PasswordHash;
 import java.time.Duration;
+import java.util.Objects;
 import java.util.function.Supplier;
 
 /**
@@ -37,6 +39,20 @@ import java.util.function.Supplier;
  */
 public final class TimingDefenseExecutor {
 
+    /**
+     * Pre-computed BCrypt cost-8 hash used by
+     * {@link #executeWithBCryptVerify} when the
+     * {@code hashSupplier} would otherwise return null (account not
+     * found / no PASSWORD credential / FROZEN). The {@link PasswordHash}
+     * regex validates the format. The plaintext is irrelevant — this is
+     * never going to match any user-provided input; its sole purpose is
+     * to keep the wall-clock cost of BCrypt verify constant across the
+     * "real account" and "no such account" paths (login-by-password
+     * FR-009 anti-enumeration).
+     */
+    public static final PasswordHash DUMMY_HASH =
+            new PasswordHash("$2a$08$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy");
+
     private TimingDefenseExecutor() {}
 
     /**
@@ -57,6 +73,54 @@ public final class TimingDefenseExecutor {
         } finally {
             padRemaining(target, startNanos);
         }
+    }
+
+    /**
+     * Run a BCrypt verify and dispatch to the match / mismatch branches,
+     * keeping the wall-clock cost identical regardless of whether the
+     * hash came from a real account or a dummy fallback.
+     *
+     * <p>The {@code hashSupplier} contract is "always non-null": when the
+     * caller cannot produce a real hash (account not found / password
+     * not set / FROZEN), it must return {@link #DUMMY_HASH} so the
+     * BCrypt computation runs anyway. The verify result drives the
+     * branch:
+     *
+     * <ul>
+     *   <li>matches → {@code onMatch.get()}
+     *   <li>mismatches (real hash that doesn't match, or any DUMMY_HASH
+     *       path because the user input never hashes to the dummy
+     *       value) → {@code onMismatch.get()}
+     * </ul>
+     *
+     * <p>Used by login-by-password (FR-009): all four failure modes
+     * (wrong password / unregistered phone / no password set / FROZEN)
+     * collapse into the same {@code onMismatch} response shape, so
+     * neither response body nor wall-clock time leaks the failure
+     * reason.
+     *
+     * @param hasher domain-side BCrypt wrapper
+     * @param userInput plaintext password from the request
+     * @param hashSupplier closes over the lookup logic; must never
+     *     return null
+     * @param onMatch invoked when {@code hasher.matches} returns true
+     * @param onMismatch invoked otherwise; typically throws
+     *     {@code InvalidCredentialsException}
+     */
+    public static <T> T executeWithBCryptVerify(
+            PasswordHasher hasher,
+            String userInput,
+            Supplier<PasswordHash> hashSupplier,
+            Supplier<T> onMatch,
+            Supplier<T> onMismatch) {
+        Objects.requireNonNull(hasher, "hasher must not be null");
+        Objects.requireNonNull(userInput, "userInput must not be null");
+        Objects.requireNonNull(hashSupplier, "hashSupplier must not be null");
+        Objects.requireNonNull(onMatch, "onMatch must not be null");
+        Objects.requireNonNull(onMismatch, "onMismatch must not be null");
+        PasswordHash hash =
+                Objects.requireNonNull(hashSupplier.get(), "hashSupplier must return non-null PasswordHash");
+        return hasher.matches(userInput, hash) ? onMatch.get() : onMismatch.get();
     }
 
     private static void padRemaining(Duration target, long startNanos) {

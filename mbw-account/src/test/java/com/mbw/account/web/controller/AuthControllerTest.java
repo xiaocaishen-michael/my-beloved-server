@@ -8,8 +8,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.mbw.account.application.command.LoginByPasswordCommand;
 import com.mbw.account.application.command.LoginByPhoneSmsCommand;
+import com.mbw.account.application.result.LoginByPasswordResult;
 import com.mbw.account.application.result.LoginByPhoneSmsResult;
+import com.mbw.account.application.usecase.LoginByPasswordUseCase;
 import com.mbw.account.application.usecase.LoginByPhoneSmsUseCase;
 import com.mbw.account.domain.exception.InvalidCredentialsException;
 import com.mbw.account.web.exception.AccountWebExceptionAdvice;
@@ -37,15 +40,19 @@ class AuthControllerTest {
 
     private static final String PHONE = "+8613800138000";
     private static final String CODE = "123456";
+    private static final String PASSWORD = "MyStrongP4ss";
 
     @Mock
     private LoginByPhoneSmsUseCase loginByPhoneSmsUseCase;
+
+    @Mock
+    private LoginByPasswordUseCase loginByPasswordUseCase;
 
     private MockMvc mockMvc;
 
     @BeforeEach
     void setUp() {
-        mockMvc = MockMvcBuilders.standaloneSetup(new AuthController(loginByPhoneSmsUseCase))
+        mockMvc = MockMvcBuilders.standaloneSetup(new AuthController(loginByPhoneSmsUseCase, loginByPasswordUseCase))
                 .setControllerAdvice(new AccountWebExceptionAdvice())
                 .build();
     }
@@ -102,6 +109,61 @@ class AuthControllerTest {
                         .content("{\"phone\":\"" + PHONE + "\",\"code\":\"" + CODE + "\"}"))
                 .andExpect(status().isTooManyRequests())
                 .andExpect(header().string("Retry-After", "3600"))
+                .andExpect(jsonPath("$.code").value("RATE_LIMITED"));
+    }
+
+    @Test
+    void POST_login_by_password_should_return_200_with_tokens() throws Exception {
+        when(loginByPasswordUseCase.execute(any(LoginByPasswordCommand.class)))
+                .thenReturn(new LoginByPasswordResult(42L, "access-jwt", "refresh-token"));
+
+        mockMvc.perform(post("/api/v1/auth/login-by-password")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"phone\":\"" + PHONE + "\",\"password\":\"" + PASSWORD + "\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.accountId").value(42))
+                .andExpect(jsonPath("$.accessToken").value("access-jwt"))
+                .andExpect(jsonPath("$.refreshToken").value("refresh-token"));
+    }
+
+    @Test
+    void POST_login_by_password_should_return_400_on_blank_phone() throws Exception {
+        mockMvc.perform(post("/api/v1/auth/login-by-password")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"phone\":\"\",\"password\":\"" + PASSWORD + "\"}"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void POST_login_by_password_should_return_400_on_blank_password() throws Exception {
+        mockMvc.perform(post("/api/v1/auth/login-by-password")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"phone\":\"" + PHONE + "\",\"password\":\"\"}"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void POST_login_by_password_should_return_401_INVALID_CREDENTIALS_on_bad_password() throws Exception {
+        doThrow(new InvalidCredentialsException()).when(loginByPasswordUseCase).execute(any());
+
+        mockMvc.perform(post("/api/v1/auth/login-by-password")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"phone\":\"" + PHONE + "\",\"password\":\"" + PASSWORD + "\"}"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value(InvalidCredentialsException.CODE));
+    }
+
+    @Test
+    void POST_login_by_password_should_return_429_with_Retry_After_on_rate_limit() throws Exception {
+        doThrow(new RateLimitedException("auth:1.2.3.4", Duration.ofHours(2)))
+                .when(loginByPasswordUseCase)
+                .execute(any());
+
+        mockMvc.perform(post("/api/v1/auth/login-by-password")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"phone\":\"" + PHONE + "\",\"password\":\"" + PASSWORD + "\"}"))
+                .andExpect(status().isTooManyRequests())
+                .andExpect(header().string("Retry-After", "7200"))
                 .andExpect(jsonPath("$.code").value("RATE_LIMITED"));
     }
 }

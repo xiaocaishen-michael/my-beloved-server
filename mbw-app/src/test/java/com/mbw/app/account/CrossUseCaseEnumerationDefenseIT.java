@@ -7,10 +7,13 @@ import static org.mockito.Mockito.doNothing;
 import com.mbw.MbwApplication;
 import com.mbw.account.domain.model.Account;
 import com.mbw.account.domain.model.AccountStateMachine;
+import com.mbw.account.domain.model.PasswordCredential;
+import com.mbw.account.domain.model.PasswordHash;
 import com.mbw.account.domain.model.PhoneCredential;
 import com.mbw.account.domain.model.PhoneNumber;
 import com.mbw.account.domain.repository.AccountRepository;
 import com.mbw.account.domain.repository.CredentialRepository;
+import com.mbw.account.domain.service.PasswordHasher;
 import com.mbw.shared.api.sms.SmsClient;
 import java.time.Instant;
 import java.util.UUID;
@@ -93,6 +96,9 @@ class CrossUseCaseEnumerationDefenseIT {
     private CredentialRepository credentialRepository;
 
     @Autowired
+    private PasswordHasher passwordHasher;
+
+    @Autowired
     private TransactionTemplate transactionTemplate;
 
     @MockBean
@@ -154,6 +160,80 @@ class CrossUseCaseEnumerationDefenseIT {
                 .isEqualTo(n3);
     }
 
+    @Test
+    void login_by_password_3_failure_paths_byte_identical() {
+        // Path 4: login-by-password registered + wrong password
+        String pwdRegistered = uniquePhone();
+        seedActiveAccountWithPassword(pwdRegistered, "MyStrongP4ss");
+        ResponseEntity<String> loginPwdWrong = restTemplate.postForEntity(
+                "/api/v1/auth/login-by-password",
+                jsonRequest("{\"phone\":\"" + pwdRegistered + "\",\"password\":\"NotTheRightP4ssword\"}", uniqueIp()),
+                String.class);
+
+        // Path 5: login-by-password unregistered phone
+        String pwdUnregistered = uniquePhone();
+        ResponseEntity<String> loginPwdUnregistered = restTemplate.postForEntity(
+                "/api/v1/auth/login-by-password",
+                jsonRequest("{\"phone\":\"" + pwdUnregistered + "\",\"password\":\"AnyP4ssword\"}", uniqueIp()),
+                String.class);
+
+        // Path 6: login-by-password registered but no password set
+        String pwdNoPassword = uniquePhone();
+        seedActiveAccount(pwdNoPassword); // no PasswordCredential
+        ResponseEntity<String> loginPwdNoSet = restTemplate.postForEntity(
+                "/api/v1/auth/login-by-password",
+                jsonRequest("{\"phone\":\"" + pwdNoPassword + "\",\"password\":\"AnyP4ssword\"}", uniqueIp()),
+                String.class);
+
+        assertThat(loginPwdWrong.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+        assertThat(loginPwdUnregistered.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+        assertThat(loginPwdNoSet.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+
+        String n4 = normalize(loginPwdWrong.getBody());
+        String n5 = normalize(loginPwdUnregistered.getBody());
+        String n6 = normalize(loginPwdNoSet.getBody());
+
+        assertThat(n4)
+                .as("login-by-password wrong-password vs unregistered byte-identical")
+                .isEqualTo(n5);
+        assertThat(n5)
+                .as("login-by-password unregistered vs no-password-set byte-identical")
+                .isEqualTo(n6);
+    }
+
+    @Test
+    void cross_endpoint_invalid_credentials_byte_identical_modulo_path() {
+        // Cross-endpoint: register-already vs login-by-password wrong-password.
+        // Same INVALID_CREDENTIALS body shape; only the {@code instance} URL
+        // differs (which the normalize() helper strips, like traceId).
+        String registeredForRegFail = uniquePhone();
+        seedActiveAccount(registeredForRegFail);
+        doNothing().when(smsClient).send(any(), any(), any());
+        ResponseEntity<Void> reSms = restTemplate.postForEntity(
+                "/api/v1/sms-codes",
+                jsonRequest("{\"phone\":\"" + registeredForRegFail + "\"}", uniqueIp()),
+                Void.class);
+        assertThat(reSms.getStatusCode()).isEqualTo(HttpStatus.OK);
+        ResponseEntity<String> registerAlready = restTemplate.postForEntity(
+                "/api/v1/accounts/register-by-phone",
+                jsonRequest("{\"phone\":\"" + registeredForRegFail + "\",\"code\":\"123456\"}", uniqueIp()),
+                String.class);
+
+        String pwdRegistered = uniquePhone();
+        seedActiveAccountWithPassword(pwdRegistered, "MyStrongP4ss");
+        ResponseEntity<String> loginPwdWrong = restTemplate.postForEntity(
+                "/api/v1/auth/login-by-password",
+                jsonRequest("{\"phone\":\"" + pwdRegistered + "\",\"password\":\"NotTheRightP4ssword\"}", uniqueIp()),
+                String.class);
+
+        assertThat(registerAlready.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+        assertThat(loginPwdWrong.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+
+        assertThat(normalize(registerAlready.getBody()))
+                .as("register-already vs login-by-password wrong-password byte-identical (modulo path)")
+                .isEqualTo(normalize(loginPwdWrong.getBody()));
+    }
+
     /**
      * Strip per-request fields (traceId, instance URL — auto-filled by
      * RFC 9457 ProblemDetail per request path) so the remaining body
@@ -183,6 +263,25 @@ class CrossUseCaseEnumerationDefenseIT {
             AccountStateMachine.activate(account, now);
             Account saved = accountRepository.save(account);
             credentialRepository.save(new PhoneCredential(saved.id(), phoneNumber, now));
+        });
+    }
+
+    /**
+     * Same as {@link #seedActiveAccount} but also persists a PASSWORD
+     * credential (used by login-by-password failure-path tests where we
+     * need the account to have a password set so the wrong-password
+     * branch differs from the no-password branch).
+     */
+    private void seedActiveAccountWithPassword(String phone, String plaintext) {
+        transactionTemplate.executeWithoutResult(status -> {
+            Instant now = Instant.now();
+            PhoneNumber phoneNumber = new PhoneNumber(phone);
+            Account account = new Account(phoneNumber, now);
+            AccountStateMachine.activate(account, now);
+            Account saved = accountRepository.save(account);
+            credentialRepository.save(new PhoneCredential(saved.id(), phoneNumber, now));
+            PasswordHash hash = passwordHasher.hash(plaintext);
+            credentialRepository.save(new PasswordCredential(saved.id(), hash, now));
         });
     }
 
