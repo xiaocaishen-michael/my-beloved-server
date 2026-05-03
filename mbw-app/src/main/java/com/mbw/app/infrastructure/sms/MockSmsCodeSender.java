@@ -6,6 +6,7 @@ import com.mbw.shared.api.email.EmailSender;
 import com.mbw.shared.api.sms.SmsClient;
 import com.mbw.shared.api.sms.SmsSendException;
 import java.util.Map;
+import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -63,11 +64,12 @@ public class MockSmsCodeSender implements SmsClient {
 
     @Override
     public void send(String phone, String templateId, Map<String, String> params) {
+        // Subject 必须唯一：aliyun / gmail 等反垃圾按 (sender, recipient, subject) 去重，
+        // dev 反复触发同号同 code → 后续邮件静默丢弃。8-char UUID 后缀 cheap 又稳。
+        String subject = "[mbw mock SMS] code for " + phone + " ["
+                + UUID.randomUUID().toString().substring(0, 8) + "]";
         EmailMessage msg = new EmailMessage(
-                properties.from(),
-                properties.recipient(),
-                "[mbw mock SMS] code for " + phone,
-                buildBody(phone, templateId, params));
+                properties.from(), properties.recipient(), subject, buildBody(phone, templateId, params));
 
         try {
             emailSender.send(msg);

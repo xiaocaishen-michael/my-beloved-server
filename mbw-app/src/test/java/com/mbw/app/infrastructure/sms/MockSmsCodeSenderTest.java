@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 import com.mbw.shared.api.email.EmailMessage;
@@ -11,6 +12,7 @@ import com.mbw.shared.api.email.EmailSendException;
 import com.mbw.shared.api.email.EmailSender;
 import com.mbw.shared.api.sms.SmsSendException;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -74,6 +76,23 @@ class MockSmsCodeSenderTest {
         assertThatThrownBy(() -> sender.send("+8613800138000", "SMS_REGISTER_A", Map.of("code", "123456")))
                 .isInstanceOf(SmsSendException.class)
                 .hasMessageContaining("Mock SMS send failed");
+    }
+
+    @Test
+    @DisplayName("同号连续发送时 subject 唯一（绕开 mailbox 反垃圾 dedup）")
+    void subject_unique_across_consecutive_sends_to_same_phone() {
+        // M1 mock 通道：同号同 code 反复发送（dev 反复测短信流程）时 aliyun /
+        // gmail 等收件方反垃圾系统会按 (sender, recipient, subject) 哈希去重，
+        // 后续相同 subject 邮件被静默丢弃 — 详见 docs/experience/...（待补）。
+        Map<String, String> params = Map.of("code", "111111");
+
+        sender.send("+8613800138000", "SMS_REGISTER_A", params);
+        sender.send("+8613800138000", "SMS_REGISTER_A", params);
+
+        ArgumentCaptor<EmailMessage> captor = ArgumentCaptor.forClass(EmailMessage.class);
+        verify(emailSender, times(2)).send(captor.capture());
+        List<EmailMessage> sent = captor.getAllValues();
+        assertThat(sent.get(0).subject()).isNotEqualTo(sent.get(1).subject());
     }
 
     @Test
