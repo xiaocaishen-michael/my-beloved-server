@@ -1,19 +1,12 @@
 package com.mbw.account.web.controller;
 
-import com.mbw.account.application.command.LoginByPhoneSmsCommand;
 import com.mbw.account.application.command.LogoutAllSessionsCommand;
-import com.mbw.account.application.result.LoginByPasswordResult;
-import com.mbw.account.application.result.LoginByPhoneSmsResult;
 import com.mbw.account.application.result.RefreshTokenResult;
-import com.mbw.account.application.usecase.LoginByPasswordUseCase;
-import com.mbw.account.application.usecase.LoginByPhoneSmsUseCase;
 import com.mbw.account.application.usecase.LogoutAllSessionsUseCase;
 import com.mbw.account.application.usecase.RefreshTokenUseCase;
 import com.mbw.account.domain.exception.InvalidCredentialsException;
 import com.mbw.account.domain.model.AccountId;
 import com.mbw.account.domain.service.TokenIssuer;
-import com.mbw.account.web.request.LoginByPasswordRequest;
-import com.mbw.account.web.request.LoginByPhoneSmsRequest;
 import com.mbw.account.web.request.RefreshTokenRequest;
 import com.mbw.account.web.response.LoginResponse;
 import jakarta.servlet.http.HttpServletRequest;
@@ -26,54 +19,35 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * HTTP entry points for authentication use cases (login-by-phone-sms in
- * Phase 1.1; login-by-password in Phase 1.2; refresh-token / logout-all
- * to follow in Phases 1.3 / 1.4 — same controller, parallel methods).
+ * HTTP entry points for token-lifecycle auth use cases (refresh-token
+ * + logout-all). The login entry points have moved to
+ * {@code AccountAuthController} under {@code /api/v1/accounts/phone-sms-auth}
+ * (per ADR-0016 unified mobile-first phone-SMS auth).
  *
  * <p>Spec mapping:
  *
  * <ul>
- *   <li>{@code POST /api/v1/auth/login-by-phone-sms} —
- *       {@code spec/account/login-by-phone-sms/spec.md} FR-002
- *   <li>{@code POST /api/v1/auth/login-by-password} —
- *       {@code spec/account/login-by-password/spec.md} FR-002
+ *   <li>{@code POST /api/v1/auth/refresh-token} —
+ *       {@code spec/account/refresh-token/spec.md}
+ *   <li>{@code POST /api/v1/auth/logout-all} —
+ *       {@code spec/account/logout-all/spec.md}
  * </ul>
  */
 @RestController
 @RequestMapping("/api/v1/auth")
 public class AuthController {
 
-    private final LoginByPhoneSmsUseCase loginByPhoneSmsUseCase;
-    private final LoginByPasswordUseCase loginByPasswordUseCase;
     private final RefreshTokenUseCase refreshTokenUseCase;
     private final LogoutAllSessionsUseCase logoutAllSessionsUseCase;
     private final TokenIssuer tokenIssuer;
 
     public AuthController(
-            LoginByPhoneSmsUseCase loginByPhoneSmsUseCase,
-            LoginByPasswordUseCase loginByPasswordUseCase,
             RefreshTokenUseCase refreshTokenUseCase,
             LogoutAllSessionsUseCase logoutAllSessionsUseCase,
             TokenIssuer tokenIssuer) {
-        this.loginByPhoneSmsUseCase = loginByPhoneSmsUseCase;
-        this.loginByPasswordUseCase = loginByPasswordUseCase;
         this.refreshTokenUseCase = refreshTokenUseCase;
         this.logoutAllSessionsUseCase = logoutAllSessionsUseCase;
         this.tokenIssuer = tokenIssuer;
-    }
-
-    @PostMapping("/login-by-phone-sms")
-    public ResponseEntity<LoginResponse> loginByPhoneSms(@Valid @RequestBody LoginByPhoneSmsRequest body) {
-        LoginByPhoneSmsResult result =
-                loginByPhoneSmsUseCase.execute(new LoginByPhoneSmsCommand(body.phone(), body.code()));
-        return ResponseEntity.ok(new LoginResponse(result.accountId(), result.accessToken(), result.refreshToken()));
-    }
-
-    @PostMapping("/login-by-password")
-    public ResponseEntity<LoginResponse> loginByPassword(
-            @Valid @RequestBody LoginByPasswordRequest body, HttpServletRequest request) {
-        LoginByPasswordResult result = loginByPasswordUseCase.execute(body.toCommand(clientIp(request)));
-        return ResponseEntity.ok(new LoginResponse(result.accountId(), result.accessToken(), result.refreshToken()));
     }
 
     @PostMapping("/refresh-token")
