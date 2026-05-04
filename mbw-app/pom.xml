@@ -81,7 +81,11 @@
     <dependency>
       <groupId>net.logstash.logback</groupId>
       <artifactId>logstash-logback-encoder</artifactId>
-      <version>9.0</version>
+      <!-- Pinned to 8.x: 9.x switched to Jackson 3.x (tools.jackson.core)
+           which currently ships with HIGH CVEs (CVE-2026-29062 +
+           GHSA-2m67-wjpj-xhg9). Revisit when migrating to Spring Boot 4
+           ecosystem (M3+). See dependabot.yml ignore. -->
+      <version>8.0</version>
     </dependency>
     <dependency>
       <groupId>io.micrometer</groupId>
