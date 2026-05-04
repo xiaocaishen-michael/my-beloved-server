@@ -90,6 +90,10 @@ services:
     restart: unless-stopped
     # No public port — nginx talks to app:8080 via docker network.
     environment:
+      # Spring profile — pin to prod so application.yml's spring.profiles.default=dev
+      # does NOT silently activate DevCorsConfig (would open CORS to localhost:8081
+      # in production). Must stay set; do not delete.
+      SPRING_PROFILES_ACTIVE: prod
       # JVM — A-Tight v2 single 4GB host shared with PG/Redis/nginx;
       # heap caps at 1.5g (vs A-Split's 2g). ExitOnOutOfMemoryError
       # makes container restart policy do the recovery instead of swap.

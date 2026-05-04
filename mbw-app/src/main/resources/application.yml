@@ -2,6 +2,14 @@ spring:
   application:
     name: mbw
 
+  profiles:
+    # Dev is the default when nothing is set (e.g. local `./mvnw spring-boot:run`)
+    # so DevCorsConfig (gated on @Profile("dev")) automatically activates and the
+    # Expo Web client at localhost:8081 can reach this API. Production deployments
+    # MUST set SPRING_PROFILES_ACTIVE=prod (see docker-compose.tight.yml) — without
+    # an active override, dev kicks in and CORS opens up to localhost:8081.
+    default: dev
+
   mvc:
     # RFC 9457 ProblemDetail for all error responses (cross-cutting baseline,
     # see GlobalExceptionHandler in mbw-shared.web).

@@ -13,6 +13,7 @@ import com.mbw.account.domain.repository.VerificationCodeRepository;
 import com.mbw.account.domain.repository.VerificationCodeRepository.AttemptOutcome;
 import com.mbw.account.domain.service.PasswordHasher;
 import com.mbw.shared.api.sms.SmsCodeService;
+import com.mbw.shared.web.RateLimitedException;
 import java.security.SecureRandom;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
@@ -53,12 +54,18 @@ class RedisSmsCodeServiceTest {
     }
 
     @Test
-    void generateAndStore_should_throw_when_storeIfAbsent_returns_false() {
+    void generateAndStore_should_throw_RateLimited_when_pending_code_already_exists() {
         SmsCodeService service = new RedisSmsCodeService(repository, passwordHasher, new SecureRandom());
         when(passwordHasher.hash(any())).thenReturn(new PasswordHash(STORED_HASH));
         when(repository.storeIfAbsent(any(), any(), any())).thenReturn(false);
 
-        assertThatThrownBy(() -> service.generateAndStore(PHONE)).isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(() -> service.generateAndStore(PHONE))
+                .isInstanceOf(RateLimitedException.class)
+                .satisfies(ex -> {
+                    RateLimitedException rle = (RateLimitedException) ex;
+                    assertThat(rle.getLimitKey()).isEqualTo("sms-code-pending:" + PHONE);
+                    assertThat(rle.getRetryAfter()).isEqualTo(RedisSmsCodeService.CODE_TTL);
+                });
     }
 
     @Test
