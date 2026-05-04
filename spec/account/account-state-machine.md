@@ -46,6 +46,37 @@ ACTIVE ───── delete_account ─────▶ FROZEN
 - Scheduled job: 每天扫 `status='FROZEN' AND frozen_at + 15d <= now()`，执行 anonymize（详见 PRD § 4）
 - Event: `AccountAnonymizedEvent` 通过 Spring Modulith 跨模块通知（M2+ pkm 等）
 
+## Auto-create on phone-sms-auth (per ADR-0016)
+
+M1.2 起，`POST /api/v1/accounts/phone-sms-auth`（unified login/register endpoint，per [ADR-0016](https://github.com/xiaocaishen-michael/no-vain-years/blob/main/docs/adr/0016-unified-mobile-first-auth.md)）解析未注册 phone 时**自动创建 ACTIVE 账号**：
+
+```text
+phone not in DB
+   ↓
+phone-sms-auth use case 验证 SMS code 通过
+   ↓
+[transactional] AccountFactory.createWithPhone(phone)
+                     .withStatus(ACTIVE)
+                     .withLastLoginAt(now())
+   ↓
+AccountRepository.save(newAccount)
+   ↓
+EventPublisher.publish(new AccountCreatedEvent(newAccount.id, phone, now()))
+   ↓ (outbox 由 Spring Modulith Event Publication Registry 持久化)
+TokenIssuer.issue(newAccount.id) → return PhoneSmsAuthResult
+```
+
+**关键性质**：
+
+- 客户端无感知"创建"动作 — 响应与已注册 ACTIVE login 路径字节级一致（per phone-sms-auth spec FR-006 反枚举）
+- 并发同号通过 `account.phone` partial unique index + `@Transactional(SERIALIZABLE)` 兜底；duplicated insert 异常回退到已注册路径
+- 不引入新状态 — 仍是 `ACTIVE` 起步，与既有 `register-by-phone` 创建路径同终态（仅入口路径不同）
+- ANONYMIZED 账号的 phone 字段被匿名化为 NULL（per PRD § 5.5），故曾被注销的 phone 在新 phone-sms-auth 路径下视为"未注册"，可被任意人重新创建为新 accountId（不恢复匿名化数据，per PRD § 5.5"不可逆"）
+
+**Supersedes**: [register-by-phone spec](./register-by-phone/SUPERSEDED.md) 中的 ACTIVE 创建路径（旧 endpoint 删除，per ADR-0016 决策 2）。
+
 ## References
 
 - PRD: [meta `docs/requirement/account-center.v2.md` § 4 注销与匿名化](https://github.com/xiaocaishen-michael/no-vain-years/blob/main/docs/requirement/account-center.v2.md)
+- [phone-sms-auth spec](./phone-sms-auth/spec.md) — unified auth FR-005 / FR-006 / FR-008 + Edge Cases
+- [ADR-0016](https://github.com/xiaocaishen-michael/no-vain-years/blob/main/docs/adr/0016-unified-mobile-first-auth.md) — 上游决策
