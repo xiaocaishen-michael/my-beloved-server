@@ -6,6 +6,7 @@ import com.mbw.account.domain.repository.VerificationCodeRepository;
 import com.mbw.account.domain.service.PasswordHasher;
 import com.mbw.shared.api.sms.AttemptOutcome;
 import com.mbw.shared.api.sms.SmsCodeService;
+import com.mbw.shared.web.RateLimitedException;
 import java.security.SecureRandom;
 import java.time.Duration;
 import java.util.Locale;
@@ -60,11 +61,12 @@ public class RedisSmsCodeService implements SmsCodeService {
         PasswordHash hash = passwordHasher.hash(plaintext);
         boolean stored = repository.storeIfAbsent(phoneNumber, hash.value(), CODE_TTL);
         if (!stored) {
-            // FR-006 60s rate limit upstream should make this rare; surface
-            // as IllegalStateException so the controller maps to 500 and
-            // ops alerts fire — silently ignoring would let the user think
-            // a code was sent without one being delivered
-            throw new IllegalStateException("Pending verification code already exists for phone");
+            // FR-006 60s rate limit upstream usually catches duplicate sends, but
+            // race conditions (multi-tab clicks, retried requests) can still arrive
+            // here. Surface as RateLimitedException → HTTP 429 so the user sees
+            // "请稍后再试" instead of a generic 500. CODE_TTL is the conservative
+            // upper bound on how long the existing code stays valid.
+            throw new RateLimitedException("sms-code-pending:" + phone, CODE_TTL);
         }
         return plaintext;
     }
