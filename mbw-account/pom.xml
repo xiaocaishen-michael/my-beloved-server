@@ -65,7 +65,7 @@
     <dependency>
       <groupId>com.nimbusds</groupId>
       <artifactId>nimbus-jose-jwt</artifactId>
-      <version>9.40</version>
+      <version>10.9</version>
     </dependency>
 
     <!-- Test stack: JUnit 5 + AssertJ + Mockito (versions via Spring Boot BOM in parent). -->
