@@ -6,7 +6,7 @@
   "paths" : {
     "/api/v1/sms-codes" : {
       "post" : {
-        "tags" : [ "account-register-controller" ],
+        "tags" : [ "account-sms-code-controller" ],
         "operationId" : "requestSmsCode",
         "requestBody" : {
           "content" : {
