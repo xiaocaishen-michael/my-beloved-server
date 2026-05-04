@@ -42,7 +42,7 @@ jobs:
 
       - name: Open regression issue on failure
         if: failure()
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         with:
           script: |
             const today = new Date().toISOString().split('T')[0];
@@ -84,7 +84,7 @@ jobs:
 
       - name: Open CVE issue on failure
         if: failure()
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         with:
           script: |
             const today = new Date().toISOString().split('T')[0];

@@ -53,7 +53,7 @@ jobs:
           echo "Deploying tag: $TAG"
 
       - name: Configure SSH agent
-        uses: webfactory/ssh-agent@v0.9.1
+        uses: webfactory/ssh-agent@v0.10.0
         with:
           ssh-private-key: ${{ secrets.APP_SSH_KEY }}
 
