@@ -21,6 +21,11 @@ updates:
         update-types: ["version-update:semver-major"]
       - dependency-name: "org.springdoc:*"
         update-types: ["version-update:semver-major"]
+      # logstash-logback-encoder 9.x switched to Jackson 3.x
+      # (tools.jackson.core), pulling in HIGH CVEs that block Trivy.
+      # Stay on 8.x until the Boot 4 / Jackson 3 ecosystem wave (M3+).
+      - dependency-name: "net.logstash.logback:*"
+        update-types: ["version-update:semver-major"]
     # Reduce PR noise by grouping related dependencies into single PRs.
     groups:
       spring:
