@@ -12,10 +12,14 @@ updates:
     # Boot 4 / Modulith 2 are deferred per ADR-0001 + scaffolding decision
     # (Modulith 2.x compat with Boot 4 verified at M3). Ignore major bumps
     # for now; patch/minor still proposed.
+    # springdoc 3.x requires Spring Boot 4 (autoconfigure repackaged); pin
+    # to 2.x until the Boot 4 wave (PR #109 verified the breakage).
     ignore:
       - dependency-name: "org.springframework.boot:*"
         update-types: ["version-update:semver-major"]
       - dependency-name: "org.springframework.modulith:*"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "org.springdoc:*"
         update-types: ["version-update:semver-major"]
     # Reduce PR noise by grouping related dependencies into single PRs.
     groups:

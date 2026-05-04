@@ -14,4 +14,7 @@ export default {
     'header-max-length': [2, 'always', 100],
     'subject-case': [0], // mixed Chinese/English; case rules don't apply
   },
+  // Skip body line-length check for dependabot — its auto-generated body
+  // includes long URLs from upstream release notes that we cannot reflow.
+  ignores: [(message) => /Signed-off-by: dependabot\[bot\]/.test(message)],
 };
