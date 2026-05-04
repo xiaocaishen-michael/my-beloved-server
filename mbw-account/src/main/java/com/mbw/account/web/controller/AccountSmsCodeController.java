@@ -27,20 +27,17 @@ import org.springframework.web.bind.annotation.RestController;
  *
  * <p>The legacy {@code POST /api/v1/accounts/register-by-phone} has
  * been removed (per ADR-0016 决策 2). The unified auth flow at
- * {@code POST /api/v1/accounts/phone-sms-auth} handles both register
- * and login internally — see {@link AccountAuthController}.
- *
- * <p>Class naming preserved (vs renaming to {@code AccountSmsCodeController})
- * to keep package history clean — the class no longer has any "register"
- * semantics, only the SMS-code request side of unified auth.
+ * {@code POST /api/v1/accounts/phone-sms-auth} handles both
+ * already-registered and new-phone (auto-create) paths internally —
+ * see {@link AccountAuthController}.
  */
 @RestController
 @RequestMapping("/api/v1")
-public class AccountRegisterController {
+public class AccountSmsCodeController {
 
     private final RequestSmsCodeUseCase requestSmsCodeUseCase;
 
-    public AccountRegisterController(RequestSmsCodeUseCase requestSmsCodeUseCase) {
+    public AccountSmsCodeController(RequestSmsCodeUseCase requestSmsCodeUseCase) {
         this.requestSmsCodeUseCase = requestSmsCodeUseCase;
     }
 

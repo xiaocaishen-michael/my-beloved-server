@@ -139,14 +139,14 @@ UseCase: RequestSmsCodeUseCase（既有，改逻辑）
 | 类 | 层 |
 |---|---|
 | `RegisterByPhoneUseCase` / `Command` / `Result` / `Request` / `Response` | application + web |
-| `AccountRegisterController#registerByPhone`（method）；如 controller 仅此 method 则删整 controller | web |
+| `AccountRegisterController#registerByPhone`（method）；controller 自身保留作 `/sms-codes` 入口并于本 PR cycle 重命名为 `AccountSmsCodeController`（per ADR-0016 命名一致性） | web |
 | `LoginByPhoneSmsUseCase` / `Command` / `Result` / `Request` / `Response` | application + web |
 | `LoginByPasswordUseCase` / `Command` / `Result` / `Request` / `Response` | application + web |
 | `AuthController#loginByPhoneSms` + `#loginByPassword`（method） | web |
 | `RegisterByPhoneE2EIT` / `LoginByPhoneSmsE2EIT` / `LoginByPasswordE2EIT` / `CrossUseCaseEnumerationDefenseIT` | test |
 | Template C 配置 `SMS_TEMPLATE_LOGIN_UNREGISTERED` | infrastructure |
 
-新 `AccountAuthController` 取代旧 `AuthController` + `AccountRegisterController` 中的 auth 相关 method（`requestSmsCode` 由独立 `AccountSmsCodeController` 承担）。
+新 `AccountAuthController` 取代旧 `AuthController` + 旧 `AccountRegisterController` 中的 auth 相关 method；`requestSmsCode` 由独立 `AccountSmsCodeController`（旧名 `AccountRegisterController`，本 PR cycle 已重命名）承担。
 
 ## 数据模型变更
 
@@ -208,9 +208,9 @@ TDD 节奏（per server CLAUDE.md § 一）：先写 use case unit test 红 → 
 | `/api/v1/accounts/register-by-phone` | **删除** |
 | `/api/v1/auth/login-by-phone-sms` | **删除** |
 | `/api/v1/auth/login-by-password` | **删除** |
-| OpenAPI tag | "Account Auth" 单 tag 取代旧 "Account Register" + "Auth" 双 tag（信息架构简化） |
+| OpenAPI tag | "Account Auth" + "Account Sms Code" 双 tag 取代旧 "Account Register" + "Auth"（信息架构简化；register UX 概念消失） |
 
-前端 `pnpm api:gen` 拉新 spec 自动同步：删 `AccountRegisterControllerApi` / `AuthControllerApi`，新增 `AccountAuthControllerApi`。
+前端 `pnpm api:gen` 拉新 spec 自动同步：删 `AuthControllerApi`，`AccountRegisterControllerApi` 重命名为 `AccountSmsCodeControllerApi`，新增 `AccountAuthControllerApi`。
 
 ## Constitution Check
 
