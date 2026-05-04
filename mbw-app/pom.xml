@@ -92,7 +92,7 @@
     <dependency>
       <groupId>com.aliyun</groupId>
       <artifactId>dysmsapi20170525</artifactId>
-      <version>3.0.0</version>
+      <version>4.5.1</version>
     </dependency>
     <!-- Aliyun SDK pulls com.squareup.okhttp3:okhttp 3.12.13 transitively
          (via com.aliyun:tea), which has CVE-2021-0341 (HIGH, fixed in 4.9.2).
