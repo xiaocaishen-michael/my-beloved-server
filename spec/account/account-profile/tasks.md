@@ -2,7 +2,28 @@
 
 **Spec**: [`./spec.md`](./spec.md) · **Plan**: [`./plan.md`](./plan.md)
 **Phase**: M1.2 onboarding 信号 + displayName 维护（per [ADR-0016](https://github.com/xiaocaishen-michael/no-vain-years/blob/main/docs/adr/0016-unified-mobile-first-auth.md) + [ADR-0017](https://github.com/xiaocaishen-michael/no-vain-years/blob/main/docs/adr/0017-sdd-business-flow-first-then-mockup.md)）
-**Status**: Draft（pending impl，docs-only PR）
+**Status**: ✅ Implemented（PR [#127](https://github.com/xiaocaishen-michael/my-beloved-server/pull/127) squash-merged at commit `7a08b3b`）
+
+## 实施记录
+
+T0-T9 全部已交付，PR #127 单 PR 含 10 个原子 commit（feature 分支保留多 commit 粒度而非常规 squash，便于审 TDD 红绿循环）：
+
+| Task | Commit | Subject |
+|---|---|---|
+| ✅ T0 | `7538dbb` | feat(account): introduce DisplayName value object |
+| ✅ T1 | `4fe1204` | feat(account): add displayName field to Account aggregate |
+| ✅ T2 | `2fe177b` | feat(account): V6 add display_name column to account.account |
+| ✅ T3 | `020f1df` | feat(account): persist displayName via hand-rolled mapper |
+| ✅ T4 | `5051f69` | feat(account): GetAccountProfile + UpdateDisplayName use cases |
+| ✅ T5 | `072dac3` | feat(account): JwtAuthFilter parses Bearer JWT into request attribute |
+| ✅ T6 | `121a503` | feat(account): /me GET + PATCH controller + 401 anti-enum advice |
+| ✅ T7 | `9c74750` | test(account): /me E2E IT + simplify auth attribute access |
+| ✅ T8 | `5ae0d80` | test(account): JwtAuthFailureUniformnessIT 4 paths byte-equal 401 |
+| ✅ T9 | `bad24e0` | test(account): regenerate OpenAPI snapshot for /me endpoints |
+
+T10（前端 `pnpm api:gen:dev` + spec / impl 配套）由 app 仓 PR [#63](https://github.com/xiaocaishen-michael/no-vain-years-app/pull/63) 落地，不在本仓范围。
+
+下文段落保留原 TDD 设计意图作为 reference（同模式 use case 可参考）。
 
 > **TDD enforcement**：每个 [Domain] / [Application] / [Infrastructure] / [Web] task 严格红 → 绿 → 重构（per server `CLAUDE.md` § 一）。每条 task 内**测试任务绑定到实现 task**，不独立列。
 >
