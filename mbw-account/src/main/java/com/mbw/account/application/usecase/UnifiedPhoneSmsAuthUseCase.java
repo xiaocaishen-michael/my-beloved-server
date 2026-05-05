@@ -1,6 +1,7 @@
 package com.mbw.account.application.usecase;
 
 import com.mbw.account.application.command.PhoneSmsAuthCommand;
+import com.mbw.account.application.config.AuthRateLimitProperties;
 import com.mbw.account.application.result.PhoneSmsAuthResult;
 import com.mbw.account.domain.exception.InvalidCredentialsException;
 import com.mbw.account.domain.model.Account;
@@ -77,10 +78,6 @@ import org.springframework.transaction.support.TransactionTemplate;
 public class UnifiedPhoneSmsAuthUseCase {
 
     static final String RATE_LIMIT_KEY_PREFIX = "auth:";
-    static final Bandwidth AUTH_PER_PHONE_24H = Bandwidth.builder()
-            .capacity(5)
-            .refillIntervally(5, Duration.ofHours(24))
-            .build();
     static final Duration TIMING_TARGET = Duration.ofMillis(400);
     static final Duration REFRESH_TOKEN_TTL = Duration.ofDays(30);
 
@@ -91,6 +88,7 @@ public class UnifiedPhoneSmsAuthUseCase {
     private final TokenIssuer tokenIssuer;
     private final RefreshTokenRepository refreshTokenRepository;
     private final TransactionTemplate transactionTemplate;
+    private final Bandwidth authBandwidth;
 
     public UnifiedPhoneSmsAuthUseCase(
             RateLimitService rateLimitService,
@@ -99,7 +97,8 @@ public class UnifiedPhoneSmsAuthUseCase {
             CredentialRepository credentialRepository,
             TokenIssuer tokenIssuer,
             RefreshTokenRepository refreshTokenRepository,
-            TransactionTemplate transactionTemplate) {
+            TransactionTemplate transactionTemplate,
+            AuthRateLimitProperties rateLimitProperties) {
         this.rateLimitService = rateLimitService;
         this.smsCodeService = smsCodeService;
         this.accountRepository = accountRepository;
@@ -107,6 +106,10 @@ public class UnifiedPhoneSmsAuthUseCase {
         this.tokenIssuer = tokenIssuer;
         this.refreshTokenRepository = refreshTokenRepository;
         this.transactionTemplate = transactionTemplate;
+        this.authBandwidth = Bandwidth.builder()
+                .capacity(rateLimitProperties.capacity())
+                .refillIntervally(rateLimitProperties.capacity(), rateLimitProperties.period())
+                .build();
     }
 
     public PhoneSmsAuthResult execute(PhoneSmsAuthCommand cmd) {
@@ -116,7 +119,7 @@ public class UnifiedPhoneSmsAuthUseCase {
     private PhoneSmsAuthResult doExecute(PhoneSmsAuthCommand cmd) {
         PhoneNumber phone = PhonePolicy.validate(cmd.phone());
 
-        rateLimitService.consumeOrThrow(RATE_LIMIT_KEY_PREFIX + phone.e164(), AUTH_PER_PHONE_24H);
+        rateLimitService.consumeOrThrow(RATE_LIMIT_KEY_PREFIX + phone.e164(), authBandwidth);
 
         AttemptOutcome verifyResult = smsCodeService.verify(phone.e164(), cmd.code());
         if (!verifyResult.success()) {

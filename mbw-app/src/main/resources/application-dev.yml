@@ -1,0 +1,14 @@
+# Dev profile overrides — picked up automatically when no SPRING_PROFILES_ACTIVE
+# is set (application.yml's spring.profiles.default=dev kicks in). Production
+# explicitly sets SPRING_PROFILES_ACTIVE=prod (docker-compose.tight.yml) so
+# none of this leaks.
+mbw:
+  auth:
+    rate-limit:
+      # Production default is 5 attempts per 24h (FR-007 brute-force defence).
+      # That cap burns through after a handful of E2E iterations on the same
+      # test phone, locking it for 24h. Relax to 50 per hour locally so
+      # iterative testing doesn't require manual Redis key deletion between
+      # runs. See AuthRateLimitProperties for defaults.
+      capacity: 50
+      period: 1h
