@@ -11,6 +11,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.mbw.account.application.command.PhoneSmsAuthCommand;
+import com.mbw.account.application.config.AuthRateLimitProperties;
 import com.mbw.account.application.result.PhoneSmsAuthResult;
 import com.mbw.account.domain.exception.InvalidCredentialsException;
 import com.mbw.account.domain.exception.InvalidPhoneFormatException;
@@ -100,7 +101,8 @@ class UnifiedPhoneSmsAuthUseCaseTest {
                 credentialRepository,
                 tokenIssuer,
                 refreshTokenRepository,
-                transactionTemplate);
+                transactionTemplate,
+                new AuthRateLimitProperties(5, Duration.ofHours(24)));
     }
 
     private PhoneSmsAuthCommand cmd() {
