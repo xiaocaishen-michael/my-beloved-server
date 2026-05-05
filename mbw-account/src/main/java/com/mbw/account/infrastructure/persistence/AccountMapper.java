@@ -4,10 +4,13 @@ import com.mbw.account.domain.model.Account;
 import com.mbw.account.domain.model.AccountId;
 import com.mbw.account.domain.model.AccountStatus;
 import com.mbw.account.domain.model.Credential;
+import com.mbw.account.domain.model.DisplayName;
 import com.mbw.account.domain.model.PasswordCredential;
 import com.mbw.account.domain.model.PasswordHash;
 import com.mbw.account.domain.model.PhoneCredential;
 import com.mbw.account.domain.model.PhoneNumber;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Hand-rolled mapper between domain types and JPA entities.
@@ -26,6 +29,8 @@ import com.mbw.account.domain.model.PhoneNumber;
  */
 public final class AccountMapper {
 
+    private static final Logger LOG = LoggerFactory.getLogger(AccountMapper.class);
+
     private AccountMapper() {}
 
     public static Account toDomain(AccountJpaEntity entity) {
@@ -35,7 +40,29 @@ public final class AccountMapper {
                 AccountStatus.valueOf(entity.getStatus()),
                 entity.getCreatedAt(),
                 entity.getUpdatedAt(),
-                entity.getLastLoginAt());
+                entity.getLastLoginAt(),
+                toDisplayName(entity.getDisplayName(), entity.getId()));
+    }
+
+    /**
+     * Decode a stored {@code display_name} string back into a
+     * {@link DisplayName} VO. Persisted values were validated by the VO
+     * on the way in, but the column predates {@link DisplayName} (a row
+     * could carry corrupted bytes after a restore from an external
+     * source, or a future tightening of FR-005 could orphan older
+     * values). Tolerate by logging WARN + returning {@code null} so the
+     * GET /me happy path keeps responding instead of 500-ing.
+     */
+    private static DisplayName toDisplayName(String raw, Long accountId) {
+        if (raw == null) {
+            return null;
+        }
+        try {
+            return new DisplayName(raw);
+        } catch (IllegalArgumentException ex) {
+            LOG.warn("Account {} has corrupted display_name; coercing to null. Reason: {}", accountId, ex.getMessage());
+            return null;
+        }
     }
 
     /**
@@ -53,6 +80,8 @@ public final class AccountMapper {
         entity.setCreatedAt(account.createdAt());
         entity.setUpdatedAt(account.updatedAt());
         entity.setLastLoginAt(account.lastLoginAt());
+        entity.setDisplayName(
+                account.displayName() == null ? null : account.displayName().value());
         return entity;
     }
 

@@ -1,5 +1,7 @@
 package com.mbw.account.web.exception;
 
+import com.mbw.account.domain.exception.AccountInactiveException;
+import com.mbw.account.domain.exception.AccountNotFoundException;
 import com.mbw.account.domain.exception.InvalidCredentialsException;
 import com.mbw.account.domain.exception.InvalidPhoneFormatException;
 import com.mbw.account.domain.exception.WeakPasswordException;
@@ -92,6 +94,26 @@ public class AccountWebExceptionAdvice {
                 HttpStatus.SERVICE_UNAVAILABLE, "SMS gateway temporarily unavailable; please retry");
         problem.setTitle("SMS send failed");
         problem.setProperty("code", "SMS_SEND_FAILED");
+        return problem;
+    }
+
+    /**
+     * Anti-enumeration uniform 401 (account-profile FR-002 / FR-009).
+     * The four paths — missing token / invalid-or-expired token /
+     * unknown account id / account.status != ACTIVE — produce the
+     * exact same {@link ProblemDetail} bytes so a caller cannot tell
+     * which arm fired. Verified end-to-end by
+     * {@code JwtAuthFailureUniformnessIT} (T8).
+     */
+    @ExceptionHandler({
+        MissingAuthenticationException.class,
+        AccountNotFoundException.class,
+        AccountInactiveException.class
+    })
+    public ProblemDetail onAuthFailure(RuntimeException ex) {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.UNAUTHORIZED, "Authentication failed");
+        problem.setTitle("Authentication failed");
+        problem.setProperty("code", "AUTH_FAILED");
         return problem;
     }
 }

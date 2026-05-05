@@ -75,4 +75,27 @@ public final class AccountStateMachine {
         Objects.requireNonNull(account, "account must not be null");
         return account.status() == AccountStatus.ACTIVE;
     }
+
+    /**
+     * Update the account's {@link DisplayName} (account-profile spec
+     * FR-005). Only ACTIVE accounts may transition; FROZEN /
+     * ANONIMIZED rejection happens here so use cases get a uniform
+     * IllegalStateException to map to the 401 anti-enumeration path
+     * (FR-009).
+     *
+     * @param account the target account; status must be ACTIVE
+     * @param displayName the new value, validated by its constructor
+     * @param at the update instant; written to {@link Account#updatedAt}
+     * @return the same account (mutated in place) for fluent use case
+     *     composition
+     * @throws IllegalStateException if {@code account.status()} is not
+     *     ACTIVE
+     */
+    public static Account changeDisplayName(Account account, DisplayName displayName, Instant at) {
+        Objects.requireNonNull(account, "account must not be null");
+        Objects.requireNonNull(displayName, "displayName must not be null");
+        Objects.requireNonNull(at, "at must not be null");
+        account.setDisplayName(displayName, at);
+        return account;
+    }
 }

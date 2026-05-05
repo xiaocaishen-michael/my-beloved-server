@@ -38,6 +38,7 @@ public final class Account {
     private final Instant createdAt;
     private Instant updatedAt;
     private Instant lastLoginAt;
+    private DisplayName displayName;
 
     public Account(PhoneNumber phone, Instant createdAt) {
         this.phone = Objects.requireNonNull(phone, "phone must not be null");
@@ -60,6 +61,10 @@ public final class Account {
      * the persisted row carries a non-null {@code last_login_at}; the
      * 5-arg overload remains for older callers that pre-date the
      * {@code login-by-phone-sms} use case (FR-004 / V3 migration).
+     *
+     * <p>Delegates to the 7-arg overload with {@code displayName=null};
+     * use the 7-arg form when the persisted row carries a non-null
+     * {@code display_name} (account-profile FR-007 / V6 migration).
      */
     public static Account reconstitute(
             AccountId id,
@@ -68,6 +73,23 @@ public final class Account {
             Instant createdAt,
             Instant updatedAt,
             Instant lastLoginAt) {
+        return reconstitute(id, phone, status, createdAt, updatedAt, lastLoginAt, /* displayName= */ null);
+    }
+
+    /**
+     * Reconstruct including {@link #displayName}. Used by the repository
+     * implementation when the persisted row carries a non-null
+     * {@code display_name} (account-profile spec FR-001 / V6 migration);
+     * earlier overloads default it to {@code null}.
+     */
+    public static Account reconstitute(
+            AccountId id,
+            PhoneNumber phone,
+            AccountStatus status,
+            Instant createdAt,
+            Instant updatedAt,
+            Instant lastLoginAt,
+            DisplayName displayName) {
         Objects.requireNonNull(id, "id must not be null");
         Objects.requireNonNull(status, "status must not be null");
         Objects.requireNonNull(updatedAt, "updatedAt must not be null");
@@ -76,6 +98,7 @@ public final class Account {
         account.status = status;
         account.updatedAt = updatedAt;
         account.lastLoginAt = lastLoginAt;
+        account.displayName = displayName;
         return account;
     }
 
@@ -101,6 +124,10 @@ public final class Account {
 
     public Instant lastLoginAt() {
         return lastLoginAt;
+    }
+
+    public DisplayName displayName() {
+        return displayName;
     }
 
     /**
@@ -146,6 +173,24 @@ public final class Account {
                     "Account status is " + this.status + ", cannot mark loggedIn (only ACTIVE permitted)");
         }
         this.lastLoginAt = at;
+        this.updatedAt = at;
+    }
+
+    /**
+     * Package-private mutator for onboarding / profile-update
+     * (account-profile FR-005). Only callable through
+     * {@link AccountStateMachine#changeDisplayName} so the
+     * "ACTIVE-only" invariant (FR-009) lives in a single place. Writes
+     * {@link #displayName} and refreshes {@link #updatedAt}.
+     */
+    void setDisplayName(DisplayName displayName, Instant at) {
+        Objects.requireNonNull(displayName, "displayName must not be null");
+        Objects.requireNonNull(at, "at must not be null");
+        if (this.status != AccountStatus.ACTIVE) {
+            throw new IllegalStateException(
+                    "Account status is " + this.status + ", cannot changeDisplayName (only ACTIVE permitted)");
+        }
+        this.displayName = displayName;
         this.updatedAt = at;
     }
 }

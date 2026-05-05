@@ -40,6 +40,9 @@ public class AccountJpaEntity {
     @Column(name = "last_login_at")
     private Instant lastLoginAt;
 
+    @Column(name = "display_name", length = 64)
+    private String displayName;
+
     public Long getId() {
         return id;
     }
@@ -86,5 +89,13 @@ public class AccountJpaEntity {
 
     public void setLastLoginAt(Instant lastLoginAt) {
         this.lastLoginAt = lastLoginAt;
+    }
+
+    public String getDisplayName() {
+        return displayName;
+    }
+
+    public void setDisplayName(String displayName) {
+        this.displayName = displayName;
     }
 }

@@ -7,6 +7,7 @@ import com.mbw.account.domain.model.Account;
 import com.mbw.account.domain.model.AccountId;
 import com.mbw.account.domain.model.AccountStateMachine;
 import com.mbw.account.domain.model.AccountStatus;
+import com.mbw.account.domain.model.DisplayName;
 import com.mbw.account.domain.model.PhoneNumber;
 import com.mbw.account.domain.repository.AccountRepository;
 import java.time.Instant;
@@ -240,6 +241,35 @@ class AccountRepositoryImplIT {
 
         assertThat(accountRepository.findByPhone(phone).orElseThrow().lastLoginAt())
                 .isEqualTo(secondLogin);
+    }
+
+    @Test
+    void save_with_null_displayName_persists_null_and_findById_returns_null() {
+        Instant now = Instant.now();
+        PhoneNumber phone = uniquePhone();
+        Account fresh = AccountStateMachine.activate(new Account(phone, now), now);
+        Account saved = accountRepository.save(fresh);
+
+        Account reloaded = accountRepository.findById(saved.id()).orElseThrow();
+
+        assertThat(reloaded.displayName()).isNull();
+    }
+
+    @Test
+    void save_then_findById_returns_displayName_when_set_via_state_machine() {
+        Instant savedAt = Instant.parse("2026-05-02T10:00:00Z");
+        PhoneNumber phone = uniquePhone();
+        Account fresh = AccountStateMachine.activate(new Account(phone, savedAt), savedAt);
+        accountRepository.save(fresh);
+
+        DisplayName name = new DisplayName("Alice");
+        Instant updateAt = Instant.parse("2026-05-02T10:01:00Z");
+        AccountStateMachine.changeDisplayName(fresh, name, updateAt);
+        accountRepository.save(fresh);
+
+        Account reloaded = accountRepository.findById(fresh.id()).orElseThrow();
+        assertThat(reloaded.displayName()).isEqualTo(name);
+        assertThat(reloaded.updatedAt()).isEqualTo(updateAt);
     }
 
     private static PhoneNumber uniquePhone() {

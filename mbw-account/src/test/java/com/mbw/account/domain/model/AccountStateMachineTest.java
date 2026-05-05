@@ -103,4 +103,74 @@ class AccountStateMachineTest {
     void canLogin_should_reject_null_account() {
         assertThatThrownBy(() -> AccountStateMachine.canLogin(null)).isInstanceOf(NullPointerException.class);
     }
+
+    @Test
+    void changeDisplayName_should_set_displayName_and_updatedAt_when_ACTIVE() {
+        Account account = Account.reconstitute(
+                new AccountId(1L), PHONE, AccountStatus.ACTIVE, CREATED_AT, CREATED_AT, /* lastLoginAt= */ null);
+        DisplayName name = new DisplayName("Alice");
+        Instant updateAt = CREATED_AT.plusSeconds(60);
+
+        Account result = AccountStateMachine.changeDisplayName(account, name, updateAt);
+
+        assertThat(result).isSameAs(account);
+        assertThat(account.displayName()).isEqualTo(name);
+        assertThat(account.updatedAt()).isEqualTo(updateAt);
+    }
+
+    @Test
+    void changeDisplayName_should_be_idempotent_on_same_value() {
+        Account account = Account.reconstitute(
+                new AccountId(1L),
+                PHONE,
+                AccountStatus.ACTIVE,
+                CREATED_AT,
+                CREATED_AT,
+                /* lastLoginAt= */ null,
+                new DisplayName("Alice"));
+        DisplayName same = new DisplayName("Alice");
+        Instant updateAt = CREATED_AT.plusSeconds(120);
+
+        AccountStateMachine.changeDisplayName(account, same, updateAt);
+
+        assertThat(account.displayName()).isEqualTo(same);
+        assertThat(account.updatedAt()).isEqualTo(updateAt);
+    }
+
+    @Test
+    void changeDisplayName_should_reject_FROZEN_account() {
+        Account account = Account.reconstitute(
+                new AccountId(1L), PHONE, AccountStatus.FROZEN, CREATED_AT, CREATED_AT, /* lastLoginAt= */ null);
+
+        assertThatThrownBy(() -> AccountStateMachine.changeDisplayName(
+                        account, new DisplayName("Alice"), CREATED_AT.plusSeconds(60)))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("FROZEN");
+    }
+
+    @Test
+    void changeDisplayName_should_reject_ANONYMIZED_account() {
+        Account account = Account.reconstitute(
+                new AccountId(1L), PHONE, AccountStatus.ANONYMIZED, CREATED_AT, CREATED_AT, /* lastLoginAt= */ null);
+
+        assertThatThrownBy(() -> AccountStateMachine.changeDisplayName(
+                        account, new DisplayName("Alice"), CREATED_AT.plusSeconds(60)))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("ANONYMIZED");
+    }
+
+    @Test
+    void changeDisplayName_should_reject_null_arguments() {
+        Account account = Account.reconstitute(
+                new AccountId(1L), PHONE, AccountStatus.ACTIVE, CREATED_AT, CREATED_AT, /* lastLoginAt= */ null);
+        DisplayName name = new DisplayName("Alice");
+        Instant at = CREATED_AT.plusSeconds(60);
+
+        assertThatThrownBy(() -> AccountStateMachine.changeDisplayName(null, name, at))
+                .isInstanceOf(NullPointerException.class);
+        assertThatThrownBy(() -> AccountStateMachine.changeDisplayName(account, null, at))
+                .isInstanceOf(NullPointerException.class);
+        assertThatThrownBy(() -> AccountStateMachine.changeDisplayName(account, name, null))
+                .isInstanceOf(NullPointerException.class);
+    }
 }
