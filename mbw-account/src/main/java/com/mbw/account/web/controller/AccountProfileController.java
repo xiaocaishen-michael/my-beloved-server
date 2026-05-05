@@ -4,9 +4,10 @@ import com.mbw.account.application.command.UpdateDisplayNameCommand;
 import com.mbw.account.application.usecase.GetAccountProfileUseCase;
 import com.mbw.account.application.usecase.UpdateDisplayNameUseCase;
 import com.mbw.account.domain.model.AccountId;
+import com.mbw.account.web.exception.MissingAuthenticationException;
 import com.mbw.account.web.request.UpdateDisplayNameRequest;
 import com.mbw.account.web.response.AccountProfileResponse;
-import com.mbw.account.web.security.AuthenticatedAccountId;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -49,14 +50,30 @@ public class AccountProfileController {
     }
 
     @GetMapping("/me")
-    public ResponseEntity<AccountProfileResponse> getMe(@AuthenticatedAccountId AccountId accountId) {
+    public ResponseEntity<AccountProfileResponse> getMe(HttpServletRequest request) {
+        AccountId accountId = authenticatedAccountId(request);
         return ResponseEntity.ok(AccountProfileResponse.from(getProfileUseCase.execute(accountId)));
     }
 
     @PatchMapping("/me")
     public ResponseEntity<AccountProfileResponse> patchMe(
-            @AuthenticatedAccountId AccountId accountId, @Valid @RequestBody UpdateDisplayNameRequest body) {
+            HttpServletRequest request, @Valid @RequestBody UpdateDisplayNameRequest body) {
+        AccountId accountId = authenticatedAccountId(request);
         return ResponseEntity.ok(AccountProfileResponse.from(
                 updateDisplayNameUseCase.execute(new UpdateDisplayNameCommand(accountId, body.displayName()))));
+    }
+
+    /**
+     * Read the {@code mbw.accountId} request attribute populated by the
+     * Bearer-JWT filter. Missing/wrong-type → {@link MissingAuthenticationException}
+     * → 401 (anti-enum, mapped uniformly with AccountNotFound /
+     * AccountInactive in {@code AccountWebExceptionAdvice}).
+     */
+    private static AccountId authenticatedAccountId(HttpServletRequest request) {
+        Object attr = request.getAttribute("mbw.accountId");
+        if (attr instanceof AccountId accountId) {
+            return accountId;
+        }
+        throw new MissingAuthenticationException();
     }
 }
