@@ -131,4 +131,41 @@ class AccountTest {
         assertThatThrownBy(() -> AccountStateMachine.markLoggedIn(account, CREATED_AT.plusSeconds(60)))
                 .isInstanceOf(IllegalStateException.class);
     }
+
+    @Test
+    void new_account_should_have_null_displayName() {
+        Account account = new Account(PHONE, CREATED_AT);
+
+        assertThat(account.displayName()).isNull();
+    }
+
+    @Test
+    void reconstitute_6_arg_overload_should_default_displayName_to_null() {
+        AccountId id = new AccountId(42L);
+
+        Account account = Account.reconstitute(id, PHONE, AccountStatus.ACTIVE, CREATED_AT, CREATED_AT, CREATED_AT);
+
+        assertThat(account.displayName()).isNull();
+    }
+
+    @Test
+    void reconstitute_7_arg_overload_should_carry_displayName() {
+        AccountId id = new AccountId(42L);
+        DisplayName name = new DisplayName("Alice");
+
+        Account account =
+                Account.reconstitute(id, PHONE, AccountStatus.ACTIVE, CREATED_AT, CREATED_AT, CREATED_AT, name);
+
+        assertThat(account.displayName()).isEqualTo(name);
+    }
+
+    @Test
+    void reconstitute_7_arg_overload_should_accept_null_displayName() {
+        AccountId id = new AccountId(42L);
+
+        Account account = Account.reconstitute(
+                id, PHONE, AccountStatus.ACTIVE, CREATED_AT, CREATED_AT, CREATED_AT, /* displayName= */ null);
+
+        assertThat(account.displayName()).isNull();
+    }
 }
