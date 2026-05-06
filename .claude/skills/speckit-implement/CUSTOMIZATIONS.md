@@ -40,7 +40,7 @@
   ```
 - **To** (本仓):
   ```
-  - **HARD STOP** *(local customization C3 — supersedes upstream `[X]` soft directive)*: 完成任务时,在 tasks.md heading 加 `✅`(per 上文 Task Closure Protocol),否则**禁止 commit**。run `git diff --cached --name-only | grep -q "tasks.md$"` 失败则回滚到 Task Closure Protocol 第 4 步。
+  - **HARD STOP** *(local customization C3 — supersedes upstream `[X]` soft directive)*: when completing a task, add `✅` to the tasks.md heading (per Task Closure Protocol above) before commit; **commit is forbidden otherwise**. If `git diff --cached --name-only | grep -q "tasks.md$"` fails, roll back to step 4 of Task Closure Protocol.
   ```
 
 ### C4 — frontmatter `localCustomized: true`

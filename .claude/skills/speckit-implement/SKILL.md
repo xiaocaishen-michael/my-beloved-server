@@ -6,7 +6,7 @@ compatibility: "Requires spec-kit project structure with .specify/ directory"
 metadata:
   author: "github-spec-kit"
   source: "templates/commands/implement.md"
-  localCustomized: true   # 本地新增 — 见 ./CUSTOMIZATIONS.md
+  localCustomized: true   # local customization — see ./CUSTOMIZATIONS.md
 user-invocable: true
 disable-model-invocation: false
 ---
@@ -155,34 +155,34 @@ You **MUST** consider the user input before proceeding (if not empty).
    - **File-based coordination**: Tasks affecting the same files must run sequentially
    - **Validation checkpoints**: Verify each phase completion before proceeding
 
-## Task Closure Protocol（per-task 强制闭环 — 项目本地约束 C1）
+## Task Closure Protocol (local project constraint — per-task hard closure)
 
-> 本节为 **local customization**(see `./CUSTOMIZATIONS.md` C1)。上游 spec-kit 仅在 step 8 末尾给出软指令 `mark off as [X]`,本项目要求硬闭环。
+> This section is a **local customization** (see `./CUSTOMIZATIONS.md` C1). Upstream spec-kit only provides a soft directive `mark off as [X]` at the end of step 8; this project requires hard closure.
 
-**适用范围**: 本仓 `spec/<module>/<usecase>/tasks.md` 任务执行。
+**Scope**: tasks under `spec/<module>/<usecase>/tasks.md` in this repo.
 
-每个 task 完成时**必须按以下顺序闭环**:
+When a task completes, **the following sequence is mandatory**:
 
-1. 写测试(per `[Test]` 任务,如有) → typecheck pass + 测试 RED
-2. 写实现 → 测试 GREEN
+1. Write tests (per `[Test]` task, if any) → typecheck pass + tests RED
+2. Write implementation → tests GREEN
 3. typecheck + lint pass
-4. **改 tasks.md**: 在 `### T<N> [<label>] ...` heading 紧跟 T 编号后加 `✅`(`### T<N> ✅ [<label>] ...`)
-5. `git add` 实现 + 测试 + tasks.md **同 stage**
-6. 进 commit 流程
+4. **Update tasks.md**: in the `### T<N> [<label>] ...` heading, insert `✅` right after the T number (`### T<N> ✅ [<label>] ...`)
+5. `git add` implementation + tests + tasks.md **in the same stage**
+6. Proceed to commit
 
-**状态语义（项目体例）**:
+**State semantics (project convention)**:
 
-- 无标记 = pending(此为 docs PR 出的初态)
-- `✅` = done(impl 时手动加)
-- 上游 spec-kit 默认 `[X]` 与本项目体例不兼容,**所有 `[X]` 出现处替换为 `✅`**
+- No marker = pending (this is the initial state shipped from the docs PR)
+- `✅` = done (manually added at impl time)
+- The upstream spec-kit default `[X]` is incompatible with this project's emoji convention; **replace every occurrence of `[X]` with `✅`**
 
-**Hard STOP**: stage 前必须 `git diff --cached --name-only | grep -q "tasks.md$"` —— 不通过则**拒绝进入 commit 流程**,先回到第 4 步补 ✅。
+**Hard STOP**: before staging, run `git diff --cached --name-only | grep -q "tasks.md$"` — if it fails, **refuse to enter the commit flow** and return to step 4 to add the `✅` first.
 
-**反模式**:
+**Anti-patterns**:
 
-- ❌ 多 task 批 1 commit 时漏改 tasks.md(2026-05-06 实证 commit `4d85a32`)
-- ❌ 进下一 task 前未确认上一 task 的 ✅ 已 staged 进 commit
-- ❌ 跑完 impl 喊 commit,事后再开补救 PR(login PR #55 / onboarding PR #128 实证)
+- ❌ Batching multiple tasks into a single commit and forgetting to update tasks.md (proven 2026-05-06 by commit `4d85a32`)
+- ❌ Moving to the next task before confirming the previous task's `✅` is staged in the commit
+- ❌ Running impl then opening a recovery PR after the fact (proven by login PR #55, onboarding PR #128)
 
 7. Implementation execution rules:
    - **Setup first**: Initialize project structure, dependencies, configuration
@@ -190,7 +190,7 @@ You **MUST** consider the user input before proceeding (if not empty).
    - **Core development**: Implement models, services, CLI commands, endpoints
    - **Integration work**: Database connections, middleware, logging, external services
    - **Polish and validation**: Unit tests, performance optimization, documentation
-   - **Pre-next-task assertion** *(local customization C2 — per Task Closure Protocol)*: 进入下一 task 前,run `git log -1 --stat | grep -q "tasks.md"` 确认上一 task 的 ✅ flip 已落入最新 commit;不在则回退到上一 task 补 commit,**不得继续**。
+   - **Pre-next-task assertion** *(local customization C2 — per Task Closure Protocol)*: before moving to the next task, run `git log -1 --stat | grep -q "tasks.md"` to confirm the previous task's `✅` flip landed in the latest commit; if not, return to the previous task and amend the commit — **do not proceed**.
 
 8. Progress tracking and error handling:
    - Report progress after each completed task
@@ -198,7 +198,7 @@ You **MUST** consider the user input before proceeding (if not empty).
    - For parallel tasks [P], continue with successful tasks, report failed ones
    - Provide clear error messages with context for debugging
    - Suggest next steps if implementation cannot proceed
-   - **HARD STOP** *(local customization C3 — supersedes upstream `[X]` soft directive)*: 完成任务时,在 tasks.md heading 加 `✅`(per 上文 Task Closure Protocol),否则**禁止 commit**。run `git diff --cached --name-only | grep -q "tasks.md$"` 失败则回滚到 Task Closure Protocol 第 4 步。
+   - **HARD STOP** *(local customization C3 — supersedes upstream `[X]` soft directive)*: when completing a task, add `✅` to the tasks.md heading (per Task Closure Protocol above) before commit; **commit is forbidden otherwise**. If `git diff --cached --name-only | grep -q "tasks.md$"` fails, roll back to step 4 of Task Closure Protocol.
 
 9. Completion validation:
    - Verify all required tasks are completed
