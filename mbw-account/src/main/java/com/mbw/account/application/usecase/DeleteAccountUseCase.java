@@ -22,6 +22,7 @@ import java.time.Instant;
 import java.util.HexFormat;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -71,7 +72,23 @@ public class DeleteAccountUseCase {
     private final ApplicationEventPublisher eventPublisher;
     private final Clock clock;
 
+    @Autowired
     public DeleteAccountUseCase(
+            RateLimitService rateLimitService,
+            AccountSmsCodeRepository smsCodeRepository,
+            AccountRepository accountRepository,
+            RefreshTokenRepository refreshTokenRepository,
+            ApplicationEventPublisher eventPublisher) {
+        this(
+                rateLimitService,
+                smsCodeRepository,
+                accountRepository,
+                refreshTokenRepository,
+                eventPublisher,
+                Clock.systemUTC());
+    }
+
+    DeleteAccountUseCase(
             RateLimitService rateLimitService,
             AccountSmsCodeRepository smsCodeRepository,
             AccountRepository accountRepository,

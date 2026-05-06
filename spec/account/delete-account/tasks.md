@@ -257,7 +257,7 @@ CREATE TABLE account.account_sms_code (
 
 ---
 
-### T10 [E2E] `AccountDeletionControllerE2EIT`
+### T10 ✅ [E2E] `AccountDeletionControllerE2EIT`
 
 **File**: `mbw-account/src/test/java/com/mbw/account/web/AccountDeletionControllerE2EIT.java`（**新建**）
 

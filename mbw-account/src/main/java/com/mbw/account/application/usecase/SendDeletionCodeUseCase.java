@@ -23,6 +23,7 @@ import java.util.HexFormat;
 import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 /**
@@ -62,7 +63,16 @@ public class SendDeletionCodeUseCase {
     private final SmsClient smsClient;
     private final Clock clock;
 
+    @Autowired
     public SendDeletionCodeUseCase(
+            RateLimitService rateLimitService,
+            AccountRepository accountRepository,
+            AccountSmsCodeRepository smsCodeRepository,
+            SmsClient smsClient) {
+        this(rateLimitService, accountRepository, smsCodeRepository, smsClient, Clock.systemUTC());
+    }
+
+    SendDeletionCodeUseCase(
             RateLimitService rateLimitService,
             AccountRepository accountRepository,
             AccountSmsCodeRepository smsCodeRepository,
