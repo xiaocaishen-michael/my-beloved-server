@@ -230,7 +230,7 @@ CREATE TABLE account.account_sms_code (
 
 ---
 
-### T9 [Web] `DeleteAccountRequest` + `AccountDeletionController`（含两 endpoint）
+### T9 ✅ [Web] `DeleteAccountRequest` + `AccountDeletionController`（含两 endpoint）
 
 **Files**:
 
