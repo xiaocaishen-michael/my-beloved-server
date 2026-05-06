@@ -149,7 +149,7 @@
 
 ---
 
-### T6 [E2E] `CancelDeletionControllerE2EIT`
+### T6 ✅ [E2E] `CancelDeletionControllerE2EIT`
 
 **File**: `mbw-account/src/test/java/com/mbw/account/web/CancelDeletionControllerE2EIT.java`（**新建**）
 
