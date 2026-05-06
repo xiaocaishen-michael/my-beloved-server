@@ -170,7 +170,7 @@
 
 ---
 
-### T7 [Concurrency] `CancelDeletionConcurrencyIT`
+### T7 ✅ [Concurrency] `CancelDeletionConcurrencyIT`
 
 **File**: `mbw-account/src/test/java/com/mbw/account/web/CancelDeletionConcurrencyIT.java`（**新建**）
 
