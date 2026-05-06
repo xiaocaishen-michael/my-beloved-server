@@ -10,7 +10,7 @@
 
 ## Critical Path(按依赖顺序)
 
-### T0 [Migration] V10 add `previous_phone_hash` + `@EnableScheduling` 决策
+### T0 ✅ [Migration] V10 add `previous_phone_hash` + `@EnableScheduling` 决策
 
 **Files**:
 
