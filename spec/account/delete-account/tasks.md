@@ -26,20 +26,37 @@
 
 ---
 
-### T1 [Migration] V8 add `purpose` column to `account.account_sms_code`
+### T1 [Migration] V8 create `account.account_sms_code` table (含 `purpose` 列)
 
-**File**: `mbw-account/src/main/resources/db/migration/account/V8__add_account_sms_code_purpose.sql`
+> **实现差异说明**：plan.md 假设 `account.account_sms_code` 已由 phone-sms-auth (PR #98/#118) 创建；
+> 实际上 PR #118 保持了 Redis-based `RedisVerificationCodeRepository`，PG 表从未落地。
+> 因此本 task 从 CREATE TABLE 起步（而非 ALTER TABLE ADD COLUMN），`purpose` 直接内含于建表 DDL，无需 DEFAULT 回填。
 
-**Logic**: per `plan.md` § Migration V8：
+**File**: `mbw-account/src/main/resources/db/migration/account/V8__create_account_sms_code_table.sql`
 
-- `ALTER TABLE account.account_sms_code ADD COLUMN purpose VARCHAR(32) NOT NULL DEFAULT 'PHONE_SMS_AUTH'` — DEFAULT 兜底既有行
-- 加 composite partial index `idx_account_sms_code_account_purpose_active ON (account_id, purpose) WHERE used_at IS NULL`
+**Logic**:
 
-**Test**: 同 T0 模式，断言：
+```sql
+CREATE TABLE account.account_sms_code (
+    id          BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    account_id  BIGINT NOT NULL,
+    code_hash   VARCHAR(64) NOT NULL,
+    purpose     VARCHAR(32) NOT NULL,
+    expires_at  TIMESTAMP WITH TIME ZONE NOT NULL,
+    used_at     TIMESTAMP WITH TIME ZONE NULL,
+    created_at  TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+    CONSTRAINT chk_account_sms_code_purpose
+        CHECK (purpose IN ('PHONE_SMS_AUTH', 'DELETE_ACCOUNT'))
+);
+```
 
-- 列存在 + DEFAULT 生效（既有行 purpose='PHONE_SMS_AUTH'）
-- 新写入行 purpose 必填
+- partial index `idx_account_sms_code_account_purpose_active ON (account_id, purpose) WHERE used_at IS NULL`
+
+**Test**: 同 T0 模式（Flyway container），断言：
+
+- 表存在 + 所有列存在 + `purpose` NOT NULL
 - partial index 创建成功
+- CHECK 约束拒绝无效 purpose 值
 
 **Dependencies**: 无。可与 T0 并行。
 
@@ -51,13 +68,13 @@
 
 - `mbw-account/src/main/java/com/mbw/account/domain/model/Account.java`（**改**，加 freezeUntil + markFrozen）
 - `mbw-account/src/main/java/com/mbw/account/domain/service/AccountStateMachine.java`（**改**，加 facade）
-- `mbw-account/src/main/java/com/mbw/account/domain/model/AccountSmsCodePurpose.java`（**改**，加 enum 值）
+- `mbw-account/src/main/java/com/mbw/account/domain/model/AccountSmsCodePurpose.java`（**新建**，含 `PHONE_SMS_AUTH` + `DELETE_ACCOUNT`；枚举从未存在于代码库）
 
 **Logic**:
 
 - `Account.markFrozen(Instant freezeUntil, Instant now)` package-private：校验 `status == ACTIVE` → 不满足抛 `IllegalAccountStateException("ACCOUNT_NOT_ACTIVE")`；满足则 `this.status = FROZEN; this.freezeUntil = freezeUntil; this.updatedAt = now;`
 - `AccountStateMachine.markFrozen(Account, Instant freezeUntil, Instant now)` facade：调 `account.markFrozen(...)`
-- `AccountSmsCodePurpose` enum 加 `DELETE_ACCOUNT`（已有 `PHONE_SMS_AUTH`）
+- `AccountSmsCodePurpose` enum 新建，直接含两值：`PHONE_SMS_AUTH`、`DELETE_ACCOUNT`
 
 **Test**:
 
@@ -83,23 +100,43 @@
 
 ---
 
-### T4 [Infra] `AccountSmsCodeJpaEntity.purpose` + `JpaRepository.findFirst...` + `RepositoryImpl.findActiveByPurposeAndAccountId`
+### T4 [Domain+Infra] AccountSmsCode 全栈新建（domain model + repository interface + JPA infra）
 
-**Files**:
+> **实现差异说明**：plan.md 将此 task 标为"改"（假设 AccountSmsCode* 已存在）。
+> 实际上这些文件均不存在，需从零新建：domain model、repository 接口、JPA entity、Spring Data repository、impl 适配器、MapStruct mapper。
 
-- `mbw-account/src/main/java/com/mbw/account/infrastructure/persistence/AccountSmsCodeJpaEntity.java`（**改**）
-- `mbw-account/src/main/java/com/mbw/account/infrastructure/persistence/AccountSmsCodeJpaRepository.java`（**改**）
-- `mbw-account/src/main/java/com/mbw/account/infrastructure/persistence/AccountSmsCodeRepositoryImpl.java`（**改**）
-- `mbw-account/src/main/java/com/mbw/account/infrastructure/persistence/AccountSmsCodeMapper.java`（**改**，purpose 双向映射）
+**Files — Domain layer（新建）**:
 
-**Logic**:
+- `mbw-account/src/main/java/com/mbw/account/domain/model/AccountSmsCode.java`（**新建**，aggregate）
+- `mbw-account/src/main/java/com/mbw/account/domain/model/AccountSmsCodeId.java`（**新建**，value object）
+- `mbw-account/src/main/java/com/mbw/account/domain/repository/AccountSmsCodeRepository.java`（**新建**，domain interface）
 
-- JpaEntity：`@Enumerated(EnumType.STRING) @Column(name = "purpose", nullable = false, length = 32) private AccountSmsCodePurpose purpose;`
-- JpaRepository：`Optional<AccountSmsCodeJpaEntity> findFirstByAccountIdAndPurposeAndUsedAtIsNullAndExpiresAtAfterOrderByCreatedAtDesc(Long accountId, AccountSmsCodePurpose purpose, Instant now);`
-- RepositoryImpl：`Optional<AccountSmsCode> findActiveByPurposeAndAccountId(AccountSmsCodePurpose purpose, AccountId accountId, Instant now)` → 调 JpaRepo + map
-- Mapper：扩展 purpose 字段双向
+**Files — Infrastructure layer（新建）**:
 
-**Test**: `AccountSmsCodeRepositoryImplIT`（**扩展**），Testcontainers PG。
+- `mbw-account/src/main/java/com/mbw/account/infrastructure/persistence/AccountSmsCodeJpaEntity.java`（**新建**）
+- `mbw-account/src/main/java/com/mbw/account/infrastructure/persistence/AccountSmsCodeJpaRepository.java`（**新建**）
+- `mbw-account/src/main/java/com/mbw/account/infrastructure/persistence/AccountSmsCodeRepositoryImpl.java`（**新建**）
+- `mbw-account/src/main/java/com/mbw/account/infrastructure/persistence/AccountSmsCodeMapper.java`（**新建**）
+
+**Logic — Domain model**:
+
+- `AccountSmsCode.create(AccountId, String codeHash, Instant expiresAt, AccountSmsCodePurpose)` factory
+- `AccountSmsCode.markUsed(Instant now)` package-private（只允许 RepositoryImpl 间接调用）
+- 字段：`AccountSmsCodeId id`、`AccountId accountId`、`String codeHash`、`AccountSmsCodePurpose purpose`、`Instant expiresAt`、`Instant usedAt`、`Instant createdAt`
+
+**Logic — Repository interface**:
+
+- `AccountSmsCode save(AccountSmsCode code)`
+- `Optional<AccountSmsCode> findActiveByPurposeAndAccountId(AccountSmsCodePurpose purpose, AccountId accountId, Instant now)`
+- `void markUsed(AccountSmsCodeId id, Instant now)`
+
+**Logic — JPA**:
+
+- JpaEntity：所有字段 + `@Enumerated(EnumType.STRING) @Column(name = "purpose", nullable = false, length = 32) private AccountSmsCodePurpose purpose`
+- JpaRepository：`Optional<AccountSmsCodeJpaEntity> findFirstByAccountIdAndPurposeAndUsedAtIsNullAndExpiresAtAfterOrderByCreatedAtDesc(Long accountId, AccountSmsCodePurpose purpose, Instant now)` + `@Modifying @Query("UPDATE ... SET used_at = :now WHERE id = :id") void markUsed(...)`
+- Mapper：JpaEntity ↔ AccountSmsCode 双向（MapStruct）
+
+**Test**: `AccountSmsCodeRepositoryImplIT`（**新建**），Testcontainers PG。
 
 - `should_findActiveByPurpose_return_active_record_when_DELETE_ACCOUNT_code_exists()`
 - `should_findActiveByPurpose_return_empty_when_only_PHONE_SMS_AUTH_exists()`（purpose 物理隔离断言）
