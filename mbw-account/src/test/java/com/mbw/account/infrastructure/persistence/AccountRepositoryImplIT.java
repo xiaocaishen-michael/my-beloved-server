@@ -11,6 +11,7 @@ import com.mbw.account.domain.model.DisplayName;
 import com.mbw.account.domain.model.PhoneNumber;
 import com.mbw.account.domain.repository.AccountRepository;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
@@ -253,6 +254,34 @@ class AccountRepositoryImplIT {
         Account reloaded = accountRepository.findById(saved.id()).orElseThrow();
 
         assertThat(reloaded.displayName()).isNull();
+    }
+
+    @Test
+    void should_persist_and_restore_freezeUntil_with_microsecond_precision() {
+        Instant now = Instant.now().truncatedTo(ChronoUnit.MICROS); // PG TIMESTAMPTZ stores µs precision
+        PhoneNumber phone = uniquePhone();
+        Account fresh = AccountStateMachine.activate(new Account(phone, now), now);
+        Account saved = accountRepository.save(fresh);
+
+        Instant freezeUntil = now.plusSeconds(15L * 24 * 3600).truncatedTo(ChronoUnit.MICROS);
+        AccountStateMachine.markFrozen(saved, freezeUntil, now);
+        accountRepository.save(saved);
+
+        Account reloaded = accountRepository.findByPhone(phone).orElseThrow();
+        assertThat(reloaded.status()).isEqualTo(AccountStatus.FROZEN);
+        assertThat(reloaded.freezeUntil()).isEqualTo(freezeUntil);
+    }
+
+    @Test
+    void should_persist_account_with_null_freezeUntil_when_status_ACTIVE() {
+        Instant now = Instant.now().truncatedTo(ChronoUnit.MICROS); // PG TIMESTAMPTZ stores µs precision
+        PhoneNumber phone = uniquePhone();
+        Account fresh = AccountStateMachine.activate(new Account(phone, now), now);
+        accountRepository.save(fresh);
+
+        Account reloaded = accountRepository.findByPhone(phone).orElseThrow();
+        assertThat(reloaded.status()).isEqualTo(AccountStatus.ACTIVE);
+        assertThat(reloaded.freezeUntil()).isNull();
     }
 
     @Test

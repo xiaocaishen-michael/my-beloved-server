@@ -148,7 +148,7 @@ CREATE TABLE account.account_sms_code (
 
 ---
 
-### T5 [Infra] `AccountJpaEntity.freezeUntil` + `AccountMapper`
+### T5 ✅ [Infra] `AccountJpaEntity.freezeUntil` + `AccountMapper`
 
 **Files**:
 

@@ -43,6 +43,9 @@ public class AccountJpaEntity {
     @Column(name = "display_name", length = 64)
     private String displayName;
 
+    @Column(name = "freeze_until")
+    private Instant freezeUntil;
+
     public Long getId() {
         return id;
     }
@@ -97,5 +100,13 @@ public class AccountJpaEntity {
 
     public void setDisplayName(String displayName) {
         this.displayName = displayName;
+    }
+
+    public Instant getFreezeUntil() {
+        return freezeUntil;
+    }
+
+    public void setFreezeUntil(Instant freezeUntil) {
+        this.freezeUntil = freezeUntil;
     }
 }

@@ -41,7 +41,8 @@ public final class AccountMapper {
                 entity.getCreatedAt(),
                 entity.getUpdatedAt(),
                 entity.getLastLoginAt(),
-                toDisplayName(entity.getDisplayName(), entity.getId()));
+                toDisplayName(entity.getDisplayName(), entity.getId()),
+                entity.getFreezeUntil());
     }
 
     /**
@@ -82,6 +83,7 @@ public final class AccountMapper {
         entity.setLastLoginAt(account.lastLoginAt());
         entity.setDisplayName(
                 account.displayName() == null ? null : account.displayName().value());
+        entity.setFreezeUntil(account.freezeUntil());
         return entity;
     }
 
