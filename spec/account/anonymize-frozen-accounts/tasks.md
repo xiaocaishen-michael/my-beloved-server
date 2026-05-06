@@ -174,7 +174,7 @@ public record AccountAnonymizedEvent(
 
 ---
 
-### T5 [App] `AnonymizeFrozenAccountUseCase`
+### T5 ✅ [App] `AnonymizeFrozenAccountUseCase`
 
 **File**: `mbw-account/src/main/java/com/mbw/account/application/usecase/AnonymizeFrozenAccountUseCase.java`(**新建**)
 
