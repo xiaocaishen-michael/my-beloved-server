@@ -10,7 +10,7 @@
 
 ## Critical Path（按依赖顺序）
 
-### T0 [Domain] `Account.markActiveFromFrozen` + `AccountStateMachine.markActiveFromFrozen` + `AccountSmsCodePurpose.CANCEL_DELETION`
+### T0 🔲 [Domain] `Account.markActiveFromFrozen` + `AccountStateMachine.markActiveFromFrozen` + `AccountSmsCodePurpose.CANCEL_DELETION`
 
 **Files**:
 
@@ -38,7 +38,7 @@
 
 ---
 
-### T1 [Domain] `AccountDeletionCancelledEvent` (api.event)
+### T1 🔲 [Domain] `AccountDeletionCancelledEvent` (api.event)
 
 **File**: `mbw-account/src/main/java/com/mbw/account/api/event/AccountDeletionCancelledEvent.java`（**新建**）
 
@@ -50,7 +50,7 @@
 
 ---
 
-### T2 [App] `SendCancelDeletionCodeCommand` + `CancelDeletionCommand` + `CancelDeletionResult`
+### T2 🔲 [App] `SendCancelDeletionCodeCommand` + `CancelDeletionCommand` + `CancelDeletionResult`
 
 **Files**:
 
@@ -70,7 +70,7 @@
 
 ---
 
-### T3 [App] `SendCancelDeletionCodeUseCase`
+### T3 🔲 [App] `SendCancelDeletionCodeUseCase`
 
 **File**: `mbw-account/src/main/java/com/mbw/account/application/usecase/SendCancelDeletionCodeUseCase.java`（**新建**）
 
@@ -93,7 +93,7 @@
 
 ---
 
-### T4 [App] `CancelDeletionUseCase`
+### T4 🔲 [App] `CancelDeletionUseCase`
 
 **File**: `mbw-account/src/main/java/com/mbw/account/application/usecase/CancelDeletionUseCase.java`（**新建**）
 
@@ -120,7 +120,7 @@
 
 ---
 
-### T5 [Web] `SendCancelDeletionCodeRequest` + `CancelDeletionRequest` + `CancelDeletionController`
+### T5 🔲 [Web] `SendCancelDeletionCodeRequest` + `CancelDeletionRequest` + `CancelDeletionController`
 
 **Files**:
 
@@ -149,7 +149,7 @@
 
 ---
 
-### T6 [E2E] `CancelDeletionControllerE2EIT`
+### T6 🔲 [E2E] `CancelDeletionControllerE2EIT`
 
 **File**: `mbw-account/src/test/java/com/mbw/account/web/CancelDeletionControllerE2EIT.java`（**新建**）
 
@@ -170,7 +170,7 @@
 
 ---
 
-### T7 [Concurrency] `CancelDeletionConcurrencyIT`
+### T7 🔲 [Concurrency] `CancelDeletionConcurrencyIT`
 
 **File**: `mbw-account/src/test/java/com/mbw/account/web/CancelDeletionConcurrencyIT.java`（**新建**）
 
@@ -186,7 +186,7 @@
 
 ---
 
-### T8 [E2E] `CrossUseCaseEnumerationDefenseIT` 扩展
+### T8 🔲 [E2E] `CrossUseCaseEnumerationDefenseIT` 扩展
 
 **File**: `mbw-account/src/test/java/com/mbw/account/web/CrossUseCaseEnumerationDefenseIT.java`（**多 use case 已建，本次扩展**）
 
@@ -201,7 +201,7 @@
 
 ---
 
-### T9 [Contract] OpenAPI snapshot regen
+### T9 🔲 [Contract] OpenAPI snapshot regen
 
 **File**: `mbw-account/src/test/resources/api-docs.snapshot.json`（**改**）
 
