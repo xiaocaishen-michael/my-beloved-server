@@ -8,7 +8,7 @@
 
 ## Critical Path（按依赖顺序）
 
-### T0 [Migration] V7 add `freeze_until` column to `account.account`
+### T0 ✅ [Migration] V7 add `freeze_until` column to `account.account`
 
 **File**: `mbw-account/src/main/resources/db/migration/account/V7__add_account_freeze_until.sql`
 
@@ -26,7 +26,7 @@
 
 ---
 
-### T1 [Migration] V8 create `account.account_sms_code` table (含 `purpose` 列)
+### T1 ✅ [Migration] V8 create `account.account_sms_code` table (含 `purpose` 列)
 
 > **实现差异说明**：plan.md 假设 `account.account_sms_code` 已由 phone-sms-auth (PR #98/#118) 创建；
 > 实际上 PR #118 保持了 Redis-based `RedisVerificationCodeRepository`，PG 表从未落地。
@@ -62,7 +62,7 @@ CREATE TABLE account.account_sms_code (
 
 ---
 
-### T2 [Domain] `Account.markFrozen` + `AccountStateMachine.markFrozen` + `AccountSmsCodePurpose.DELETE_ACCOUNT`
+### T2 ✅ [Domain] `Account.markFrozen` + `AccountStateMachine.markFrozen` + `AccountSmsCodePurpose.DELETE_ACCOUNT`
 
 **Files**:
 
@@ -88,7 +88,7 @@ CREATE TABLE account.account_sms_code (
 
 ---
 
-### T3 [Domain] `AccountDeletionRequestedEvent` (api.event)
+### T3 ✅ [Domain] `AccountDeletionRequestedEvent` (api.event)
 
 **File**: `mbw-account/src/main/java/com/mbw/account/api/event/AccountDeletionRequestedEvent.java`（**新建**）
 
@@ -100,7 +100,7 @@ CREATE TABLE account.account_sms_code (
 
 ---
 
-### T4 [Domain+Infra] AccountSmsCode 全栈新建（domain model + repository interface + JPA infra）
+### T4 ✅ [Domain+Infra] AccountSmsCode 全栈新建（domain model + repository interface + JPA infra）
 
 > **实现差异说明**：plan.md 将此 task 标为"改"（假设 AccountSmsCode* 已存在）。
 > 实际上这些文件均不存在，需从零新建：domain model、repository 接口、JPA entity、Spring Data repository、impl 适配器、MapStruct mapper。
@@ -166,7 +166,7 @@ CREATE TABLE account.account_sms_code (
 
 ---
 
-### T6 [App] `SendDeletionCodeCommand` + `DeleteAccountCommand`
+### T6 ✅ [App] `SendDeletionCodeCommand` + `DeleteAccountCommand`
 
 **Files**:
 
