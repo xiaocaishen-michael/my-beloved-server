@@ -14,4 +14,5 @@ package com.mbw.account.domain.model;
 public enum AccountSmsCodePurpose {
     PHONE_SMS_AUTH,
     DELETE_ACCOUNT,
+    CANCEL_DELETION,
 }

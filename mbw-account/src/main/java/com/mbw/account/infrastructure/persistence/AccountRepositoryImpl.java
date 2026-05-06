@@ -33,6 +33,11 @@ public class AccountRepositoryImpl implements AccountRepository {
     }
 
     @Override
+    public Optional<Account> findByPhoneForUpdate(PhoneNumber phone) {
+        return jpa.findByPhoneForUpdate(phone.e164()).map(AccountMapper::toDomain);
+    }
+
+    @Override
     public Optional<Account> findById(AccountId accountId) {
         return jpa.findById(accountId.value()).map(AccountMapper::toDomain);
     }

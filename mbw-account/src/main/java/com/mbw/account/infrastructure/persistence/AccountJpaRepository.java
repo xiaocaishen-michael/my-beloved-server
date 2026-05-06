@@ -1,8 +1,10 @@
 package com.mbw.account.infrastructure.persistence;
 
+import jakarta.persistence.LockModeType;
 import java.time.Instant;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -17,6 +19,17 @@ import org.springframework.data.repository.query.Param;
 interface AccountJpaRepository extends JpaRepository<AccountJpaEntity, Long> {
 
     Optional<AccountJpaEntity> findByPhone(String phone);
+
+    /**
+     * Pessimistic-write variant: emits {@code SELECT … FOR UPDATE},
+     * serialising concurrent callers on the row until the surrounding
+     * transaction commits. Backs
+     * {@code AccountRepository.findByPhoneForUpdate} for cancel-deletion
+     * SC-007 race-safety.
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT a FROM AccountJpaEntity a WHERE a.phone = :phone")
+    Optional<AccountJpaEntity> findByPhoneForUpdate(@Param("phone") String phone);
 
     boolean existsByPhone(String phone);
 

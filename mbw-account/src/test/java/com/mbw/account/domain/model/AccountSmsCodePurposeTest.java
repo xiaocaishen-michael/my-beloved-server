@@ -18,8 +18,13 @@ class AccountSmsCodePurposeTest {
     }
 
     @Test
-    void should_have_exactly_two_values() {
-        assertThat(AccountSmsCodePurpose.values()).hasSize(2);
+    void should_contain_CANCEL_DELETION_value() {
+        assertThat(AccountSmsCodePurpose.valueOf("CANCEL_DELETION")).isEqualTo(AccountSmsCodePurpose.CANCEL_DELETION);
+    }
+
+    @Test
+    void should_have_exactly_three_values() {
+        assertThat(AccountSmsCodePurpose.values()).hasSize(3);
     }
 
     @Test

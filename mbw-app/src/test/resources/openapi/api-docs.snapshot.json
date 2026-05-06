@@ -64,6 +64,55 @@
         }
       }
     },
+    "/api/v1/auth/cancel-deletion" : {
+      "post" : {
+        "tags" : [ "cancel-deletion-controller" ],
+        "operationId" : "cancel",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/CancelDeletionRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/LoginResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/cancel-deletion/sms-codes" : {
+      "post" : {
+        "tags" : [ "cancel-deletion-controller" ],
+        "operationId" : "sendCode",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/SendCancelDeletionCodeRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          }
+        }
+      }
+    },
     "/api/v1/accounts/phone-sms-auth" : {
       "post" : {
         "tags" : [ "account-auth-controller" ],
@@ -116,7 +165,7 @@
     "/api/v1/accounts/me/deletion-codes" : {
       "post" : {
         "tags" : [ "account-deletion-controller" ],
-        "operationId" : "sendCode",
+        "operationId" : "sendCode_1",
         "responses" : {
           "200" : {
             "description" : "OK"
@@ -205,6 +254,33 @@
             "type" : "string"
           }
         }
+      },
+      "CancelDeletionRequest" : {
+        "type" : "object",
+        "properties" : {
+          "phone" : {
+            "type" : "string",
+            "minLength" : 1,
+            "pattern" : "^\\+\\d{8,15}$"
+          },
+          "code" : {
+            "type" : "string",
+            "minLength" : 1,
+            "pattern" : "\\d{6}"
+          }
+        },
+        "required" : [ "code", "phone" ]
+      },
+      "SendCancelDeletionCodeRequest" : {
+        "type" : "object",
+        "properties" : {
+          "phone" : {
+            "type" : "string",
+            "minLength" : 1,
+            "pattern" : "^\\+\\d{8,15}$"
+          }
+        },
+        "required" : [ "phone" ]
       },
       "PhoneSmsAuthRequest" : {
         "type" : "object",
