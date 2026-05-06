@@ -10,7 +10,7 @@
 
 ## Critical Path（按依赖顺序）
 
-### T0 [Domain] `Account.markActiveFromFrozen` + `AccountStateMachine.markActiveFromFrozen` + `AccountSmsCodePurpose.CANCEL_DELETION`
+### T0 ✅ [Domain] `Account.markActiveFromFrozen` + `AccountStateMachine.markActiveFromFrozen` + `AccountSmsCodePurpose.CANCEL_DELETION`
 
 **Files**:
 

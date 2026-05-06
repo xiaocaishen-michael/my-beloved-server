@@ -221,4 +221,69 @@ class AccountTest {
                         account, CREATED_AT.plusSeconds(1_000), CREATED_AT.plusSeconds(60)))
                 .isInstanceOf(IllegalStateException.class);
     }
+
+    // --- T0: markActiveFromFrozen (cancel-deletion M1.3) ---
+
+    @Test
+    void should_transition_FROZEN_to_ACTIVE_clearing_freezeUntil_when_grace_not_expired() {
+        Instant freezeUntil = CREATED_AT.plusSeconds(15L * 24 * 3600);
+        Account account = Account.reconstitute(
+                new AccountId(1L), PHONE, AccountStatus.FROZEN, CREATED_AT, CREATED_AT, null, null, freezeUntil);
+        Instant now = CREATED_AT.plusSeconds(60);
+
+        AccountStateMachine.markActiveFromFrozen(account, now);
+
+        assertThat(account.status()).isEqualTo(AccountStatus.ACTIVE);
+        assertThat(account.freezeUntil()).isNull();
+        assertThat(account.updatedAt()).isEqualTo(now);
+    }
+
+    @Test
+    void should_throw_when_markActiveFromFrozen_called_on_ACTIVE() {
+        Account account = Account.reconstitute(new AccountId(1L), PHONE, AccountStatus.ACTIVE, CREATED_AT, CREATED_AT);
+
+        assertThatThrownBy(() -> AccountStateMachine.markActiveFromFrozen(account, CREATED_AT.plusSeconds(60)))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("ACCOUNT_NOT_FROZEN_IN_GRACE");
+    }
+
+    @Test
+    void should_throw_when_markActiveFromFrozen_called_on_ANONYMIZED() {
+        Account account =
+                Account.reconstitute(new AccountId(1L), PHONE, AccountStatus.ANONYMIZED, CREATED_AT, CREATED_AT);
+
+        assertThatThrownBy(() -> AccountStateMachine.markActiveFromFrozen(account, CREATED_AT.plusSeconds(60)))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("ACCOUNT_NOT_FROZEN_IN_GRACE");
+    }
+
+    @Test
+    void should_throw_when_markActiveFromFrozen_called_on_FROZEN_with_grace_expired() {
+        Instant freezeUntil = CREATED_AT.plusSeconds(60);
+        Account account = Account.reconstitute(
+                new AccountId(1L), PHONE, AccountStatus.FROZEN, CREATED_AT, CREATED_AT, null, null, freezeUntil);
+        Instant now = freezeUntil.plusSeconds(1); // grace expired
+
+        assertThatThrownBy(() -> AccountStateMachine.markActiveFromFrozen(account, now))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("ACCOUNT_NOT_FROZEN_IN_GRACE");
+    }
+
+    @Test
+    void should_throw_when_markActiveFromFrozen_called_on_FROZEN_with_freezeUntil_null() {
+        // FROZEN status with null freezeUntil: invariant violation, treated same as not-in-grace
+        Account account = Account.reconstitute(
+                new AccountId(1L),
+                PHONE,
+                AccountStatus.FROZEN,
+                CREATED_AT,
+                CREATED_AT,
+                null,
+                null, /* freezeUntil */
+                null);
+
+        assertThatThrownBy(() -> AccountStateMachine.markActiveFromFrozen(account, CREATED_AT.plusSeconds(60)))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("ACCOUNT_NOT_FROZEN_IN_GRACE");
+    }
 }

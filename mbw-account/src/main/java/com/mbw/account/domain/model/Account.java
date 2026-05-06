@@ -221,6 +221,33 @@ public final class Account {
     }
 
     /**
+     * Package-private mutator for the FROZEN → ACTIVE transition
+     * (cancel-deletion spec FR-001 / M1.3). Only callable through
+     * {@link AccountStateMachine#markActiveFromFrozen} so the
+     * "FROZEN + grace not expired" invariant lives in one place.
+     * Restores {@link #status} to ACTIVE, clears {@link #freezeUntil},
+     * and refreshes {@link #updatedAt}.
+     *
+     * <p>Rejects with {@link IllegalStateException} carrying message
+     * {@code ACCOUNT_NOT_FROZEN_IN_GRACE} on any of: status != FROZEN,
+     * freezeUntil null, or freezeUntil <= now (grace expired). The use
+     * case layer maps this single message to INVALID_CREDENTIALS for
+     * anti-enumeration (FR-006 / SC-002).
+     *
+     * @throws IllegalStateException if status is not FROZEN, freezeUntil
+     *     is null, or freezeUntil <= now
+     */
+    void markActiveFromFrozen(Instant now) {
+        Objects.requireNonNull(now, "now must not be null");
+        if (this.status != AccountStatus.FROZEN || this.freezeUntil == null || !this.freezeUntil.isAfter(now)) {
+            throw new IllegalStateException("ACCOUNT_NOT_FROZEN_IN_GRACE");
+        }
+        this.status = AccountStatus.ACTIVE;
+        this.freezeUntil = null;
+        this.updatedAt = now;
+    }
+
+    /**
      * Package-private mutator for onboarding / profile-update
      * (account-profile FR-005). Only callable through
      * {@link AccountStateMachine#changeDisplayName} so the

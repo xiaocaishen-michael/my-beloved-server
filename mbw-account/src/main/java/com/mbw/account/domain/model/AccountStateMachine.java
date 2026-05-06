@@ -99,6 +99,32 @@ public final class AccountStateMachine {
     }
 
     /**
+     * Transition a {@link AccountStatus#FROZEN} account back to
+     * {@link AccountStatus#ACTIVE} (cancel-deletion spec FR-001 / M1.3).
+     * Clears {@link Account#freezeUntil} and refreshes
+     * {@link Account#updatedAt}; rejects with
+     * {@link IllegalStateException} (message
+     * {@code ACCOUNT_NOT_FROZEN_IN_GRACE}) when status != FROZEN, or
+     * {@code freezeUntil} is null, or {@code freezeUntil <= now} (grace
+     * expired — scheduler may have anonymized concurrently).
+     *
+     * <p>The use case layer translates the single thrown message to
+     * INVALID_CREDENTIALS for anti-enumeration parity (FR-006 / SC-002).
+     *
+     * @param account the account; must be FROZEN with non-null
+     *     freezeUntil > now
+     * @param now the cancel instant; UTC
+     * @return the same account (mutated in place) for fluent use case
+     *     composition
+     * @throws IllegalStateException if not in grace
+     */
+    public static Account markActiveFromFrozen(Account account, Instant now) {
+        Objects.requireNonNull(account, "account must not be null");
+        account.markActiveFromFrozen(now);
+        return account;
+    }
+
+    /**
      * Update the account's {@link DisplayName} (account-profile spec
      * FR-005). Only ACTIVE accounts may transition; FROZEN /
      * ANONIMIZED rejection happens here so use cases get a uniform
