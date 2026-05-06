@@ -77,6 +77,28 @@ public final class AccountStateMachine {
     }
 
     /**
+     * Transition an {@link AccountStatus#ACTIVE} account to
+     * {@link AccountStatus#FROZEN} (delete-account spec FR-006 /
+     * M1.3). Writes {@link Account#freezeUntil} and
+     * {@link Account#updatedAt}; rejects non-ACTIVE accounts with
+     * {@link IllegalStateException}.
+     *
+     * @param account the account; status must be {@code ACTIVE}
+     * @param freezeUntil when the account becomes eligible for
+     *     anonymization (= now + 15 days per spec FR-004)
+     * @param now the transition instant; UTC
+     * @return the same account (mutated in place) for fluent use case
+     *     composition
+     * @throws IllegalStateException if {@code account.status()} is not
+     *     ACTIVE
+     */
+    public static Account markFrozen(Account account, Instant freezeUntil, Instant now) {
+        Objects.requireNonNull(account, "account must not be null");
+        account.markFrozen(freezeUntil, now);
+        return account;
+    }
+
+    /**
      * Update the account's {@link DisplayName} (account-profile spec
      * FR-005). Only ACTIVE accounts may transition; FROZEN /
      * ANONIMIZED rejection happens here so use cases get a uniform

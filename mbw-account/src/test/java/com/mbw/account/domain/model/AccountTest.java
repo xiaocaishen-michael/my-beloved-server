@@ -168,4 +168,57 @@ class AccountTest {
 
         assertThat(account.displayName()).isNull();
     }
+
+    // --- T2: markFrozen (delete-account M1.3) ---
+
+    @Test
+    void new_account_should_have_null_freezeUntil() {
+        Account account = new Account(PHONE, CREATED_AT);
+        assertThat(account.freezeUntil()).isNull();
+    }
+
+    @Test
+    void reconstitute_8_arg_overload_should_carry_freezeUntil() {
+        AccountId id = new AccountId(42L);
+        Instant freezeUntil = CREATED_AT.plusSeconds(15L * 24 * 3600);
+
+        Account account =
+                Account.reconstitute(id, PHONE, AccountStatus.FROZEN, CREATED_AT, CREATED_AT, null, null, freezeUntil);
+
+        assertThat(account.freezeUntil()).isEqualTo(freezeUntil);
+        assertThat(account.status()).isEqualTo(AccountStatus.FROZEN);
+    }
+
+    @Test
+    void should_transition_to_FROZEN_with_freezeUntil_when_markFrozen_called_on_ACTIVE() {
+        Account account = Account.reconstitute(new AccountId(1L), PHONE, AccountStatus.ACTIVE, CREATED_AT, CREATED_AT);
+        Instant freezeUntil = CREATED_AT.plusSeconds(15L * 24 * 3600);
+        Instant now = CREATED_AT.plusSeconds(60);
+
+        AccountStateMachine.markFrozen(account, freezeUntil, now);
+
+        assertThat(account.status()).isEqualTo(AccountStatus.FROZEN);
+        assertThat(account.freezeUntil()).isEqualTo(freezeUntil);
+        assertThat(account.updatedAt()).isEqualTo(now);
+    }
+
+    @Test
+    void should_throw_IllegalStateException_when_markFrozen_called_on_FROZEN() {
+        Account account = Account.reconstitute(new AccountId(1L), PHONE, AccountStatus.FROZEN, CREATED_AT, CREATED_AT);
+
+        assertThatThrownBy(() -> AccountStateMachine.markFrozen(
+                        account, CREATED_AT.plusSeconds(1_000), CREATED_AT.plusSeconds(60)))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("ACTIVE");
+    }
+
+    @Test
+    void should_throw_IllegalStateException_when_markFrozen_called_on_ANONYMIZED() {
+        Account account =
+                Account.reconstitute(new AccountId(1L), PHONE, AccountStatus.ANONYMIZED, CREATED_AT, CREATED_AT);
+
+        assertThatThrownBy(() -> AccountStateMachine.markFrozen(
+                        account, CREATED_AT.plusSeconds(1_000), CREATED_AT.plusSeconds(60)))
+                .isInstanceOf(IllegalStateException.class);
+    }
 }

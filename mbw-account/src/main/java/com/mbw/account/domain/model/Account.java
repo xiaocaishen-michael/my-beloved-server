@@ -39,6 +39,7 @@ public final class Account {
     private Instant updatedAt;
     private Instant lastLoginAt;
     private DisplayName displayName;
+    private Instant freezeUntil;
 
     public Account(PhoneNumber phone, Instant createdAt) {
         this.phone = Objects.requireNonNull(phone, "phone must not be null");
@@ -77,10 +78,10 @@ public final class Account {
     }
 
     /**
-     * Reconstruct including {@link #displayName}. Used by the repository
-     * implementation when the persisted row carries a non-null
-     * {@code display_name} (account-profile spec FR-001 / V6 migration);
-     * earlier overloads default it to {@code null}.
+     * Reconstruct including {@link #displayName}. Delegates to the 8-arg
+     * overload with {@code freezeUntil=null}; use the 8-arg form when the
+     * persisted row carries a non-null {@code freeze_until}
+     * (delete-account spec / V7 migration).
      */
     public static Account reconstitute(
             AccountId id,
@@ -90,6 +91,23 @@ public final class Account {
             Instant updatedAt,
             Instant lastLoginAt,
             DisplayName displayName) {
+        return reconstitute(id, phone, status, createdAt, updatedAt, lastLoginAt, displayName, /* freezeUntil= */ null);
+    }
+
+    /**
+     * Full reconstitute overload including {@link #freezeUntil}. Used by
+     * the repository implementation when the persisted row carries a
+     * non-null {@code freeze_until} (delete-account spec / V7 migration).
+     */
+    public static Account reconstitute(
+            AccountId id,
+            PhoneNumber phone,
+            AccountStatus status,
+            Instant createdAt,
+            Instant updatedAt,
+            Instant lastLoginAt,
+            DisplayName displayName,
+            Instant freezeUntil) {
         Objects.requireNonNull(id, "id must not be null");
         Objects.requireNonNull(status, "status must not be null");
         Objects.requireNonNull(updatedAt, "updatedAt must not be null");
@@ -99,6 +117,7 @@ public final class Account {
         account.updatedAt = updatedAt;
         account.lastLoginAt = lastLoginAt;
         account.displayName = displayName;
+        account.freezeUntil = freezeUntil;
         return account;
     }
 
@@ -128,6 +147,10 @@ public final class Account {
 
     public DisplayName displayName() {
         return displayName;
+    }
+
+    public Instant freezeUntil() {
+        return freezeUntil;
     }
 
     /**
@@ -174,6 +197,27 @@ public final class Account {
         }
         this.lastLoginAt = at;
         this.updatedAt = at;
+    }
+
+    /**
+     * Package-private mutator for the ACTIVE → FROZEN transition
+     * (delete-account spec FR-006). Only callable through
+     * {@link AccountStateMachine#markFrozen} so the single-entry
+     * constraint lives in one place. Writes {@link #status},
+     * {@link #freezeUntil}, and refreshes {@link #updatedAt}.
+     *
+     * @throws IllegalStateException if {@code status} is not {@code ACTIVE}
+     */
+    void markFrozen(Instant freezeUntil, Instant now) {
+        Objects.requireNonNull(freezeUntil, "freezeUntil must not be null");
+        Objects.requireNonNull(now, "now must not be null");
+        if (this.status != AccountStatus.ACTIVE) {
+            throw new IllegalStateException(
+                    "Account status is " + this.status + ", cannot transition to FROZEN (only ACTIVE permitted)");
+        }
+        this.status = AccountStatus.FROZEN;
+        this.freezeUntil = freezeUntil;
+        this.updatedAt = now;
     }
 
     /**

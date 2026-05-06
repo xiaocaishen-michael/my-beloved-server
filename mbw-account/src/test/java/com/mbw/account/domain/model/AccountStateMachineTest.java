@@ -173,4 +173,35 @@ class AccountStateMachineTest {
         assertThatThrownBy(() -> AccountStateMachine.changeDisplayName(account, name, null))
                 .isInstanceOf(NullPointerException.class);
     }
+
+    // --- T2: markFrozen (delete-account M1.3) ---
+
+    @Test
+    void markFrozen_should_transition_to_FROZEN_and_return_same_account() {
+        Account account = Account.reconstitute(new AccountId(1L), PHONE, AccountStatus.ACTIVE, CREATED_AT, CREATED_AT);
+        Instant freezeUntil = ACTIVATION_AT.plusSeconds(15L * 24 * 3600);
+
+        Account result = AccountStateMachine.markFrozen(account, freezeUntil, ACTIVATION_AT);
+
+        assertThat(result).isSameAs(account);
+        assertThat(account.status()).isEqualTo(AccountStatus.FROZEN);
+        assertThat(account.freezeUntil()).isEqualTo(freezeUntil);
+        assertThat(account.updatedAt()).isEqualTo(ACTIVATION_AT);
+    }
+
+    @Test
+    void markFrozen_should_reject_non_ACTIVE_account() {
+        Account frozen = Account.reconstitute(new AccountId(1L), PHONE, AccountStatus.FROZEN, CREATED_AT, CREATED_AT);
+
+        assertThatThrownBy(
+                        () -> AccountStateMachine.markFrozen(frozen, ACTIVATION_AT.plusSeconds(1_000), ACTIVATION_AT))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("ACTIVE");
+    }
+
+    @Test
+    void markFrozen_should_reject_null_account() {
+        assertThatThrownBy(() -> AccountStateMachine.markFrozen(null, ACTIVATION_AT.plusSeconds(1_000), ACTIVATION_AT))
+                .isInstanceOf(NullPointerException.class);
+    }
 }
