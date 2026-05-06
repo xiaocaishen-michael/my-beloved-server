@@ -283,7 +283,7 @@ public class AnonymizeFrozenAccountUseCase {
 
 ---
 
-### T8 [E2E] `FrozenAccountAnonymizationE2EIT`
+### T8 ✅ [E2E] `FrozenAccountAnonymizationE2EIT`
 
 **File**: `mbw-app/src/test/java/com/mbw/app/account/FrozenAccountAnonymizationE2EIT.java`(**新建**)
 

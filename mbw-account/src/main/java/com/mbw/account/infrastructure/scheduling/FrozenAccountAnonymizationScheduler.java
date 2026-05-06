@@ -13,6 +13,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
@@ -52,6 +53,7 @@ public class FrozenAccountAnonymizationScheduler {
 
     private final Map<AccountId, Integer> failureCounts = new ConcurrentHashMap<>();
 
+    @Autowired
     public FrozenAccountAnonymizationScheduler(
             AccountRepository accountRepository, AnonymizeFrozenAccountUseCase useCase, MeterRegistry meterRegistry) {
         this(accountRepository, useCase, meterRegistry, Clock.systemUTC());
