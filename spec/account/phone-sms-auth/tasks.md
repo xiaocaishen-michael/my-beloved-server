@@ -2,7 +2,7 @@
 
 **Spec**: [`./spec.md`](./spec.md) · **Plan**: [`./plan.md`](./plan.md)
 **Phase**: M1.2 unified auth refactor（per [ADR-0016](https://github.com/xiaocaishen-michael/no-vain-years/blob/main/docs/adr/0016-unified-mobile-first-auth.md)）
-**Status**: Draft（pending impl，docs-only PR）
+**Status**: ✅ Implemented（server PR #118 / #119 / #123 + app PR #49 / #50 / #51 / #54，详见末尾"实施记录"段）
 
 > **TDD enforcement**：每个 [Application] / [Domain] / [Web] task 严格红 → 绿 → 重构（per server `CLAUDE.md` § 一）。每条 task 内**测试任务绑定到实现 task**，不独立列。
 >
@@ -10,7 +10,7 @@
 
 ---
 
-## T0 [Cleanup]：删旧 endpoint + use case + 测试
+## T0 ✅ [Cleanup]：删旧 endpoint + use case + 测试
 
 **前置**：本 spec 三件套 + ADR-0016 docs PR 已 merged
 
@@ -33,7 +33,7 @@
 
 ---
 
-## T1 [Application]：UnifiedPhoneSmsAuthUseCase
+## T1 ✅ [Application]：UnifiedPhoneSmsAuthUseCase
 
 **TDD**：先写 unit test，再实现。
 
@@ -70,7 +70,7 @@
 
 ---
 
-## T2 [Application]：RequestSmsCodeUseCase 简化（删 Template C 分支）
+## T2 ✅ [Application]：RequestSmsCodeUseCase 简化（删 Template C 分支）
 
 **TDD**：现有 `RequestSmsCodeUseCaseTest` 中含 Template B / C 测试 case → 改写为单 Template A。
 
@@ -97,7 +97,7 @@
 
 ---
 
-## T3 [Web]：AccountAuthController + DTO + 简化 SmsCodeRequest
+## T3 ✅ [Web]：AccountAuthController + DTO + 简化 SmsCodeRequest
 
 **TDD**：先写 controller test（`@WebMvcTest`），再实现。
 
@@ -149,7 +149,7 @@ public class AccountAuthController {
 
 ---
 
-## T4 [Integration Test]：UnifiedPhoneSmsAuthE2EIT
+## T4 ✅ [Integration Test]：UnifiedPhoneSmsAuthE2EIT
 
 **TDD**：与 T1-T3 完成后写 E2E IT；不要先于 unit test 写 IT。
 
@@ -169,7 +169,7 @@ public class AccountAuthController {
 
 ---
 
-## T5 [Integration Test]：SingleEndpointEnumerationDefenseIT
+## T5 ✅ [Integration Test]：SingleEndpointEnumerationDefenseIT
 
 新建 `mbw-app/src/test/java/com/mbw/app/account/SingleEndpointEnumerationDefenseIT.java`：
 
@@ -183,7 +183,7 @@ public class AccountAuthController {
 
 ---
 
-## T6 [OpenAPI]：spec 同步 + 校验
+## T6 ✅ [OpenAPI]：spec 同步 + 校验
 
 无独立任务文件，由 T1-T5 自动同步（Springdoc 运行时反射）。本 task 是 manual verification：
 
@@ -197,7 +197,7 @@ public class AccountAuthController {
 
 ---
 
-## T7 [Frontend]：app 仓 `pnpm api:gen` + spec / impl 配套
+## T7 ✅ [Frontend]：app 仓 `pnpm api:gen` + spec / impl 配套
 
 **位置**：app 仓（独立 PR，不在本 spec 范围）。详见 [`apps/native/spec/login/tasks.md`](https://github.com/xiaocaishen-michael/no-vain-years-app/blob/main/apps/native/spec/login/tasks.md)（同 PR cycle 改写）。
 
@@ -207,7 +207,7 @@ public class AccountAuthController {
 
 ## T_DEL [Cleanup]：DB schema deprecated 字段（M2+ 评估）
 
-**不在本 spec impl 范围**（per ADR-0016 Open Questions）：
+**Status**: Deferred to M2+（per ADR-0016 Open Questions，不在本 spec impl 范围）：
 
 - M2+ 评估真删 `Account.email` 字段（走 expand-migrate-contract 三步）
 - M2+ 评估真删 `Account.password_hash` 字段（前提：`TimingDefenseExecutor` 改用 static const dummy hash 不再依赖此字段）
@@ -229,6 +229,30 @@ curl http://localhost:8080/v3/api-docs | jq '.paths | keys'
 # ArchUnit / Modulith
 ./mvnw test -pl mbw-app -Dtest=ModuleStructureTest
 ```
+
+## 实施记录
+
+按时间序记录本 spec 各 task 的真实落地 PR（server + app 仓）。
+
+### Server 仓（my-beloved-server）
+
+| PR | Commit | 覆盖 task | 摘要 |
+|---|---|---|---|
+| [#107](https://github.com/xiaocaishen-michael/my-beloved-server/pull/107) | — | docs 三件套 | `docs(account): SDD spec for unified phone-SMS auth` — spec / plan / tasks docs-only ship |
+| [#118](https://github.com/xiaocaishen-michael/my-beloved-server/pull/118) | `0514460` | T0 / T1 / T2 / T3 / T4 | `feat(account): impl unified phone-SMS auth (per ADR-0016)` — 删旧 3 endpoint + UnifiedPhoneSmsAuthUseCase + RequestSmsCodeUseCase 简化 + AccountAuthController + E2E IT |
+| [#119](https://github.com/xiaocaishen-michael/my-beloved-server/pull/119) | `d404710` | T5 | `test(account): SingleEndpointEnumerationDefenseIT (spec T5 / SC-003)` — 反枚举时延一致性 IT |
+| [#123](https://github.com/xiaocaishen-michael/my-beloved-server/pull/123) | `2ca9d71` | T6 + 收尾 | `refactor(account): rename AccountRegisterController to AccountSmsCodeController` — controller 命名收尾 + OpenAPI 同步 |
+
+### App 仓（no-vain-years-app）
+
+| PR | 覆盖 task | 摘要 |
+|---|---|---|
+| [#49](https://github.com/xiaocaishen-michael/no-vain-years-app/pull/49) | T7 docs | `docs(account): rewrite login spec/plan/tasks for unified phone-SMS auth` |
+| [#50](https://github.com/xiaocaishen-michael/no-vain-years-app/pull/50) | T7 PHASE 1 | `refactor(account): unified phone-SMS auth — business flow + placeholder UI (PHASE 1)` — 业务流 + 占位 UI（per ADR-0017） |
+| [#51](https://github.com/xiaocaishen-michael/no-vain-years-app/pull/51) | T7 PHASE 2 | `feat(account): unified phone-SMS auth UI 完成 (PHASE 2 mockup v2 落地)` — visual mockup 落地 |
+| [#54](https://github.com/xiaocaishen-michael/no-vain-years-app/pull/54) | T7 wrapper | `feat(auth): switch phoneSmsAuth wrapper to server unified endpoint` — 前端切到统一 endpoint |
+
+---
 
 ## References
 
