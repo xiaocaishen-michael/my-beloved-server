@@ -27,6 +27,14 @@
     <archunit.version>1.4.2</archunit.version>
     <springdoc.version>2.8.17</springdoc.version>
 
+    <!--
+      Override Spring Boot 3.5.14 BOM-managed pgjdbc 42.7.10 → 42.7.11
+      to fix HIGH CVE-2026-42198 (Trivy fs scan blocker since 2026-05-06
+      DB refresh). Once Spring Boot ships a BOM with 42.7.11+ default,
+      this override should be removed.
+    -->
+    <postgresql.version>42.7.11</postgresql.version>
+
     <!-- Plugin versions -->
     <spotless-maven-plugin.version>3.4.0</spotless-maven-plugin.version>
     <palantir-java-format.version>2.68.0</palantir-java-format.version>
@@ -59,6 +67,17 @@
         <version>${spring-boot.version}</version>
         <type>pom</type>
         <scope>import</scope>
+      </dependency>
+      <!--
+        Override BOM-managed pgjdbc (42.7.10) to fix HIGH CVE-2026-42198.
+        Spring Boot 3.5.14 BOM hardcodes the version (does not honor a
+        plain <postgresql.version> property override), so we must declare
+        the override explicitly here AFTER the BOM import.
+      -->
+      <dependency>
+        <groupId>org.postgresql</groupId>
+        <artifactId>postgresql</artifactId>
+        <version>${postgresql.version}</version>
       </dependency>
       <!-- Spring Modulith BOM -->
       <dependency>
