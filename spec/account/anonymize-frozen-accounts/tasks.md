@@ -31,7 +31,7 @@
 
 ---
 
-### T1 [Domain] `PhoneHasher` (SHA-256 hex)
+### T1 ✅ [Domain] `PhoneHasher` (SHA-256 hex)
 
 **File**: `mbw-account/src/main/java/com/mbw/account/domain/service/PhoneHasher.java`(**新建**)
 
