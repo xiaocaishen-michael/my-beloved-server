@@ -227,7 +227,7 @@ public class AnonymizeFrozenAccountUseCase {
 
 ---
 
-### T6 [Infra] Repository 扩展:3 个新方法
+### T6 ✅ [Infra] Repository 扩展:3 个新方法
 
 **Files**:
 

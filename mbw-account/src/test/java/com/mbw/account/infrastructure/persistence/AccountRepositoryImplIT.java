@@ -301,6 +301,94 @@ class AccountRepositoryImplIT {
         assertThat(reloaded.updatedAt()).isEqualTo(updateAt);
     }
 
+    // --- T6: findFrozenWithExpiredGracePeriod + findByIdForUpdate (anonymize-frozen M1.3) ---
+
+    @Test
+    void findFrozenWithExpiredGracePeriod_should_return_only_FROZEN_rows_past_their_grace() {
+        Instant base = Instant.now().truncatedTo(ChronoUnit.MICROS);
+
+        // 2 FROZEN + freeze_until expired (eligible)
+        AccountId expiredEarlier = createFrozenAccount(base.minusSeconds(120), base.minusSeconds(60));
+        AccountId expiredLater = createFrozenAccount(base.minusSeconds(60), base.minusSeconds(30));
+
+        // 1 FROZEN + freeze_until in future (not eligible)
+        createFrozenAccount(base.minusSeconds(120), base.plusSeconds(3600));
+
+        // 1 ACTIVE (not eligible — wrong status)
+        Account activeRow = AccountStateMachine.activate(new Account(uniquePhone(), base.minusSeconds(120)), base);
+        accountRepository.save(activeRow);
+
+        Instant scanAt = base;
+
+        var result = accountRepository.findFrozenWithExpiredGracePeriod(scanAt, 100);
+
+        assertThat(result).containsExactly(expiredEarlier, expiredLater);
+    }
+
+    @Test
+    void findFrozenWithExpiredGracePeriod_should_respect_limit_parameter() {
+        Instant base = Instant.now().truncatedTo(ChronoUnit.MICROS);
+        for (int i = 0; i < 5; i++) {
+            createFrozenAccount(base.minusSeconds(600 + i), base.minusSeconds(60 + i));
+        }
+
+        var result = accountRepository.findFrozenWithExpiredGracePeriod(base, 3);
+
+        assertThat(result).hasSize(3);
+    }
+
+    @Test
+    void findFrozenWithExpiredGracePeriod_should_return_empty_when_no_eligible_rows() {
+        Instant base = Instant.now().truncatedTo(ChronoUnit.MICROS);
+        // Only ACTIVE rows present
+        Account active = AccountStateMachine.activate(new Account(uniquePhone(), base), base);
+        accountRepository.save(active);
+
+        var result = accountRepository.findFrozenWithExpiredGracePeriod(base, 100);
+
+        assertThat(result).isEmpty();
+    }
+
+    @Test
+    void findByIdForUpdate_should_return_account_when_present() {
+        Instant now = Instant.now().truncatedTo(ChronoUnit.MICROS);
+        Account fresh = AccountStateMachine.activate(new Account(uniquePhone(), now), now);
+        Account saved = accountRepository.save(fresh);
+
+        // findByIdForUpdate must run inside a transaction; the Spring
+        // tx-template-style call here lets us exercise the @Lock path.
+        // We do not exercise lock-blocking in this IT (covered by
+        // FrozenAccountAnonymizationConcurrencyIT in T9); the assertion
+        // here is that the lookup itself returns the right row.
+        Optional<Account> found = transactionalLookup(saved.id());
+
+        assertThat(found).isPresent();
+        assertThat(found.get().id()).isEqualTo(saved.id());
+        assertThat(found.get().status()).isEqualTo(AccountStatus.ACTIVE);
+    }
+
+    @Test
+    void findByIdForUpdate_should_return_empty_for_unknown_id() {
+        Optional<Account> found = transactionalLookup(new AccountId(9_999_999L));
+
+        assertThat(found).isEmpty();
+    }
+
+    private AccountId createFrozenAccount(Instant createdAt, Instant freezeUntil) {
+        Account fresh = AccountStateMachine.activate(new Account(uniquePhone(), createdAt), createdAt);
+        Account saved = accountRepository.save(fresh);
+        AccountStateMachine.markFrozen(saved, freezeUntil, createdAt.plusSeconds(1));
+        accountRepository.save(saved);
+        return saved.id();
+    }
+
+    @Autowired
+    private org.springframework.transaction.support.TransactionTemplate txTemplate;
+
+    private Optional<Account> transactionalLookup(AccountId accountId) {
+        return txTemplate.execute(status -> accountRepository.findByIdForUpdate(accountId));
+    }
+
     private static PhoneNumber uniquePhone() {
         // E.164 mainland: +861[3-9]\d{9}; randomize the last 10 digits to avoid
         // cross-test collisions while staying inside the regex.
@@ -327,6 +415,12 @@ class AccountRepositoryImplIT {
         @Bean
         AccountRepositoryImpl accountRepositoryImpl(AccountJpaRepository jpa) {
             return new AccountRepositoryImpl(jpa);
+        }
+
+        @Bean
+        org.springframework.transaction.support.TransactionTemplate txTemplate(
+                org.springframework.transaction.PlatformTransactionManager tm) {
+            return new org.springframework.transaction.support.TransactionTemplate(tm);
         }
     }
 }

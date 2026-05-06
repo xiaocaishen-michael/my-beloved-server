@@ -4,6 +4,7 @@ import com.mbw.account.domain.model.Account;
 import com.mbw.account.domain.model.AccountId;
 import com.mbw.account.domain.model.PhoneNumber;
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -40,6 +41,38 @@ public interface AccountRepository {
      * account linked to a refresh token record).
      */
     Optional<Account> findById(AccountId accountId);
+
+    /**
+     * Id lookup with a row-level pessimistic write lock — concurrent
+     * callers serialise on the row until the surrounding transaction
+     * commits. Used by anonymize-frozen-accounts (FR-007 / SC-007) so
+     * the FROZEN → ANONYMIZED transition cannot race against an
+     * in-flight cancel-deletion FROZEN → ACTIVE on the same account.
+     *
+     * <p>Must be called inside a {@code @Transactional} boundary; lock
+     * release is at commit/rollback. Mirrors
+     * {@link #findByPhoneForUpdate}'s primitive-style contract.
+     */
+    Optional<Account> findByIdForUpdate(AccountId accountId);
+
+    /**
+     * Scan a batch of {@link AccountId} values for FROZEN accounts whose
+     * grace period has elapsed at {@code now}. Returns ids only — the
+     * scheduler loads each individual account inside its own per-row
+     * REQUIRES_NEW transaction (anonymize-frozen-accounts spec FR-002 /
+     * FR-007). Ordered by {@code freeze_until ASC} so the
+     * longest-overdue rows go first; capped by {@code limit} so a
+     * backlog cannot starve other scheduled work.
+     *
+     * <p>Backed by the V7 partial index
+     * {@code idx_account_freeze_until_active}, which already filters to
+     * {@code WHERE status = 'FROZEN' AND freeze_until IS NOT NULL}.
+     *
+     * @param now   instant against which {@code freeze_until} is compared
+     *              ({@code freeze_until <= now} is eligible)
+     * @param limit max rows to return; the scheduler picks 100
+     */
+    List<AccountId> findFrozenWithExpiredGracePeriod(Instant now, int limit);
 
     /**
      * Pre-flight uniqueness check for FR-005. Note this does <b>not</b>

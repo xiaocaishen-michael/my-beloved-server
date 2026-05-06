@@ -65,6 +65,28 @@ class AccountSmsCodeRepositoryImplIT {
     }
 
     @Test
+    void deleteAllByAccountId_should_remove_only_matching_rows() {
+        Instant now = Instant.now().truncatedTo(ChronoUnit.MICROS);
+        AccountId accountA = new AccountId(1001L);
+        AccountId accountB = new AccountId(1002L);
+
+        smsCodeRepository.save(AccountSmsCode.create(
+                accountA, "aaaa01", now.plusSeconds(300), AccountSmsCodePurpose.PHONE_SMS_AUTH, now));
+        smsCodeRepository.save(AccountSmsCode.create(
+                accountA, "aaaa02", now.plusSeconds(300), AccountSmsCodePurpose.DELETE_ACCOUNT, now));
+        smsCodeRepository.save(AccountSmsCode.create(
+                accountB, "bbbb01", now.plusSeconds(300), AccountSmsCodePurpose.PHONE_SMS_AUTH, now));
+
+        smsCodeRepository.deleteAllByAccountId(accountA);
+
+        assertThat(smsCodeJpaRepository.count()).isEqualTo(1L);
+        // The remaining row belongs to accountB — assert by id range / purpose
+        var remaining = smsCodeJpaRepository.findAll();
+        assertThat(remaining).hasSize(1);
+        assertThat(remaining.get(0).getAccountId()).isEqualTo(accountB.value());
+    }
+
+    @Test
     void should_findActiveByPurpose_return_active_record_when_DELETE_ACCOUNT_code_exists() {
         Instant now = Instant.now().truncatedTo(ChronoUnit.MICROS); // PG TIMESTAMPTZ stores µs precision
         AccountId accountId = new AccountId(1L);
