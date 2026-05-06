@@ -308,7 +308,7 @@ public class AnonymizeFrozenAccountUseCase {
 
 ---
 
-### T9 [Concurrency] `FrozenAccountAnonymizationConcurrencyIT` — 与 cancel-deletion race
+### T9 ✅ [Concurrency] `FrozenAccountAnonymizationConcurrencyIT` — 与 cancel-deletion race
 
 **File**: `mbw-app/src/test/java/com/mbw/app/account/FrozenAccountAnonymizationConcurrencyIT.java`(**新建**)
 
@@ -333,7 +333,7 @@ public class AnonymizeFrozenAccountUseCase {
 
 ---
 
-### T10 [Failure] `FrozenAccountAnonymizationFailureIT` — 单行失败不阻断 batch
+### T10 ✅ [Failure] `FrozenAccountAnonymizationFailureIT` — 单行失败不阻断 batch
 
 **File**: `mbw-app/src/test/java/com/mbw/app/account/FrozenAccountAnonymizationFailureIT.java`(**新建**)
 
@@ -352,7 +352,7 @@ public class AnonymizeFrozenAccountUseCase {
 
 ---
 
-### T11 [Cross-spec] `CrossUseCaseEnumerationDefenseIT` 扩展
+### T11 ✅ [Cross-spec] `CrossUseCaseEnumerationDefenseIT` 扩展
 
 **File**: `mbw-app/src/test/java/com/mbw/app/account/CrossUseCaseEnumerationDefenseIT.java`(**改**,扩展)
 
