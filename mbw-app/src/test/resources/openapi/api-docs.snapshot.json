@@ -92,6 +92,38 @@
         }
       }
     },
+    "/api/v1/accounts/me/deletion" : {
+      "post" : {
+        "tags" : [ "account-deletion-controller" ],
+        "operationId" : "delete",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/DeleteAccountRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/accounts/me/deletion-codes" : {
+      "post" : {
+        "tags" : [ "account-deletion-controller" ],
+        "operationId" : "sendCode",
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          }
+        }
+      }
+    },
     "/api/v1/accounts/me" : {
       "get" : {
         "tags" : [ "account-profile-controller" ],
@@ -188,6 +220,17 @@
           }
         },
         "required" : [ "code", "phone" ]
+      },
+      "DeleteAccountRequest" : {
+        "type" : "object",
+        "properties" : {
+          "code" : {
+            "type" : "string",
+            "minLength" : 1,
+            "pattern" : "\\d{6}"
+          }
+        },
+        "required" : [ "code" ]
       },
       "UpdateDisplayNameRequest" : {
         "type" : "object",
