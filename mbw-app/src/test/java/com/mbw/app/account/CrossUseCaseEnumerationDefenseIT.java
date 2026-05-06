@@ -215,6 +215,92 @@ class CrossUseCaseEnumerationDefenseIT {
         assertThat(usedCode.getBody()).isEqualTo(reference);
     }
 
+    // ── cancel-deletion T8: 5 cancel 401 paths byte-identical ────────────────
+
+    @Test
+    void cancel_deletion_401_paths_should_be_byte_identical() {
+        Instant now = Instant.now();
+
+        // Path A: phone not registered
+        ResponseEntity<String> notRegistered = postCancel(uniquePhone(), "111111");
+
+        // Path B: account ACTIVE (cancel ineligible — phone-class branch dummy)
+        String phoneB = uniquePhone();
+        seedActiveAccount(phoneB);
+        ResponseEntity<String> activeAcct = postCancel(phoneB, "111111");
+
+        // Path C: account FROZEN with grace expired
+        String phoneC = uniquePhone();
+        seedFrozenAccount(phoneC, /* graceRemaining */ Duration.ofMillis(-1));
+        ResponseEntity<String> frozenExpired = postCancel(phoneC, "111111");
+
+        // Path D: FROZEN-in-grace but no active CANCEL_DELETION code
+        String phoneD = uniquePhone();
+        seedFrozenAccount(phoneD, Duration.ofDays(10));
+        ResponseEntity<String> noActiveCode = postCancel(phoneD, "111111");
+
+        // Path E: FROZEN-in-grace with active code but submit wrong plaintext
+        String phoneE = uniquePhone();
+        AccountId idE = seedFrozenAccount(phoneE, Duration.ofDays(10));
+        smsCodeRepository.save(AccountSmsCode.create(
+                idE,
+                sha256Hex("999999"),
+                now.plus(Duration.ofMinutes(10)),
+                AccountSmsCodePurpose.CANCEL_DELETION,
+                now));
+        ResponseEntity<String> wrongCode = postCancel(phoneE, "000000");
+
+        assertThat(notRegistered.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+        assertThat(activeAcct.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+        assertThat(frozenExpired.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+        assertThat(noActiveCode.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+        assertThat(wrongCode.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+
+        String reference = notRegistered.getBody();
+        assertThat(reference).isNotBlank();
+        assertThat(reference).contains("\"code\":\"INVALID_CREDENTIALS\"");
+        assertThat(activeAcct.getBody()).isEqualTo(reference);
+        assertThat(frozenExpired.getBody()).isEqualTo(reference);
+        assertThat(noActiveCode.getBody()).isEqualTo(reference);
+        assertThat(wrongCode.getBody()).isEqualTo(reference);
+    }
+
+    // ── cancel-deletion T8: cancel INVALID_CREDENTIALS shape parity ──────────
+    // Both endpoints share InvalidCredentialsException, so the 401 ProblemDetail
+    // is structurally identical — same status / code / title / detail. The
+    // {@code instance} field auto-fills with the request URI (Spring default)
+    // and therefore differs by endpoint, but the URL is information the caller
+    // already supplied; no anti-enumeration leak (plan.md § 反枚举).
+
+    @Test
+    void cancel_INVALID_CREDENTIALS_shape_should_match_phone_sms_auth_INVALID_CREDENTIALS() {
+        ResponseEntity<String> cancelFailure = postCancel(uniquePhone(), "111111");
+        ResponseEntity<String> phoneSmsAuthFailure = restTemplate.postForEntity(
+                "/api/v1/accounts/phone-sms-auth",
+                jsonRequest("{\"phone\":\"" + uniquePhone() + "\",\"code\":\"999999\"}", uniqueIp()),
+                String.class);
+
+        assertThat(cancelFailure.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+        assertThat(phoneSmsAuthFailure.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+
+        // Strip the instance field (which Spring auto-fills with the request
+        // URI) before comparing — the rest of the body must be byte-identical.
+        String cancelBody = stripInstanceField(cancelFailure.getBody());
+        String phoneSmsAuthBody = stripInstanceField(phoneSmsAuthFailure.getBody());
+
+        assertThat(cancelBody).contains("\"code\":\"INVALID_CREDENTIALS\"");
+        assertThat(phoneSmsAuthBody).contains("\"code\":\"INVALID_CREDENTIALS\"");
+        assertThat(cancelBody)
+                .as("status / title / detail / code byte-identical across endpoints")
+                .isEqualTo(phoneSmsAuthBody);
+    }
+
+    private static String stripInstanceField(String body) {
+        // Removes "instance":"..." key/value (with optional surrounding comma)
+        // from a ProblemDetail JSON. Order-tolerant.
+        return body.replaceAll(",\"instance\":\"[^\"]*\"", "").replaceAll("\"instance\":\"[^\"]*\",", "");
+    }
+
     // ── T12c: deletion error code distinct from login error code ─────────────
 
     @Test
@@ -254,18 +340,30 @@ class CrossUseCaseEnumerationDefenseIT {
     }
 
     private AccountId seedFrozenAccount(String phone) {
+        return seedFrozenAccount(phone, Duration.ofDays(15));
+    }
+
+    private AccountId seedFrozenAccount(String phone, Duration graceRemaining) {
         AccountId[] holder = new AccountId[1];
         transactionTemplate.executeWithoutResult(txStatus -> {
             Instant now = Instant.now();
             PhoneNumber phoneNumber = new PhoneNumber(phone);
             Account account = new Account(phoneNumber, now);
             AccountStateMachine.activate(account, now);
-            AccountStateMachine.markFrozen(account, now.plus(Duration.ofDays(15)), now);
+            AccountStateMachine.markFrozen(account, now.plus(graceRemaining), now);
             Account saved = accountRepository.save(account);
             credentialRepository.save(new PhoneCredential(saved.id(), phoneNumber, now));
             holder[0] = saved.id();
         });
         return holder[0];
+    }
+
+    private ResponseEntity<String> postCancel(String phone, String code) {
+        return restTemplate.exchange(
+                "/api/v1/auth/cancel-deletion",
+                HttpMethod.POST,
+                jsonRequest("{\"phone\":\"" + phone + "\",\"code\":\"" + code + "\"}", uniqueIp()),
+                String.class);
     }
 
     private ResponseEntity<String> submitCode(String code, String accessJwt) {

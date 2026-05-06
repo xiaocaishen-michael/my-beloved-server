@@ -186,7 +186,7 @@
 
 ---
 
-### T8 [E2E] `CrossUseCaseEnumerationDefenseIT` 扩展
+### T8 ✅ [E2E] `CrossUseCaseEnumerationDefenseIT` 扩展
 
 **File**: `mbw-account/src/test/java/com/mbw/account/web/CrossUseCaseEnumerationDefenseIT.java`（**多 use case 已建，本次扩展**）
 
