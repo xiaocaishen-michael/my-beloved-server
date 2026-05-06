@@ -41,4 +41,13 @@ interface AccountSmsCodeJpaRepository extends JpaRepository<AccountSmsCodeJpaEnt
     @Modifying
     @Query("UPDATE AccountSmsCodeJpaEntity e SET e.usedAt = :usedAt WHERE e.id = :id")
     void markUsed(@Param("id") Long id, @Param("usedAt") Instant usedAt);
+
+    /**
+     * Hard-delete all rows for {@code accountId}. Backs
+     * {@code AccountSmsCodeRepository.deleteAllByAccountId} for
+     * anonymize-frozen-accounts FR-004.
+     */
+    @Modifying
+    @Query("DELETE FROM AccountSmsCodeJpaEntity e WHERE e.accountId = :accountId")
+    void deleteByAccountId(@Param("accountId") Long accountId);
 }

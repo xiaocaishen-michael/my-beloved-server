@@ -227,4 +227,62 @@ class AccountStateMachineTest {
         assertThatThrownBy(() -> AccountStateMachine.markActiveFromFrozen(null, ACTIVATION_AT))
                 .isInstanceOf(NullPointerException.class);
     }
+
+    // --- T2: markAnonymizedFromFrozen (anonymize-frozen-accounts M1.3) ---
+
+    private static final String PHONE_HASH = "ec61f3c620a98bdead8c1f1f0ae747abd1b62a0c2dba4fd4bc22cf0d1d8653e5";
+
+    @Test
+    void markAnonymizedFromFrozen_should_delegate_and_return_same_account() {
+        Instant freezeUntil = ACTIVATION_AT.plusSeconds(15L * 24 * 3600);
+        Account account = Account.reconstitute(
+                new AccountId(1L), PHONE, AccountStatus.FROZEN, CREATED_AT, CREATED_AT, null, null, freezeUntil);
+        Instant graceExpiredAt = freezeUntil.plusSeconds(1);
+
+        Account result = AccountStateMachine.markAnonymizedFromFrozen(account, graceExpiredAt, PHONE_HASH);
+
+        assertThat(result).isSameAs(account);
+        assertThat(account.status()).isEqualTo(AccountStatus.ANONYMIZED);
+        assertThat(account.phone()).isNull();
+        assertThat(account.previousPhoneHash()).isEqualTo(PHONE_HASH);
+        assertThat(account.freezeUntil()).isNull();
+        assertThat(account.updatedAt()).isEqualTo(graceExpiredAt);
+    }
+
+    @Test
+    void markAnonymizedFromFrozen_should_pin_displayName_to_placeholder_constant() {
+        // Facade uses "已注销用户" — anyone calling at the facade level cannot
+        // override the placeholder, so this asserts the constant is wired.
+        Instant freezeUntil = ACTIVATION_AT.plusSeconds(15L * 24 * 3600);
+        Account account = Account.reconstitute(
+                new AccountId(1L),
+                PHONE,
+                AccountStatus.FROZEN,
+                CREATED_AT,
+                CREATED_AT,
+                null,
+                new DisplayName("Alice"),
+                freezeUntil);
+
+        AccountStateMachine.markAnonymizedFromFrozen(account, freezeUntil.plusSeconds(1), PHONE_HASH);
+
+        assertThat(account.displayName()).isEqualTo(new DisplayName("已注销用户"));
+    }
+
+    @Test
+    void markAnonymizedFromFrozen_should_reject_null_account() {
+        assertThatThrownBy(() -> AccountStateMachine.markAnonymizedFromFrozen(null, ACTIVATION_AT, PHONE_HASH))
+                .isInstanceOf(NullPointerException.class);
+    }
+
+    @Test
+    void markAnonymizedFromFrozen_should_propagate_failure_when_grace_not_expired() {
+        Instant freezeUntil = ACTIVATION_AT.plusSeconds(15L * 24 * 3600);
+        Account account = Account.reconstitute(
+                new AccountId(1L), PHONE, AccountStatus.FROZEN, CREATED_AT, CREATED_AT, null, null, freezeUntil);
+
+        assertThatThrownBy(() -> AccountStateMachine.markAnonymizedFromFrozen(account, ACTIVATION_AT, PHONE_HASH))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("freeze_until");
+    }
 }

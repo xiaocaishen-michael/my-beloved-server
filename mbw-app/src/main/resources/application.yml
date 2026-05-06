@@ -53,6 +53,14 @@ spring:
         # to fail with "missing table [event_publication]".
         enabled: false
 
+  task:
+    scheduling:
+      # @Scheduled cron expressions (e.g. FrozenAccountAnonymizationScheduler
+      # @ "0 0 3 * * *") are evaluated in this zone. Asia/Shanghai matches
+      # the production user base; explicit zone keeps cron behaviour stable
+      # across host TZ drift.
+      timezone: Asia/Shanghai
+
 mbw:
   sms:
     # SMS 通道选择（ADR-0013）：

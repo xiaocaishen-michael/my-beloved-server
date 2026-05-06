@@ -125,6 +125,38 @@ public final class AccountStateMachine {
     }
 
     /**
+     * Anonymized-account display_name placeholder (anonymize-frozen-accounts
+     * spec FR-003). Pinned at the facade so callers cannot drift to
+     * other strings; the constant is asserted in
+     * {@code AccountStateMachineTest#markAnonymizedFromFrozen_should_pin_displayName_to_placeholder_constant}.
+     */
+    public static final String ANONYMIZED_DISPLAY_NAME = "已注销用户";
+
+    /**
+     * Transition a {@link AccountStatus#FROZEN} account whose grace
+     * period has elapsed to the terminal {@link AccountStatus#ANONYMIZED}
+     * state (anonymize-frozen-accounts spec FR-003 / M1.3). Pins the
+     * display_name placeholder ({@link #ANONYMIZED_DISPLAY_NAME}) so the
+     * scheduler / use case has no chance of writing a divergent value.
+     * Rejects with {@link IllegalStateException} when status != FROZEN
+     * or {@code freezeUntil} is null / not yet elapsed.
+     *
+     * @param account the account; must be FROZEN with non-null
+     *     freezeUntil ≤ now
+     * @param now the anonymize instant; UTC
+     * @param phoneHash SHA-256 hex of the pre-anonymize phone (per
+     *     {@code PhoneHasher.sha256Hex(...)})
+     * @return the same account (mutated in place) for fluent use case
+     *     composition
+     * @throws IllegalStateException if not eligible
+     */
+    public static Account markAnonymizedFromFrozen(Account account, Instant now, String phoneHash) {
+        Objects.requireNonNull(account, "account must not be null");
+        account.markAnonymized(now, ANONYMIZED_DISPLAY_NAME, phoneHash);
+        return account;
+    }
+
+    /**
      * Update the account's {@link DisplayName} (account-profile spec
      * FR-005). Only ACTIVE accounts may transition; FROZEN /
      * ANONIMIZED rejection happens here so use cases get a uniform

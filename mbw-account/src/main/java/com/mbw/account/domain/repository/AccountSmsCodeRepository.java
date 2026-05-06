@@ -42,4 +42,13 @@ public interface AccountSmsCodeRepository {
      * transaction (delete-account use case owns the transaction boundary).
      */
     void markUsed(AccountSmsCodeId id, Instant now);
+
+    /**
+     * Hard-delete every code row for {@code accountId}. Used by
+     * anonymize-frozen-accounts (FR-004) — once an account is
+     * anonymized, retaining its sms_code rows would leak audit metadata
+     * tied to the (now scrubbed) phone, so the rows are removed rather
+     * than {@code markUsed}-ed. Idempotent: zero matching rows is fine.
+     */
+    void deleteAllByAccountId(AccountId accountId);
 }

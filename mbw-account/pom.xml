@@ -68,6 +68,17 @@
       <version>10.9</version>
     </dependency>
 
+    <!-- Micrometer core for FrozenAccountAnonymizationScheduler counters /
+         timer (anonymize-frozen-accounts spec FR-009). The Prometheus
+         registry + auto-config is wired in mbw-app via
+         spring-boot-starter-actuator + micrometer-registry-prometheus;
+         this module only needs the API surface (MeterRegistry / Counter
+         / Timer). Version comes from the Spring Boot BOM. -->
+    <dependency>
+      <groupId>io.micrometer</groupId>
+      <artifactId>micrometer-core</artifactId>
+    </dependency>
+
     <!-- Test stack: JUnit 5 + AssertJ + Mockito (versions via Spring Boot BOM in parent). -->
     <dependency>
       <groupId>org.junit.jupiter</groupId>

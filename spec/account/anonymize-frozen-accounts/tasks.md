@@ -10,7 +10,7 @@
 
 ## Critical Path(按依赖顺序)
 
-### T0 [Migration] V10 add `previous_phone_hash` + `@EnableScheduling` 决策
+### T0 ✅ [Migration] V10 add `previous_phone_hash` + `@EnableScheduling` 决策
 
 **Files**:
 
@@ -31,7 +31,7 @@
 
 ---
 
-### T1 [Domain] `PhoneHasher` (SHA-256 hex)
+### T1 ✅ [Domain] `PhoneHasher` (SHA-256 hex)
 
 **File**: `mbw-account/src/main/java/com/mbw/account/domain/service/PhoneHasher.java`(**新建**)
 
@@ -71,7 +71,7 @@ public class PhoneHasher {
 
 ---
 
-### T2 [Domain] `Account.markAnonymized` + `AccountStateMachine.markAnonymizedFromFrozen` + `previousPhoneHash` 字段
+### T2 ✅ [Domain] `Account.markAnonymized` + `AccountStateMachine.markAnonymizedFromFrozen` + `previousPhoneHash` 字段
 
 **Files**:
 
@@ -124,7 +124,7 @@ void markAnonymized(Instant now, String displayNamePlaceholder, String phoneHash
 
 ---
 
-### T3 [Domain] `AccountAnonymizedEvent` (api.event)
+### T3 ✅ [Domain] `AccountAnonymizedEvent` (api.event)
 
 **File**: `mbw-account/src/main/java/com/mbw/account/api/event/AccountAnonymizedEvent.java`(**新建**)
 
@@ -149,7 +149,7 @@ public record AccountAnonymizedEvent(
 
 ---
 
-### T4 [App] `AnonymizeFrozenAccountCommand` + `AnonymizeStrategy` interface + 2 strategy impls
+### T4 ✅ [App] `AnonymizeFrozenAccountCommand` + `AnonymizeStrategy` interface + 2 strategy impls
 
 **Files**:
 
@@ -174,7 +174,7 @@ public record AccountAnonymizedEvent(
 
 ---
 
-### T5 [App] `AnonymizeFrozenAccountUseCase`
+### T5 ✅ [App] `AnonymizeFrozenAccountUseCase`
 
 **File**: `mbw-account/src/main/java/com/mbw/account/application/usecase/AnonymizeFrozenAccountUseCase.java`(**新建**)
 
@@ -227,7 +227,7 @@ public class AnonymizeFrozenAccountUseCase {
 
 ---
 
-### T6 [Infra] Repository 扩展:3 个新方法
+### T6 ✅ [Infra] Repository 扩展:3 个新方法
 
 **Files**:
 
@@ -261,7 +261,7 @@ public class AnonymizeFrozenAccountUseCase {
 
 ---
 
-### T7 [Scheduler] `FrozenAccountAnonymizationScheduler`
+### T7 ✅ [Scheduler] `FrozenAccountAnonymizationScheduler`
 
 **File**: `mbw-account/src/main/java/com/mbw/account/infrastructure/scheduling/FrozenAccountAnonymizationScheduler.java`(**新建**)
 
@@ -283,7 +283,7 @@ public class AnonymizeFrozenAccountUseCase {
 
 ---
 
-### T8 [E2E] `FrozenAccountAnonymizationE2EIT`
+### T8 ✅ [E2E] `FrozenAccountAnonymizationE2EIT`
 
 **File**: `mbw-app/src/test/java/com/mbw/app/account/FrozenAccountAnonymizationE2EIT.java`(**新建**)
 

@@ -41,4 +41,10 @@ public class AccountSmsCodeRepositoryImpl implements AccountSmsCodeRepository {
     public void markUsed(AccountSmsCodeId id, Instant now) {
         jpa.markUsed(id.value(), now);
     }
+
+    @Override
+    @Transactional
+    public void deleteAllByAccountId(AccountId accountId) {
+        jpa.deleteByAccountId(accountId.value());
+    }
 }

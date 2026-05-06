@@ -33,16 +33,29 @@ import java.util.Objects;
 public final class Account {
 
     private AccountId id;
-    private final PhoneNumber phone;
+    private PhoneNumber phone;
     private AccountStatus status;
     private final Instant createdAt;
     private Instant updatedAt;
     private Instant lastLoginAt;
     private DisplayName displayName;
     private Instant freezeUntil;
+    private String previousPhoneHash;
 
     public Account(PhoneNumber phone, Instant createdAt) {
         this.phone = Objects.requireNonNull(phone, "phone must not be null");
+        this.createdAt = Objects.requireNonNull(createdAt, "createdAt must not be null");
+        this.updatedAt = createdAt;
+    }
+
+    /**
+     * Internal constructor for the {@code reconstitute} path. Bypasses
+     * the public-constructor's phone non-null check so the 9-arg
+     * overload can rehydrate an ANONYMIZED row with {@code phone = null}
+     * (FR-003 PII removal). The status-conditional phone check lives in
+     * the 9-arg overload itself.
+     */
+    private Account(Instant createdAt) {
         this.createdAt = Objects.requireNonNull(createdAt, "createdAt must not be null");
         this.updatedAt = createdAt;
     }
@@ -95,9 +108,11 @@ public final class Account {
     }
 
     /**
-     * Full reconstitute overload including {@link #freezeUntil}. Used by
-     * the repository implementation when the persisted row carries a
-     * non-null {@code freeze_until} (delete-account spec / V7 migration).
+     * Reconstruct including {@link #freezeUntil}. Delegates to the 9-arg
+     * overload with {@code previousPhoneHash=null}; use the 9-arg form
+     * when the persisted row carries a non-null
+     * {@code previous_phone_hash} (anonymize-frozen-accounts spec /
+     * V10 migration).
      */
     public static Account reconstitute(
             AccountId id,
@@ -108,16 +123,55 @@ public final class Account {
             Instant lastLoginAt,
             DisplayName displayName,
             Instant freezeUntil) {
+        return reconstitute(
+                id,
+                phone,
+                status,
+                createdAt,
+                updatedAt,
+                lastLoginAt,
+                displayName,
+                freezeUntil,
+                /* previousPhoneHash= */ null);
+    }
+
+    /**
+     * Full reconstitute overload including {@link #previousPhoneHash}.
+     * Used by the repository implementation when the persisted row
+     * carries a non-null {@code previous_phone_hash}
+     * (anonymize-frozen-accounts spec / V10 migration).
+     *
+     * <p>{@code phone} may be null only when {@code status ==
+     * ANONYMIZED} (FR-003 PII removal); for any other status a null
+     * phone would corrupt phone-sms-auth lookups, so we reject up
+     * front to fail loudly at load time rather than allowing a bad row
+     * to propagate into business logic.
+     */
+    public static Account reconstitute(
+            AccountId id,
+            PhoneNumber phone,
+            AccountStatus status,
+            Instant createdAt,
+            Instant updatedAt,
+            Instant lastLoginAt,
+            DisplayName displayName,
+            Instant freezeUntil,
+            String previousPhoneHash) {
         Objects.requireNonNull(id, "id must not be null");
         Objects.requireNonNull(status, "status must not be null");
         Objects.requireNonNull(updatedAt, "updatedAt must not be null");
-        Account account = new Account(phone, createdAt);
+        if (status != AccountStatus.ANONYMIZED) {
+            Objects.requireNonNull(phone, "phone must not be null when status is not ANONYMIZED");
+        }
+        Account account = new Account(createdAt);
         account.id = id;
+        account.phone = phone;
         account.status = status;
         account.updatedAt = updatedAt;
         account.lastLoginAt = lastLoginAt;
         account.displayName = displayName;
         account.freezeUntil = freezeUntil;
+        account.previousPhoneHash = previousPhoneHash;
         return account;
     }
 
@@ -151,6 +205,10 @@ public final class Account {
 
     public Instant freezeUntil() {
         return freezeUntil;
+    }
+
+    public String previousPhoneHash() {
+        return previousPhoneHash;
     }
 
     /**
@@ -243,6 +301,44 @@ public final class Account {
             throw new IllegalStateException("ACCOUNT_NOT_FROZEN_IN_GRACE");
         }
         this.status = AccountStatus.ACTIVE;
+        this.freezeUntil = null;
+        this.updatedAt = now;
+    }
+
+    /**
+     * Package-private mutator for the FROZEN → ANONYMIZED terminal
+     * transition (anonymize-frozen-accounts spec FR-003 / M1.3). Only
+     * callable through
+     * {@link AccountStateMachine#markAnonymizedFromFrozen} (or, in
+     * domain-layer tests, directly from the same package) so the
+     * "freeze_until must have elapsed" invariant lives in one place.
+     *
+     * <p>5 mutations performed atomically: set
+     * {@link #previousPhoneHash}, clear {@link #phone}, overwrite
+     * {@link #displayName} with the placeholder, transition
+     * {@link #status} to {@link AccountStatus#ANONYMIZED}, clear
+     * {@link #freezeUntil}, and refresh {@link #updatedAt}.
+     *
+     * @throws IllegalStateException if {@code status} is not FROZEN, or
+     *     {@code freezeUntil} is null / not yet elapsed at {@code now}
+     * @throws NullPointerException if any argument is null
+     */
+    void markAnonymized(Instant now, String displayNamePlaceholder, String phoneHash) {
+        Objects.requireNonNull(now, "now must not be null");
+        Objects.requireNonNull(displayNamePlaceholder, "displayNamePlaceholder must not be null");
+        Objects.requireNonNull(phoneHash, "phoneHash must not be null");
+        if (this.status != AccountStatus.FROZEN) {
+            throw new IllegalStateException(
+                    "Account status is " + this.status + ", cannot transition to ANONYMIZED (only FROZEN permitted)");
+        }
+        if (this.freezeUntil == null || this.freezeUntil.isAfter(now)) {
+            throw new IllegalStateException(
+                    "freeze_until is " + this.freezeUntil + ", cannot anonymize before grace period elapses");
+        }
+        this.previousPhoneHash = phoneHash;
+        this.phone = null;
+        this.displayName = new DisplayName(displayNamePlaceholder);
+        this.status = AccountStatus.ANONYMIZED;
         this.freezeUntil = null;
         this.updatedAt = now;
     }

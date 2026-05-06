@@ -286,4 +286,168 @@ class AccountTest {
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("ACCOUNT_NOT_FROZEN_IN_GRACE");
     }
+
+    // --- T2: markAnonymized + previousPhoneHash (anonymize-frozen-accounts M1.3) ---
+
+    private static final String PHONE_HASH = "ec61f3c620a98bdead8c1f1f0ae747abd1b62a0c2dba4fd4bc22cf0d1d8653e5";
+    private static final String PLACEHOLDER_DISPLAY_NAME = "已注销用户";
+
+    @Test
+    void new_account_should_have_null_previousPhoneHash() {
+        Account account = new Account(PHONE, CREATED_AT);
+
+        assertThat(account.previousPhoneHash()).isNull();
+    }
+
+    @Test
+    void reconstitute_8_arg_overload_should_default_previousPhoneHash_to_null() {
+        Instant freezeUntil = CREATED_AT.plusSeconds(15L * 24 * 3600);
+        Account account = Account.reconstitute(
+                new AccountId(1L), PHONE, AccountStatus.FROZEN, CREATED_AT, CREATED_AT, null, null, freezeUntil);
+
+        assertThat(account.previousPhoneHash()).isNull();
+    }
+
+    @Test
+    void reconstitute_9_arg_overload_should_carry_previousPhoneHash() {
+        Account account = Account.reconstitute(
+                new AccountId(1L),
+                /* phone= */ null,
+                AccountStatus.ANONYMIZED,
+                CREATED_AT,
+                CREATED_AT,
+                null,
+                new DisplayName(PLACEHOLDER_DISPLAY_NAME),
+                /* freezeUntil= */ null,
+                PHONE_HASH);
+
+        assertThat(account.previousPhoneHash()).isEqualTo(PHONE_HASH);
+        assertThat(account.phone()).isNull();
+        assertThat(account.status()).isEqualTo(AccountStatus.ANONYMIZED);
+    }
+
+    @Test
+    void reconstitute_9_arg_should_reject_null_phone_for_non_ANONYMIZED_status() {
+        // Phone-null is only legitimate after anonymization. Non-ANONYMIZED
+        // rows with null phone would corrupt phone-sms-auth lookups.
+        assertThatThrownBy(() -> Account.reconstitute(
+                        new AccountId(1L),
+                        /* phone= */ null,
+                        AccountStatus.ACTIVE,
+                        CREATED_AT,
+                        CREATED_AT,
+                        null,
+                        null,
+                        null,
+                        null))
+                .isInstanceOf(NullPointerException.class)
+                .hasMessageContaining("phone");
+    }
+
+    @Test
+    void should_anonymize_FROZEN_account_clearing_phone_setting_hash_when_grace_expired() {
+        Instant freezeUntil = CREATED_AT.plusSeconds(15L * 24 * 3600);
+        Account account = Account.reconstitute(
+                new AccountId(1L),
+                PHONE,
+                AccountStatus.FROZEN,
+                CREATED_AT,
+                CREATED_AT,
+                CREATED_AT,
+                new DisplayName("Alice"),
+                freezeUntil);
+        Instant graceExpiredAt = freezeUntil.plusSeconds(1);
+
+        account.markAnonymized(graceExpiredAt, PLACEHOLDER_DISPLAY_NAME, PHONE_HASH);
+
+        assertThat(account.status()).isEqualTo(AccountStatus.ANONYMIZED);
+        assertThat(account.phone()).isNull();
+        assertThat(account.previousPhoneHash()).isEqualTo(PHONE_HASH);
+        assertThat(account.displayName()).isEqualTo(new DisplayName(PLACEHOLDER_DISPLAY_NAME));
+        assertThat(account.freezeUntil()).isNull();
+        assertThat(account.updatedAt()).isEqualTo(graceExpiredAt);
+    }
+
+    @Test
+    void should_throw_when_markAnonymized_called_on_ACTIVE() {
+        Account account = Account.reconstitute(new AccountId(1L), PHONE, AccountStatus.ACTIVE, CREATED_AT, CREATED_AT);
+
+        assertThatThrownBy(
+                        () -> account.markAnonymized(CREATED_AT.plusSeconds(60), PLACEHOLDER_DISPLAY_NAME, PHONE_HASH))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("FROZEN");
+    }
+
+    @Test
+    void should_throw_when_markAnonymized_called_on_ANONYMIZED_idempotency_guard() {
+        Account account = Account.reconstitute(
+                new AccountId(1L),
+                /* phone= */ null,
+                AccountStatus.ANONYMIZED,
+                CREATED_AT,
+                CREATED_AT,
+                null,
+                new DisplayName(PLACEHOLDER_DISPLAY_NAME),
+                /* freezeUntil= */ null,
+                PHONE_HASH);
+
+        assertThatThrownBy(
+                        () -> account.markAnonymized(CREATED_AT.plusSeconds(60), PLACEHOLDER_DISPLAY_NAME, PHONE_HASH))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("FROZEN");
+    }
+
+    @Test
+    void should_throw_when_markAnonymized_called_on_FROZEN_with_grace_not_expired() {
+        Instant freezeUntil = CREATED_AT.plusSeconds(15L * 24 * 3600);
+        Account account = Account.reconstitute(
+                new AccountId(1L), PHONE, AccountStatus.FROZEN, CREATED_AT, CREATED_AT, null, null, freezeUntil);
+        Instant beforeGraceExpiry = CREATED_AT.plusSeconds(60);
+
+        assertThatThrownBy(() -> account.markAnonymized(beforeGraceExpiry, PLACEHOLDER_DISPLAY_NAME, PHONE_HASH))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("freeze_until");
+    }
+
+    @Test
+    void should_throw_when_markAnonymized_called_on_FROZEN_with_freezeUntil_null() {
+        Account account = Account.reconstitute(
+                new AccountId(1L),
+                PHONE,
+                AccountStatus.FROZEN,
+                CREATED_AT,
+                CREATED_AT,
+                null,
+                null,
+                /* freezeUntil= */ null);
+
+        assertThatThrownBy(
+                        () -> account.markAnonymized(CREATED_AT.plusSeconds(60), PLACEHOLDER_DISPLAY_NAME, PHONE_HASH))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("freeze_until");
+    }
+
+    @Test
+    void should_throw_when_markAnonymized_phoneHash_null() {
+        Instant freezeUntil = CREATED_AT.plusSeconds(15L * 24 * 3600);
+        Account account = Account.reconstitute(
+                new AccountId(1L), PHONE, AccountStatus.FROZEN, CREATED_AT, CREATED_AT, null, null, freezeUntil);
+
+        assertThatThrownBy(() -> account.markAnonymized(
+                        freezeUntil.plusSeconds(1), PLACEHOLDER_DISPLAY_NAME, /* phoneHash= */ null))
+                .isInstanceOf(NullPointerException.class)
+                .hasMessageContaining("phoneHash");
+    }
+
+    @Test
+    void should_throw_when_markAnonymized_displayNamePlaceholder_null() {
+        Instant freezeUntil = CREATED_AT.plusSeconds(15L * 24 * 3600);
+        Account account = Account.reconstitute(
+                new AccountId(1L), PHONE, AccountStatus.FROZEN, CREATED_AT, CREATED_AT, null, null, freezeUntil);
+
+        assertThatThrownBy(() -> account.markAnonymized(
+                        freezeUntil.plusSeconds(1), /* displayNamePlaceholder= */ null, PHONE_HASH))
+                .isInstanceOf(NullPointerException.class)
+                .hasMessageContaining("displayNamePlaceholder");
+    }
 }

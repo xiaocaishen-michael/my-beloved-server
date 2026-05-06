@@ -5,7 +5,9 @@ import com.mbw.account.domain.model.AccountId;
 import com.mbw.account.domain.model.PhoneNumber;
 import com.mbw.account.domain.repository.AccountRepository;
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -40,6 +42,18 @@ public class AccountRepositoryImpl implements AccountRepository {
     @Override
     public Optional<Account> findById(AccountId accountId) {
         return jpa.findById(accountId.value()).map(AccountMapper::toDomain);
+    }
+
+    @Override
+    public Optional<Account> findByIdForUpdate(AccountId accountId) {
+        return jpa.findByIdForUpdate(accountId.value()).map(AccountMapper::toDomain);
+    }
+
+    @Override
+    public List<AccountId> findFrozenWithExpiredGracePeriod(Instant now, int limit) {
+        return jpa.findFrozenIdsWithExpiredGracePeriod(now, PageRequest.of(0, limit)).stream()
+                .map(AccountId::new)
+                .toList();
     }
 
     @Override
