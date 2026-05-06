@@ -184,7 +184,7 @@ CREATE TABLE account.account_sms_code (
 
 ---
 
-### T7 [App] `SendDeletionCodeUseCase`
+### T7 ✅ [App] `SendDeletionCodeUseCase`
 
 **File**: `mbw-account/src/main/java/com/mbw/account/application/usecase/SendDeletionCodeUseCase.java`（**新建**）
 
