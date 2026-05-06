@@ -57,4 +57,11 @@
          immediately re-maps to EmailSendException, so the outward contract
          stays narrow. -->
     <suppress files=".*ResendEmailClient\.java" checks="IllegalCatch"/>
+
+    <!-- FrozenAccountAnonymizationScheduler must keep its batch loop running
+         across arbitrary use-case failures (Spring DataAccessException
+         subtypes, Resilience4j wrappers, third-party transient errors).
+         Listing each subtype would miss future failure modes; the catch
+         block records the failure as a Micrometer counter and continues. -->
+    <suppress files=".*FrozenAccountAnonymizationScheduler\.java" checks="IllegalCatch"/>
 </suppressions>

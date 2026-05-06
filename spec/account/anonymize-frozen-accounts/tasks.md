@@ -261,7 +261,7 @@ public class AnonymizeFrozenAccountUseCase {
 
 ---
 
-### T7 [Scheduler] `FrozenAccountAnonymizationScheduler`
+### T7 ✅ [Scheduler] `FrozenAccountAnonymizationScheduler`
 
 **File**: `mbw-account/src/main/java/com/mbw/account/infrastructure/scheduling/FrozenAccountAnonymizationScheduler.java`(**新建**)
 
