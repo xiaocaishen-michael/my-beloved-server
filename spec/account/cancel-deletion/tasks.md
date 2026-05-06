@@ -38,7 +38,7 @@
 
 ---
 
-### T1 [Domain] `AccountDeletionCancelledEvent` (api.event)
+### T1 ✅ [Domain] `AccountDeletionCancelledEvent` (api.event)
 
 **File**: `mbw-account/src/main/java/com/mbw/account/api/event/AccountDeletionCancelledEvent.java`（**新建**）
 
@@ -50,7 +50,7 @@
 
 ---
 
-### T2 [App] `SendCancelDeletionCodeCommand` + `CancelDeletionCommand` + `CancelDeletionResult`
+### T2 ✅ [App] `SendCancelDeletionCodeCommand` + `CancelDeletionCommand` + `CancelDeletionResult`
 
 **Files**:
 
