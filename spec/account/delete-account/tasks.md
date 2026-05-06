@@ -279,7 +279,7 @@ CREATE TABLE account.account_sms_code (
 
 ---
 
-### T11 [Concurrency] `AccountDeletionConcurrencyIT`
+### T11 ✅ [Concurrency] `AccountDeletionConcurrencyIT`
 
 **File**: `mbw-account/src/test/java/com/mbw/account/web/AccountDeletionConcurrencyIT.java`（**新建**）
 
