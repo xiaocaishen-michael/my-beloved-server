@@ -3,7 +3,22 @@
 **Use case**: `logout-all`
 **Spec**: [`./spec.md`](./spec.md)
 **Plan**: [`./plan.md`](./plan.md)
+**Phase**: M1.2 Phase 1.4（auth 会话生命周期 — bulk revoke all active refresh tokens for an account）
+**Status**: ✅ Implemented（PR [#101](https://github.com/xiaocaishen-michael/my-beloved-server/pull/101) squash-merged at commit `1b33f7e`，与 refresh-token 一并合入）
 **Estimated total**: ~3-4h（Phase 1 中**最简单**的 use case；无新 schema + 无新 domain + 无 retrofit；仅 application + web 层 + 测试）
+
+## 实施记录
+
+T0-T7 全部已交付，与 refresh-token（Phase 1.3）合并由 PR [#101](https://github.com/xiaocaishen-michael/my-beloved-server/pull/101) 一次性 squash-merge 进 main（merge commit `1b33f7e`）。
+
+**与原 plan/tasks 的偏离**：
+
+- 下方 "Phasing PR 拆分" 段落写"PR 1 = docs / PR 2 = logout-all impl 单独 ship"——实际为节省一次 review 周期，logout-all 与 refresh-token 共用 PR #101 同合并。
+- T3 [Security] 段写 "Spring Security 配置 — `/logout-all` 加 .authenticated()"。实施时 M1.2 还**未**引入 `spring-boot-starter-security` filter chain，鉴权改在 controller 层手动 verify Bearer JWT（新增 `TokenIssuer.verifyAccess` + `JwtTokenIssuer` MACVerifier 路径），等 M3+ filter chain 落地后再上提。详见 PR #101 描述。
+
+实施过程的完整变更明细见 PR #101 描述与 merge commit `1b33f7e`（含原 sub-commit 的 commit message 全文）。
+
+下文段落保留原 TDD 节奏 / 任务依赖 / 测试矩阵设计意图作为 reference（同模式 use case 可参考）。
 
 > **TDD 节奏**：每个 task 内严格红绿循环。任务标签：`[App]` / `[Web]` / `[Security]` / `[E2E]` / `[Concurrency]` / `[Contract]`。
 
