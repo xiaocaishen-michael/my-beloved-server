@@ -201,7 +201,7 @@
 
 ---
 
-### T9 [Contract] OpenAPI snapshot regen
+### T9 ✅ [Contract] OpenAPI snapshot regen
 
 **File**: `mbw-account/src/test/resources/api-docs.snapshot.json`（**改**）
 
