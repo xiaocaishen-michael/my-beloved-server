@@ -34,6 +34,13 @@
       this override should be removed.
     -->
     <postgresql.version>42.7.11</postgresql.version>
+    <!--
+      Force bcprov-jdk18on 1.78.1 → 1.84 to fix HIGH CVE-2026-5598
+      (private key leakage via non-constant-time comparisons).
+      Transitive path: dysmsapi20170525 → openapiutil:0.2.2 → bcprov-jdk18on.
+      Remove once upstream openapiutil ships with 1.84+.
+    -->
+    <bouncycastle.version>1.84</bouncycastle.version>
 
     <!-- Plugin versions -->
     <spotless-maven-plugin.version>3.4.0</spotless-maven-plugin.version>
@@ -99,6 +106,12 @@
         <groupId>org.springdoc</groupId>
         <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
         <version>${springdoc.version}</version>
+      </dependency>
+      <!-- Force bcprov-jdk18on to fix CVE-2026-5598 (see property above) -->
+      <dependency>
+        <groupId>org.bouncycastle</groupId>
+        <artifactId>bcprov-jdk18on</artifactId>
+        <version>${bouncycastle.version}</version>
       </dependency>
     </dependencies>
   </dependencyManagement>
