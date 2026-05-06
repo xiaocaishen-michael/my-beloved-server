@@ -70,7 +70,7 @@
 
 ---
 
-### T3 [App] `SendCancelDeletionCodeUseCase`
+### T3 ✅ [App] `SendCancelDeletionCodeUseCase`
 
 **File**: `mbw-account/src/main/java/com/mbw/account/application/usecase/SendCancelDeletionCodeUseCase.java`（**新建**）
 
