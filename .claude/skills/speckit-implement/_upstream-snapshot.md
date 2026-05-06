@@ -1,16 +1,3 @@
----
-name: "speckit-implement"
-description: "Execute the implementation plan by processing and executing all tasks defined in tasks.md"
-argument-hint: "Optional implementation guidance or task filter"
-compatibility: "Requires spec-kit project structure with .specify/ directory"
-metadata:
-  author: "github-spec-kit"
-  source: "templates/commands/implement.md"
-  localCustomized: true   # local customization — see ./CUSTOMIZATIONS.md
-user-invocable: true
-disable-model-invocation: false
----
-
 
 ## User Input
 
@@ -155,42 +142,12 @@ You **MUST** consider the user input before proceeding (if not empty).
    - **File-based coordination**: Tasks affecting the same files must run sequentially
    - **Validation checkpoints**: Verify each phase completion before proceeding
 
-## Task Closure Protocol (local project constraint — per-task hard closure)
-
-> This section is a **local customization** (see `./CUSTOMIZATIONS.md` C1). Upstream spec-kit only provides a soft directive `mark off as [X]` at the end of step 8; this project requires hard closure.
-
-**Scope**: tasks under `spec/<module>/<usecase>/tasks.md` in this repo.
-
-When a task completes, **the following sequence is mandatory**:
-
-1. Write tests (per `[Test]` task, if any) → typecheck pass + tests RED
-2. Write implementation → tests GREEN
-3. typecheck + lint pass
-4. **Update tasks.md**: in the `### T<N> [<label>] ...` heading, insert `✅` right after the T number (`### T<N> ✅ [<label>] ...`)
-5. `git add` implementation + tests + tasks.md **in the same stage**
-6. Proceed to commit
-
-**State semantics (project convention)**:
-
-- No marker = pending (this is the initial state shipped from the docs PR)
-- `✅` = done (manually added at impl time)
-- The upstream spec-kit default `[X]` is incompatible with this project's emoji convention; **replace every occurrence of `[X]` with `✅`**
-
-**Hard STOP**: before staging, run `git diff --cached --name-only | grep -q "tasks.md$"` — if it fails, **refuse to enter the commit flow** and return to step 4 to add the `✅` first.
-
-**Anti-patterns**:
-
-- ❌ Batching multiple tasks into a single commit and forgetting to update tasks.md (proven 2026-05-06 by commit `4d85a32`)
-- ❌ Moving to the next task before confirming the previous task's `✅` is staged in the commit
-- ❌ Running impl then opening a recovery PR after the fact (proven by login PR #55, onboarding PR #128)
-
 7. Implementation execution rules:
    - **Setup first**: Initialize project structure, dependencies, configuration
    - **Tests before code**: If you need to write tests for contracts, entities, and integration scenarios
    - **Core development**: Implement models, services, CLI commands, endpoints
    - **Integration work**: Database connections, middleware, logging, external services
    - **Polish and validation**: Unit tests, performance optimization, documentation
-   - **Pre-next-task assertion** *(local customization C2 — per Task Closure Protocol)*: before moving to the next task, run `git log -1 --stat | grep -q "tasks.md"` to confirm the previous task's `✅` flip landed in the latest commit; if not, return to the previous task and amend the commit — **do not proceed**.
 
 8. Progress tracking and error handling:
    - Report progress after each completed task
@@ -198,7 +155,7 @@ When a task completes, **the following sequence is mandatory**:
    - For parallel tasks [P], continue with successful tasks, report failed ones
    - Provide clear error messages with context for debugging
    - Suggest next steps if implementation cannot proceed
-   - **HARD STOP** *(local customization C3 — supersedes upstream `[X]` soft directive)*: when completing a task, add `✅` to the tasks.md heading (per Task Closure Protocol above) before commit; **commit is forbidden otherwise**. If `git diff --cached --name-only | grep -q "tasks.md$"` fails, roll back to step 4 of Task Closure Protocol.
+   - **IMPORTANT** For completed tasks, make sure to mark the task off as [X] in the tasks file.
 
 9. Completion validation:
    - Verify all required tasks are completed
