@@ -3,7 +3,22 @@
 **Use case**: `refresh-token`
 **Spec**: [`./spec.md`](./spec.md)
 **Plan**: [`./plan.md`](./plan.md)
+**Phase**: M1.2 Phase 1.3（auth 会话生命周期 — rotate-on-use refresh token）
+**Status**: ✅ Implemented（PR [#101](https://github.com/xiaocaishen-michael/my-beloved-server/pull/101) squash-merged at commit `1b33f7e`，与 logout-all 一并合入）
 **Estimated total**: ~12-14h（domain + infra + retrofit 3 既有 UseCase + E2E + concurrency；显著高于 1.1 / 1.2 因新表 + 三处回填）
+
+## 实施记录
+
+T0-T13 全部已交付，与 logout-all（Phase 1.4）合并由 PR [#101](https://github.com/xiaocaishen-michael/my-beloved-server/pull/101) 一次性 squash-merge 进 main（merge commit `1b33f7e`）。
+
+**与原 plan/tasks 的偏离**：
+
+- 原 PR #100（`feat(auth): impl refresh-token`）单独提交后 CLOSED 未 merge，原因是 logout-all 在 Phase 1.4 做完后顺手与 refresh-token 合并提交（PR #101），减少双 PR review 编排开销。下方 "Phasing PR 拆分" 段落写的"PR 1 = docs / PR 2 = refresh-token impl 单独 ship"假设性方案 **未实际采用**。
+- T0 Migration 文件命名 `V4__create_refresh_token_table.sql` 在 impl 时改为 `V5__create_refresh_token_table.sql`——V4 在 Phase 1.1/1.2 已被 `V4__add_account_last_login_at.sql` 占用（Flyway 维持 shared / + account/ 全局单调递增的迁移历史）。文件头 SQL 注释已就 V5 vs V4 的偏离做完整说明。
+
+实施过程的完整变更明细见 PR #101 描述与 merge commit `1b33f7e`（含原 sub-commit 的 commit message 全文）。
+
+下文段落保留原 TDD 节奏 / 任务依赖 / 测试矩阵设计意图作为 reference（同模式 use case 可参考）。
 
 > **TDD 节奏**：每个 task 内严格红绿循环。任务标签：`[Migration]` / `[Domain]` / `[Infra]` / `[App]` / `[Web]` / `[Retrofit]` / `[E2E]` / `[Concurrency]` / `[Contract]`。
 
