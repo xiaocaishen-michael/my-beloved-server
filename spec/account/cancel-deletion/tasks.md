@@ -120,7 +120,7 @@
 
 ---
 
-### T5 [Web] `SendCancelDeletionCodeRequest` + `CancelDeletionRequest` + `CancelDeletionController`
+### T5 ✅ [Web] `SendCancelDeletionCodeRequest` + `CancelDeletionRequest` + `CancelDeletionController`
 
 **Files**:
 
