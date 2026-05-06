@@ -124,7 +124,7 @@ void markAnonymized(Instant now, String displayNamePlaceholder, String phoneHash
 
 ---
 
-### T3 [Domain] `AccountAnonymizedEvent` (api.event)
+### T3 ✅ [Domain] `AccountAnonymizedEvent` (api.event)
 
 **File**: `mbw-account/src/main/java/com/mbw/account/api/event/AccountAnonymizedEvent.java`(**新建**)
 
