@@ -3,6 +3,7 @@ package com.mbw.account.web.exception;
 import com.mbw.account.domain.exception.AccountInactiveException;
 import com.mbw.account.domain.exception.AccountNotFoundException;
 import com.mbw.account.domain.exception.InvalidCredentialsException;
+import com.mbw.account.domain.exception.InvalidDeletionCodeException;
 import com.mbw.account.domain.exception.InvalidPhoneFormatException;
 import com.mbw.account.domain.exception.WeakPasswordException;
 import com.mbw.shared.api.sms.SmsSendException;
@@ -52,6 +53,15 @@ public class AccountWebExceptionAdvice {
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.UNAUTHORIZED, "Invalid credentials");
         problem.setTitle("Invalid credentials");
         problem.setProperty("code", InvalidCredentialsException.CODE);
+        return problem;
+    }
+
+    @ExceptionHandler(InvalidDeletionCodeException.class)
+    public ProblemDetail onInvalidDeletionCode(InvalidDeletionCodeException ex) {
+        ProblemDetail problem =
+                ProblemDetail.forStatusAndDetail(HttpStatus.UNAUTHORIZED, "Deletion code invalid or expired");
+        problem.setTitle("Invalid deletion code");
+        problem.setProperty("code", InvalidDeletionCodeException.CODE);
         return problem;
     }
 
