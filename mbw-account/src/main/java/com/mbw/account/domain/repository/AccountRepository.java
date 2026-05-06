@@ -19,6 +19,22 @@ public interface AccountRepository {
     Optional<Account> findByPhone(PhoneNumber phone);
 
     /**
+     * Phone lookup with a row-level pessimistic write lock — concurrent
+     * callers serialise on the same row until the surrounding transaction
+     * commits. Used by cancel-deletion (SC-007) to race-safely admit
+     * exactly one FROZEN → ACTIVE transition for a given phone: without
+     * the lock, multiple threads can each pass an in-memory
+     * {@code status == FROZEN} check on stale data and mutate independent
+     * domain copies.
+     *
+     * <p>Must be called inside a {@code @Transactional} boundary;
+     * lock release is at commit/rollback. Treat as a primitive — only
+     * reach for it when the use case must serialise contention from the
+     * load step rather than at write time.
+     */
+    Optional<Account> findByPhoneForUpdate(PhoneNumber phone);
+
+    /**
      * Look up by id. Used by use cases that already hold an
      * {@link AccountId} (e.g. RefreshTokenUseCase resolving the
      * account linked to a refresh token record).

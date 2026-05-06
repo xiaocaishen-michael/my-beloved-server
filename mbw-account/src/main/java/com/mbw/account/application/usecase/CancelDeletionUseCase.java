@@ -133,7 +133,12 @@ public class CancelDeletionUseCase {
         rateLimitService.consumeOrThrow("cancel-submit:phone:" + phoneHash, PER_PHONE_60S);
         rateLimitService.consumeOrThrow("cancel-submit:ip:" + cmd.clientIp(), PER_IP_60S);
 
-        Optional<Account> maybeAccount = accountRepository.findByPhone(phone);
+        // Pessimistic write lock from the start (SC-007): concurrent callers for the
+        // same phone serialise here until the winning tx commits. Without the lock,
+        // five threads each load a stale FROZEN snapshot, all pass the in-memory
+        // eligibility check, and all "succeed" — producing N event publications, N
+        // refresh-token rows, and a state machine entered N times.
+        Optional<Account> maybeAccount = accountRepository.findByPhoneForUpdate(phone);
         Instant now = Instant.now(clock);
 
         boolean eligible = maybeAccount
@@ -167,8 +172,8 @@ public class CancelDeletionUseCase {
         try {
             AccountStateMachine.markActiveFromFrozen(account, now);
         } catch (IllegalStateException ex) {
-            // Race with anonymize scheduler: freeze_until > now at step 3 but <= now
-            // by the time we reach the state machine. Collapse to 401 (FR-006).
+            // Race with the anonymize scheduler between findByPhoneForUpdate and now
+            // (freeze_until expired in the gap). Collapse to 401 (FR-006).
             throw new InvalidCredentialsException();
         }
 

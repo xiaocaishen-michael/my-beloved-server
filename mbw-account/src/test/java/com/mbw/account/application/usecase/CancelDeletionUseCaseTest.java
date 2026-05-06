@@ -122,7 +122,7 @@ class CancelDeletionUseCaseTest {
     void should_transition_ACTIVE_and_issue_token_and_publish_event_when_FROZEN_grace_valid_and_code_correct() {
         Instant freezeUntil = NOW.plus(Duration.ofDays(10));
         Account account = frozenAccount(freezeUntil);
-        when(accountRepository.findByPhone(PHONE)).thenReturn(Optional.of(account));
+        when(accountRepository.findByPhoneForUpdate(PHONE)).thenReturn(Optional.of(account));
         when(accountRepository.save(any())).thenReturn(account);
         when(smsCodeRepository.findActiveByPurposeAndAccountId(
                         eq(AccountSmsCodePurpose.CANCEL_DELETION), eq(ACCOUNT_ID), any()))
@@ -163,7 +163,7 @@ class CancelDeletionUseCaseTest {
 
         assertThatThrownBy(() -> useCase.execute(cmd())).isInstanceOf(RateLimitedException.class);
 
-        verify(accountRepository, never()).findByPhone(any());
+        verify(accountRepository, never()).findByPhoneForUpdate(any());
         verify(eventPublisher, never()).publishEvent(any());
     }
 
@@ -175,13 +175,13 @@ class CancelDeletionUseCaseTest {
 
         assertThatThrownBy(() -> useCase.execute(cmd())).isInstanceOf(RateLimitedException.class);
 
-        verify(accountRepository, never()).findByPhone(any());
+        verify(accountRepository, never()).findByPhoneForUpdate(any());
         verify(eventPublisher, never()).publishEvent(any());
     }
 
     @Test
     void should_throw_InvalidCredentials_when_phone_not_found() {
-        when(accountRepository.findByPhone(PHONE)).thenReturn(Optional.empty());
+        when(accountRepository.findByPhoneForUpdate(PHONE)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> useCase.execute(cmd())).isInstanceOf(InvalidCredentialsException.class);
 
@@ -280,7 +280,7 @@ class CancelDeletionUseCaseTest {
     void should_rollback_when_TokenIssuer_throws() {
         Instant freezeUntil = NOW.plus(Duration.ofDays(10));
         Account account = frozenAccount(freezeUntil);
-        when(accountRepository.findByPhone(PHONE)).thenReturn(Optional.of(account));
+        when(accountRepository.findByPhoneForUpdate(PHONE)).thenReturn(Optional.of(account));
         when(accountRepository.save(any())).thenReturn(account);
         when(smsCodeRepository.findActiveByPurposeAndAccountId(
                         eq(AccountSmsCodePurpose.CANCEL_DELETION), eq(ACCOUNT_ID), any()))
@@ -301,7 +301,7 @@ class CancelDeletionUseCaseTest {
     void should_rollback_when_refresh_token_persist_fails() {
         Instant freezeUntil = NOW.plus(Duration.ofDays(10));
         Account account = frozenAccount(freezeUntil);
-        when(accountRepository.findByPhone(PHONE)).thenReturn(Optional.of(account));
+        when(accountRepository.findByPhoneForUpdate(PHONE)).thenReturn(Optional.of(account));
         when(accountRepository.save(any())).thenReturn(account);
         when(smsCodeRepository.findActiveByPurposeAndAccountId(
                         eq(AccountSmsCodePurpose.CANCEL_DELETION), eq(ACCOUNT_ID), any()))
