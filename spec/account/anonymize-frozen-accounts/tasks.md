@@ -71,7 +71,7 @@ public class PhoneHasher {
 
 ---
 
-### T2 [Domain] `Account.markAnonymized` + `AccountStateMachine.markAnonymizedFromFrozen` + `previousPhoneHash` 字段
+### T2 ✅ [Domain] `Account.markAnonymized` + `AccountStateMachine.markAnonymizedFromFrozen` + `previousPhoneHash` 字段
 
 **Files**:
 

@@ -25,7 +25,11 @@ public class AccountJpaEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, unique = true, length = 20)
+    // Nullable from V10 onward — anonymize-frozen-accounts (M1.3) clears
+    // phone to satisfy FR-003 (PII removal). The plain UNIQUE INDEX
+    // uk_account_phone treats multiple NULLs as distinct (PG semantics),
+    // so this stays a no-op for the uniqueness contract on live phones.
+    @Column(unique = true, length = 20)
     private String phone;
 
     @Column(nullable = false, length = 16)
@@ -45,6 +49,9 @@ public class AccountJpaEntity {
 
     @Column(name = "freeze_until")
     private Instant freezeUntil;
+
+    @Column(name = "previous_phone_hash", length = 64)
+    private String previousPhoneHash;
 
     public Long getId() {
         return id;
@@ -108,5 +115,13 @@ public class AccountJpaEntity {
 
     public void setFreezeUntil(Instant freezeUntil) {
         this.freezeUntil = freezeUntil;
+    }
+
+    public String getPreviousPhoneHash() {
+        return previousPhoneHash;
+    }
+
+    public void setPreviousPhoneHash(String previousPhoneHash) {
+        this.previousPhoneHash = previousPhoneHash;
     }
 }

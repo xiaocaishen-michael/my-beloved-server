@@ -34,15 +34,20 @@ public final class AccountMapper {
     private AccountMapper() {}
 
     public static Account toDomain(AccountJpaEntity entity) {
+        // ANONYMIZED rows have phone cleared (V10 + FR-003); construct
+        // the PhoneNumber VO only when the column is non-null so we
+        // don't blow up the load path on a legitimately anonymized row.
+        PhoneNumber phone = entity.getPhone() == null ? null : new PhoneNumber(entity.getPhone());
         return Account.reconstitute(
                 new AccountId(entity.getId()),
-                new PhoneNumber(entity.getPhone()),
+                phone,
                 AccountStatus.valueOf(entity.getStatus()),
                 entity.getCreatedAt(),
                 entity.getUpdatedAt(),
                 entity.getLastLoginAt(),
                 toDisplayName(entity.getDisplayName(), entity.getId()),
-                entity.getFreezeUntil());
+                entity.getFreezeUntil(),
+                entity.getPreviousPhoneHash());
     }
 
     /**
@@ -76,7 +81,10 @@ public final class AccountMapper {
         if (account.id() != null) {
             entity.setId(account.id().value());
         }
-        entity.setPhone(account.phone().e164());
+        // ANONYMIZED accounts carry no phone (FR-003); keep the column
+        // null on the entity so the UPDATE path actually clears it on
+        // the FROZEN → ANONYMIZED save.
+        entity.setPhone(account.phone() == null ? null : account.phone().e164());
         entity.setStatus(account.status() == null ? null : account.status().name());
         entity.setCreatedAt(account.createdAt());
         entity.setUpdatedAt(account.updatedAt());
@@ -84,6 +92,7 @@ public final class AccountMapper {
         entity.setDisplayName(
                 account.displayName() == null ? null : account.displayName().value());
         entity.setFreezeUntil(account.freezeUntil());
+        entity.setPreviousPhoneHash(account.previousPhoneHash());
         return entity;
     }
 

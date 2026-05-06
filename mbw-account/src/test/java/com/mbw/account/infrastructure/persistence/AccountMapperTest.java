@@ -90,4 +90,73 @@ class AccountMapperTest {
         entity.setDisplayName(displayName);
         return entity;
     }
+
+    // --- T2: previous_phone_hash + null-phone bidirectional (anonymize M1.3) ---
+
+    private static final String PHONE_HASH = "ec61f3c620a98bdead8c1f1f0ae747abd1b62a0c2dba4fd4bc22cf0d1d8653e5";
+    private static final String PLACEHOLDER = "已注销用户";
+
+    @Test
+    void toEntity_should_carry_null_phone_for_ANONYMIZED_account() {
+        Account account = Account.reconstitute(
+                new AccountId(7L),
+                /* phone= */ null,
+                AccountStatus.ANONYMIZED,
+                CREATED_AT,
+                CREATED_AT,
+                null,
+                new DisplayName(PLACEHOLDER),
+                /* freezeUntil= */ null,
+                PHONE_HASH);
+
+        AccountJpaEntity entity = AccountMapper.toEntity(account);
+
+        assertThat(entity.getPhone()).isNull();
+        assertThat(entity.getPreviousPhoneHash()).isEqualTo(PHONE_HASH);
+        assertThat(entity.getStatus()).isEqualTo("ANONYMIZED");
+    }
+
+    @Test
+    void toEntity_should_carry_null_previousPhoneHash_for_ACTIVE_account() {
+        Account account = AccountStateMachine.activate(new Account(PHONE, CREATED_AT), CREATED_AT);
+
+        AccountJpaEntity entity = AccountMapper.toEntity(account);
+
+        assertThat(entity.getPreviousPhoneHash()).isNull();
+        assertThat(entity.getPhone()).isEqualTo(PHONE.e164());
+    }
+
+    @Test
+    void toDomain_should_handle_null_phone_for_ANONYMIZED_row() {
+        AccountJpaEntity entity = new AccountJpaEntity();
+        entity.setId(7L);
+        entity.setPhone(null);
+        entity.setStatus("ANONYMIZED");
+        entity.setCreatedAt(CREATED_AT);
+        entity.setUpdatedAt(CREATED_AT);
+        entity.setDisplayName(PLACEHOLDER);
+        entity.setPreviousPhoneHash(PHONE_HASH);
+
+        Account account = AccountMapper.toDomain(entity);
+
+        assertThat(account.phone()).isNull();
+        assertThat(account.previousPhoneHash()).isEqualTo(PHONE_HASH);
+        assertThat(account.status()).isEqualTo(AccountStatus.ANONYMIZED);
+    }
+
+    @Test
+    void toDomain_should_carry_previousPhoneHash_when_present() {
+        AccountJpaEntity entity = new AccountJpaEntity();
+        entity.setId(7L);
+        entity.setPhone(null);
+        entity.setStatus("ANONYMIZED");
+        entity.setCreatedAt(CREATED_AT);
+        entity.setUpdatedAt(CREATED_AT);
+        entity.setDisplayName(PLACEHOLDER);
+        entity.setPreviousPhoneHash(PHONE_HASH);
+
+        Account account = AccountMapper.toDomain(entity);
+
+        assertThat(account.previousPhoneHash()).isEqualTo(PHONE_HASH);
+    }
 }

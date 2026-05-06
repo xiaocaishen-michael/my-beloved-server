@@ -14,3 +14,11 @@ COMMENT ON COLUMN account.account.previous_phone_hash
 CREATE INDEX idx_account_previous_phone_hash
     ON account.account (previous_phone_hash)
     WHERE previous_phone_hash IS NOT NULL;
+
+-- Drop NOT NULL on phone — anonymization clears the column to satisfy
+-- spec.md FR-003 (PII removal). The unique index uk_account_phone is
+-- plain (not partial); PG semantics already permit multiple NULL values
+-- under a plain UNIQUE INDEX, so this single change is enough to allow
+-- anonymized rows without rewriting the index.
+ALTER TABLE account.account
+    ALTER COLUMN phone DROP NOT NULL;
