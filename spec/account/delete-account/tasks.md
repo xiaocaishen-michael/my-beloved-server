@@ -297,7 +297,7 @@ CREATE TABLE account.account_sms_code (
 
 ---
 
-### T12 [E2E] `CrossUseCaseEnumerationDefenseIT` 扩展
+### T12 ✅ [E2E] `CrossUseCaseEnumerationDefenseIT` 扩展
 
 **File**: `mbw-account/src/test/java/com/mbw/account/web/CrossUseCaseEnumerationDefenseIT.java`（**1.1/1.3/1.4 已建，本次扩展**）
 
