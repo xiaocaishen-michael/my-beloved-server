@@ -272,7 +272,8 @@ public interface AnonymizeStrategy {
 }
 ```
 
-  本期实现:`RefreshTokenAnonymizeStrategy`(revoke 全部)+ `SmsCodeAnonymizeStrategy`(DELETE 全部);UseCase 通过 `List<AnonymizeStrategy>` 注入 + 顺序遍历调用。M1.3 微信引入时新增 `ThirdPartyBindingAnonymizeStrategy` 注册即可,UseCase 不改。
+本期实现:`RefreshTokenAnonymizeStrategy`(revoke 全部)+ `SmsCodeAnonymizeStrategy`(DELETE 全部);UseCase 通过 `List<AnonymizeStrategy>` 注入 + 顺序遍历调用。M1.3 微信引入时新增 `ThirdPartyBindingAnonymizeStrategy` 注册即可,UseCase 不改。
+
 - **`AccountRepository.findFrozenWithExpiredGracePeriod(Instant now, int limit)`** 方法 + 实现:
   - JpaRepository `@Query("SELECT a.id FROM AccountJpaEntity a WHERE a.status = 'FROZEN' AND a.freezeUntil <= :now ORDER BY a.freezeUntil ASC")` + `Pageable.ofSize(limit)`
   - Repository 适配返回 `List<AccountId>`
