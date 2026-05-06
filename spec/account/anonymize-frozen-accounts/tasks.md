@@ -277,7 +277,7 @@ public class AnonymizeFrozenAccountUseCase {
 | IllegalAccountStateException 被吞 | useCase throws IllegalAccountStateException | 不计 failures(per FR-005 幂等);DEBUG log |
 | OptimisticLockingFailureException 被吞 | 同上但 OptimisticLockingFailureException | 不计 failures(per SC-007 race);DEBUG log |
 | 空 batch | findFrozen returns empty | scanned=0,succeeded=0,failed=0;timer 仍 record |
-| 注解断言 | 反射验 `@Scheduled` 存在 + cron = "0 0 3 * * *" + zone = "Asia/Shanghai" | 不靠 actual timer trigger,验 metadata |
+| 注解断言 | 反射验 `@Scheduled` 存在 + `cron = "0 0 3 * * *"` + `zone = "Asia/Shanghai"` | 不靠 actual timer trigger,验 metadata |
 
 **Dependencies**: T5(useCase)/ T6(repo)。
 

@@ -75,6 +75,7 @@ T7 → T8 / T9 / T10 / T11                                       ✅
 **实际现状**(per `phone-sms-auth/spec.md` FR-006 反枚举):"已注册 + FROZEN/ANONYMIZED → 反枚举吞为 INVALID_CREDENTIALS"
 
 **冲突**:
+
 - spec SC-008 期望 ANONYMIZED 登录时返回明确的 `ACCOUNT_ANONYMIZED` 410 错误
 - 但 phone-sms-auth FR-006 + state-machine.md error codes 表第 2 行显示 `ACCOUNT_ANONYMIZED 410` **是不该被反枚举的**(暴露账号曾存在 = 信息泄露)
 
@@ -97,6 +98,7 @@ T7 → T8 / T9 / T10 / T11                                       ✅
 **实际行为分析**:
 
 ANONYMIZED 账号 phone 已 NULL,新 phone-sms-auth 请求该 phone:
+
 1. `findByPhone(phone)` → 因 phone 已 NULL,**返 empty**(account.phone 字段查不到 anonymized 行)
 2. 走"未注册自动创建"路径 → 创建新 accountId(per `account-state-machine.md` § "Auto-create on phone-sms-auth")
 3. 用户视角:登录成功(新账号)— 既非 401 也非 410
@@ -129,6 +131,7 @@ ANONYMIZED 账号 phone 已 NULL,新 phone-sms-auth 请求该 phone:
 **解决**:interface 应放 `application/port/` 或 `domain/service/`(端口接口 in domain,实现 in infrastructure)。
 
 **修复方向**:
+
 - (a) `AnonymizeStrategy` interface 移到 `mbw-account/src/main/java/com/mbw/account/application/port/AnonymizeStrategy.java`(端口在 application,实现在 infrastructure)
 - (b) `AnonymizeStrategy` interface 移到 `domain/service/`(domain 暴露的策略契约)
 
@@ -210,9 +213,9 @@ User Story 4 描述合理,无需修。Edge Case 段提到"data integrity violati
 
 **附加 follow-up**(不阻塞本 spec ship,可后续单独 PR):
 
-3. `account-state-machine.md` error codes 表 删除 `ACCOUNT_ANONYMIZED 410` 行(与 ADR-0016 反枚举不变量冲突,见 §3.1)
-4. `account-state-machine.md` § Implementation hints 第 3 条 "Scheduled job: 每天扫 ..." 现已具象化,可加 reference 指向本 spec
-5. `account-state-machine.md` Invariant 5 "只保留 `account.id` 用于审计" — 加注 "+ `previous_phone_hash`(per anonymize-frozen-accounts spec CL-003)";不破坏 hash ≠ PII 的语义
+- `account-state-machine.md` error codes 表 删除 `ACCOUNT_ANONYMIZED 410` 行(与 ADR-0016 反枚举不变量冲突,见 §3.1)
+- `account-state-machine.md` § Implementation hints 第 3 条 "Scheduled job: 每天扫 ..." 现已具象化,可加 reference 指向本 spec
+- `account-state-machine.md` Invariant 5 "只保留 `account.id` 用于审计" — 加注 "+ `previous_phone_hash`(per anonymize-frozen-accounts spec CL-003)";不破坏 hash ≠ PII 的语义
 
 **修订完成后,可 ship 本 spec PR + 进入 implement phase**。
 

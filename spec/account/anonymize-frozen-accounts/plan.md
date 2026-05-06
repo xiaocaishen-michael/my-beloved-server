@@ -180,25 +180,27 @@ Micrometer timer record;log INFO summary
 ### Domain layer
 
 - **`Account`** 加字段 `previousPhoneHash: String?`(ACTIVE 期 null;anonymize 时写入)
-- **`Account.markAnonymized(Instant now, String displayNamePlaceholder, String phoneHash)`** package-private:
-  ```java
-  void markAnonymized(Instant now, String displayNamePlaceholder, String phoneHash) {
-      Objects.requireNonNull(displayNamePlaceholder);
-      Objects.requireNonNull(phoneHash);
-      if (this.status != AccountStatus.FROZEN) {
-          throw new IllegalAccountStateException("anonymize requires FROZEN, got " + this.status);
-      }
-      if (this.freezeUntil == null || this.freezeUntil.isAfter(now)) {
-          throw new IllegalAccountStateException("freeze_until not yet expired or null");
-      }
-      this.previousPhoneHash = phoneHash;
-      this.phone = null;
-      this.displayName = displayNamePlaceholder;
-      this.status = AccountStatus.ANONYMIZED;
-      this.freezeUntil = null;
-      this.updatedAt = now;
-  }
-  ```
+- **`Account.markAnonymized(Instant now, String displayNamePlaceholder, String phoneHash)`** package-private — 实现:
+
+```java
+void markAnonymized(Instant now, String displayNamePlaceholder, String phoneHash) {
+    Objects.requireNonNull(displayNamePlaceholder);
+    Objects.requireNonNull(phoneHash);
+    if (this.status != AccountStatus.FROZEN) {
+        throw new IllegalAccountStateException("anonymize requires FROZEN, got " + this.status);
+    }
+    if (this.freezeUntil == null || this.freezeUntil.isAfter(now)) {
+        throw new IllegalAccountStateException("freeze_until not yet expired or null");
+    }
+    this.previousPhoneHash = phoneHash;
+    this.phone = null;
+    this.displayName = displayNamePlaceholder;
+    this.status = AccountStatus.ANONYMIZED;
+    this.freezeUntil = null;
+    this.updatedAt = now;
+}
+```
+
 - **`AccountStateMachine.markAnonymizedFromFrozen(Account, Instant now, String phoneHash)`** facade
 - **`PhoneHasher.sha256Hex(String phone) → String`** domain 服务,纯函数(SHA-256 + hex encoding,无外部依赖)
 - 新事件 **`mbw-account/api/event/AccountAnonymizedEvent.java`** record `(AccountId accountId, Instant anonymizedAt, Instant occurredAt)`
@@ -210,62 +212,66 @@ Micrometer timer record;log INFO summary
 
 ### Infrastructure layer
 
-- **`FrozenAccountAnonymizationScheduler`** `@Component`:
-  ```java
-  @Component
-  @RequiredArgsConstructor
-  @Slf4j
-  public class FrozenAccountAnonymizationScheduler {
-      private final AccountRepository accountRepo;
-      private final AnonymizeFrozenAccountUseCase useCase;
-      private final MeterRegistry meterRegistry;
-      private final Clock clock;
+- **`FrozenAccountAnonymizationScheduler`** `@Component` — 实现:
 
-      private final Map<AccountId, Integer> failureCounts = new ConcurrentHashMap<>();
-      private static final int LIMIT = 100;
-      private static final int PERSISTENT_FAILURE_THRESHOLD = 3;
+```java
+@Component
+@RequiredArgsConstructor
+@Slf4j
+public class FrozenAccountAnonymizationScheduler {
+    private final AccountRepository accountRepo;
+    private final AnonymizeFrozenAccountUseCase useCase;
+    private final MeterRegistry meterRegistry;
+    private final Clock clock;
 
-      @Scheduled(cron = "0 0 3 * * *", zone = "Asia/Shanghai")
-      public void anonymizeExpiredFrozenAccounts() {
-          var sample = Timer.start(meterRegistry);
-          var now = clock.instant();
-          var candidates = accountRepo.findFrozenWithExpiredGracePeriod(now, LIMIT);
-          int succeeded = 0, failed = 0;
-          for (var accountId : candidates) {
-              meterRegistry.counter("account.anonymize.scanned").increment();
-              try {
-                  useCase.execute(new AnonymizeFrozenAccountCommand(accountId));
-                  meterRegistry.counter("account.anonymize.succeeded").increment();
-                  failureCounts.remove(accountId);
-                  succeeded++;
-              } catch (IllegalAccountStateException | OptimisticLockingFailureException e) {
-                  log.debug("anonymize skipped accountId={} reason={}", accountId.value(), e.getClass().getSimpleName());
-              } catch (Exception e) {
-                  meterRegistry.counter("account.anonymize.failures",
-                      "reason", e.getClass().getSimpleName()).increment();
-                  int count = failureCounts.merge(accountId, 1, Integer::sum);
-                  if (count >= PERSISTENT_FAILURE_THRESHOLD) {
-                      log.error("anonymize persistent failure accountId={} count={}",
-                          accountId.value(), count, e);
-                      meterRegistry.counter("account.anonymize.persistent_failures").increment();
-                  } else {
-                      log.warn("anonymize failure accountId={} count={}", accountId.value(), count, e);
-                  }
-                  failed++;
-              }
-          }
-          sample.stop(meterRegistry.timer("account.anonymize.batch_duration"));
-          log.info("anonymize batch done scanned={} succeeded={} failed={}",
-              candidates.size(), succeeded, failed);
-      }
-  }
-  ```
-- **`AnonymizeStrategy`** interface(per spec CL-002):
-  ```java
-  public interface AnonymizeStrategy {
-      void apply(AccountId accountId, Instant now);
-  }
-  ```
+    private final Map<AccountId, Integer> failureCounts = new ConcurrentHashMap<>();
+    private static final int LIMIT = 100;
+    private static final int PERSISTENT_FAILURE_THRESHOLD = 3;
+
+    @Scheduled(cron = "0 0 3 * * *", zone = "Asia/Shanghai")
+    public void anonymizeExpiredFrozenAccounts() {
+        var sample = Timer.start(meterRegistry);
+        var now = clock.instant();
+        var candidates = accountRepo.findFrozenWithExpiredGracePeriod(now, LIMIT);
+        int succeeded = 0, failed = 0;
+        for (var accountId : candidates) {
+            meterRegistry.counter("account.anonymize.scanned").increment();
+            try {
+                useCase.execute(new AnonymizeFrozenAccountCommand(accountId));
+                meterRegistry.counter("account.anonymize.succeeded").increment();
+                failureCounts.remove(accountId);
+                succeeded++;
+            } catch (IllegalAccountStateException | OptimisticLockingFailureException e) {
+                log.debug("anonymize skipped accountId={} reason={}", accountId.value(), e.getClass().getSimpleName());
+            } catch (Exception e) {
+                meterRegistry.counter("account.anonymize.failures",
+                    "reason", e.getClass().getSimpleName()).increment();
+                int count = failureCounts.merge(accountId, 1, Integer::sum);
+                if (count >= PERSISTENT_FAILURE_THRESHOLD) {
+                    log.error("anonymize persistent failure accountId={} count={}",
+                        accountId.value(), count, e);
+                    meterRegistry.counter("account.anonymize.persistent_failures").increment();
+                } else {
+                    log.warn("anonymize failure accountId={} count={}", accountId.value(), count, e);
+                }
+                failed++;
+            }
+        }
+        sample.stop(meterRegistry.timer("account.anonymize.batch_duration"));
+        log.info("anonymize batch done scanned={} succeeded={} failed={}",
+            candidates.size(), succeeded, failed);
+    }
+}
+```
+
+- **`AnonymizeStrategy`** interface(per spec CL-002) — 实现:
+
+```java
+public interface AnonymizeStrategy {
+    void apply(AccountId accountId, Instant now);
+}
+```
+
   本期实现:`RefreshTokenAnonymizeStrategy`(revoke 全部)+ `SmsCodeAnonymizeStrategy`(DELETE 全部);UseCase 通过 `List<AnonymizeStrategy>` 注入 + 顺序遍历调用。M1.3 微信引入时新增 `ThirdPartyBindingAnonymizeStrategy` 注册即可,UseCase 不改。
 - **`AccountRepository.findFrozenWithExpiredGracePeriod(Instant now, int limit)`** 方法 + 实现:
   - JpaRepository `@Query("SELECT a.id FROM AccountJpaEntity a WHERE a.status = 'FROZEN' AND a.freezeUntil <= :now ORDER BY a.freezeUntil ASC")` + `Pageable.ofSize(limit)`
