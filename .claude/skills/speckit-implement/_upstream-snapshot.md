@@ -1,16 +1,3 @@
----
-name: "speckit-implement"
-description: "Execute the implementation plan by processing and executing all tasks defined in tasks.md"
-argument-hint: "Optional implementation guidance or task filter"
-compatibility: "Requires spec-kit project structure with .specify/ directory"
-metadata:
-  author: "github-spec-kit"
-  source: "templates/commands/implement.md"
-  localCustomized: true   # 本地新增 — 见 ./CUSTOMIZATIONS.md
-user-invocable: true
-disable-model-invocation: false
----
-
 
 ## User Input
 
@@ -155,42 +142,12 @@ You **MUST** consider the user input before proceeding (if not empty).
    - **File-based coordination**: Tasks affecting the same files must run sequentially
    - **Validation checkpoints**: Verify each phase completion before proceeding
 
-## Task Closure Protocol（per-task 强制闭环 — 项目本地约束 C1）
-
-> 本节为 **local customization**(see `./CUSTOMIZATIONS.md` C1)。上游 spec-kit 仅在 step 8 末尾给出软指令 `mark off as [X]`,本项目要求硬闭环。
-
-**适用范围**: 本仓 `spec/<module>/<usecase>/tasks.md` 任务执行。
-
-每个 task 完成时**必须按以下顺序闭环**:
-
-1. 写测试(per `[Test]` 任务,如有) → typecheck pass + 测试 RED
-2. 写实现 → 测试 GREEN
-3. typecheck + lint pass
-4. **改 tasks.md**: 在 `### T<N> [<label>] ...` heading 紧跟 T 编号后加 `✅`(`### T<N> ✅ [<label>] ...`)
-5. `git add` 实现 + 测试 + tasks.md **同 stage**
-6. 进 commit 流程
-
-**状态语义（项目体例）**:
-
-- 无标记 = pending(此为 docs PR 出的初态)
-- `✅` = done(impl 时手动加)
-- 上游 spec-kit 默认 `[X]` 与本项目体例不兼容,**所有 `[X]` 出现处替换为 `✅`**
-
-**Hard STOP**: stage 前必须 `git diff --cached --name-only | grep -q "tasks.md$"` —— 不通过则**拒绝进入 commit 流程**,先回到第 4 步补 ✅。
-
-**反模式**:
-
-- ❌ 多 task 批 1 commit 时漏改 tasks.md(2026-05-06 实证 commit `4d85a32`)
-- ❌ 进下一 task 前未确认上一 task 的 ✅ 已 staged 进 commit
-- ❌ 跑完 impl 喊 commit,事后再开补救 PR(login PR #55 / onboarding PR #128 实证)
-
 7. Implementation execution rules:
    - **Setup first**: Initialize project structure, dependencies, configuration
    - **Tests before code**: If you need to write tests for contracts, entities, and integration scenarios
    - **Core development**: Implement models, services, CLI commands, endpoints
    - **Integration work**: Database connections, middleware, logging, external services
    - **Polish and validation**: Unit tests, performance optimization, documentation
-   - **Pre-next-task assertion** *(local customization C2 — per Task Closure Protocol)*: 进入下一 task 前,run `git log -1 --stat | grep -q "tasks.md"` 确认上一 task 的 ✅ flip 已落入最新 commit;不在则回退到上一 task 补 commit,**不得继续**。
 
 8. Progress tracking and error handling:
    - Report progress after each completed task
@@ -198,7 +155,7 @@ You **MUST** consider the user input before proceeding (if not empty).
    - For parallel tasks [P], continue with successful tasks, report failed ones
    - Provide clear error messages with context for debugging
    - Suggest next steps if implementation cannot proceed
-   - **HARD STOP** *(local customization C3 — supersedes upstream `[X]` soft directive)*: 完成任务时,在 tasks.md heading 加 `✅`(per 上文 Task Closure Protocol),否则**禁止 commit**。run `git diff --cached --name-only | grep -q "tasks.md$"` 失败则回滚到 Task Closure Protocol 第 4 步。
+   - **IMPORTANT** For completed tasks, make sure to mark the task off as [X] in the tasks file.
 
 9. Completion validation:
    - Verify all required tasks are completed
