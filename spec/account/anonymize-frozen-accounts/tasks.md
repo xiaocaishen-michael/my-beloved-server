@@ -149,7 +149,7 @@ public record AccountAnonymizedEvent(
 
 ---
 
-### T4 [App] `AnonymizeFrozenAccountCommand` + `AnonymizeStrategy` interface + 2 strategy impls
+### T4 ✅ [App] `AnonymizeFrozenAccountCommand` + `AnonymizeStrategy` interface + 2 strategy impls
 
 **Files**:
 
