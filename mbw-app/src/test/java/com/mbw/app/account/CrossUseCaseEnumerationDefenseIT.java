@@ -1,18 +1,27 @@
 package com.mbw.app.account;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.reset;
+import static org.mockito.Mockito.verify;
 
 import com.mbw.MbwApplication;
+import com.mbw.account.application.command.AnonymizeFrozenAccountCommand;
+import com.mbw.account.application.usecase.AnonymizeFrozenAccountUseCase;
 import com.mbw.account.domain.model.Account;
 import com.mbw.account.domain.model.AccountId;
 import com.mbw.account.domain.model.AccountSmsCode;
 import com.mbw.account.domain.model.AccountSmsCodePurpose;
 import com.mbw.account.domain.model.AccountStateMachine;
+import com.mbw.account.domain.model.AccountStatus;
 import com.mbw.account.domain.model.PhoneCredential;
 import com.mbw.account.domain.model.PhoneNumber;
+import com.mbw.account.domain.model.RefreshTokenRecord;
 import com.mbw.account.domain.repository.AccountRepository;
 import com.mbw.account.domain.repository.AccountSmsCodeRepository;
 import com.mbw.account.domain.repository.CredentialRepository;
+import com.mbw.account.domain.repository.RefreshTokenRepository;
+import com.mbw.account.domain.service.RefreshTokenHasher;
 import com.mbw.account.domain.service.TokenIssuer;
 import com.mbw.shared.api.sms.SmsClient;
 import java.nio.charset.StandardCharsets;
@@ -20,9 +29,12 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.HexFormat;
+import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
@@ -109,6 +121,12 @@ class CrossUseCaseEnumerationDefenseIT {
 
     @Autowired
     private TransactionTemplate transactionTemplate;
+
+    @Autowired
+    private RefreshTokenRepository refreshTokenRepository;
+
+    @Autowired
+    private AnonymizeFrozenAccountUseCase anonymizeUseCase;
 
     // ── T12a: 4 AUTH_FAILED paths on sendCode endpoint ───────────────────────
 
@@ -414,5 +432,117 @@ class CrossUseCaseEnumerationDefenseIT {
         int b2 = (int) ((t >>> 8) & 0xFF);
         int b3 = (int) (t & 0xFF);
         return "10." + b1 + "." + b2 + "." + b3;
+    }
+
+    // ── T11: anonymized-account phone re-registration ────────────────────────
+
+    /**
+     * After a phone is anonymized (phone IS NULL in the account row), the
+     * same phone must be treated as "unregistered" by phone-sms-auth and
+     * produce a brand-new account — never the old ANONYMIZED one.
+     *
+     * <p>The partial unique index {@code uk_account_phone WHERE phone IS NOT
+     * NULL} must not block the new registration.
+     */
+    @Test
+    void anonymized_account_phone_can_register_new_account_via_phone_sms_auth() {
+        String phone = uniquePhone();
+        AccountId anonymizedId = seedAnonymized(phone);
+
+        // Confirm the seeded account is ANONYMIZED with phone cleared.
+        Account anon = accountRepository.findById(anonymizedId).orElseThrow();
+        assertThat(anon.status()).isEqualTo(AccountStatus.ANONYMIZED);
+        assertThat(anon.phone()).isNull();
+        assertThat(anon.previousPhoneHash()).isNotNull().hasSize(64).matches("[0-9a-f]+");
+
+        // Request an SMS code for the same phone — must be treated as unregistered.
+        reset(smsClient);
+        String ip = uniqueIp();
+        ResponseEntity<String> smsResp = restTemplate.postForEntity(
+                "/api/v1/sms-codes", jsonRequest("{\"phone\":\"" + phone + "\"}", ip), String.class);
+        assertThat(smsResp.getStatusCode().is2xxSuccessful())
+                .as("sms-codes request for formerly-anonymized phone must succeed")
+                .isTrue();
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<Map<String, String>> captor = ArgumentCaptor.forClass(Map.class);
+        verify(smsClient).send(anyString(), anyString(), captor.capture());
+        String code = captor.getValue().get("code");
+
+        // Authenticate: phone-sms-auth must create a NEW account.
+        ResponseEntity<String> authResp = restTemplate.postForEntity(
+                "/api/v1/accounts/phone-sms-auth",
+                jsonRequest("{\"phone\":\"" + phone + "\",\"code\":\"" + code + "\"}", uniqueIp()),
+                String.class);
+        assertThat(authResp.getStatusCode()).isEqualTo(HttpStatus.OK);
+
+        // New account exists with the same phone, different ID.
+        Account newAccount =
+                accountRepository.findByPhone(new PhoneNumber(phone)).orElseThrow();
+        assertThat(newAccount.id())
+                .as("new accountId must differ from anonymized id")
+                .isNotEqualTo(anonymizedId);
+        assertThat(newAccount.status()).isEqualTo(AccountStatus.ACTIVE);
+        assertThat(newAccount.phone()).isNotNull();
+        assertThat(newAccount.phone().e164()).isEqualTo(phone);
+
+        // Old ANONYMIZED account is unchanged.
+        Account stillAnon = accountRepository.findById(anonymizedId).orElseThrow();
+        assertThat(stillAnon.status()).isEqualTo(AccountStatus.ANONYMIZED);
+        assertThat(stillAnon.phone()).isNull();
+        assertThat(stillAnon.previousPhoneHash())
+                .as("previousPhoneHash intact on old account")
+                .isNotNull();
+    }
+
+    /**
+     * Negative scenarios for an anonymized account:
+     *
+     * <ul>
+     *   <li>cancel-deletion for the anonymized phone → 401 (phone is "not
+     *       registered" from cancel's perspective because phone IS NULL).
+     *   <li>GET /api/v1/accounts/me with the anonymized account's access
+     *       token → 401 (account status is ANONYMIZED, not ACTIVE).
+     * </ul>
+     */
+    @Test
+    void anonymized_account_is_rejected_by_cancel_deletion_and_me_endpoints() {
+        String phone = uniquePhone();
+        AccountId anonymizedId = seedAnonymized(phone);
+
+        // cancel-deletion: phone not found in any FROZEN account → 401.
+        ResponseEntity<String> cancelResp = postCancel(phone, "000000");
+        assertThat(cancelResp.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+        assertThat(cancelResp.getBody()).contains("INVALID_CREDENTIALS");
+
+        // GET /me with old account's access token → 401 (ANONYMIZED status rejected).
+        HttpHeaders meHeaders = new HttpHeaders();
+        meHeaders.set("Authorization", "Bearer " + tokenIssuer.signAccess(anonymizedId));
+        ResponseEntity<String> meResp =
+                restTemplate.exchange("/api/v1/accounts/me", HttpMethod.GET, new HttpEntity<>(meHeaders), String.class);
+        assertThat(meResp.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+    }
+
+    private AccountId seedAnonymized(String phone) {
+        // Step 1: persist FROZEN account in its own committed transaction.
+        AccountId accountId = transactionTemplate.execute(st -> {
+            Instant now = Instant.now().truncatedTo(ChronoUnit.MICROS);
+            Instant past = now.minusSeconds(60L * 60 * 24 * 30);
+            PhoneNumber pn = new PhoneNumber(phone);
+            Account account = new Account(pn, past);
+            AccountStateMachine.activate(account, past);
+            AccountStateMachine.markFrozen(account, past.plusSeconds(60), past);
+            Account saved = accountRepository.save(account);
+            refreshTokenRepository.save(RefreshTokenRecord.createActive(
+                    RefreshTokenHasher.hash(UUID.randomUUID().toString()),
+                    saved.id(),
+                    past.plusSeconds(30L * 24 * 3600),
+                    past));
+            return saved.id();
+        });
+        // Step 2: anonymize via use-case REQUIRES_NEW transaction (can now see committed
+        // FROZEN row). This also exercises the real anonymize path end-to-end.
+        anonymizeUseCase.execute(new AnonymizeFrozenAccountCommand(accountId));
+        return accountId;
     }
 }
