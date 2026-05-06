@@ -93,7 +93,7 @@
 
 ---
 
-### T4 [App] `CancelDeletionUseCase`
+### T4 ✅ [App] `CancelDeletionUseCase`
 
 **File**: `mbw-account/src/main/java/com/mbw/account/application/usecase/CancelDeletionUseCase.java`（**新建**）
 
