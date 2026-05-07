@@ -4,7 +4,7 @@
 
   <groupId>com.mbw</groupId>
   <artifactId>mbw-parent</artifactId>
-  <version>0.1.1-SNAPSHOT</version>
+  <version>0.2.0</version>
   <packaging>pom</packaging>
   <name>mbw-parent</name>
   <description>my-beloved-server parent POM (BOM-style, no parent inheritance per ADR-0001)</description>
