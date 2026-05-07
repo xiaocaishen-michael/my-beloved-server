@@ -305,7 +305,7 @@ public ProblemDetail onAccountInFreezePeriod(AccountInFreezePeriodException ex) 
 
 ---
 
-## T6 [IT]：新建 FrozenAccountStatusDisclosureIT
+## T6 ✅ [IT]：新建 FrozenAccountStatusDisclosureIT
 
 **Per spec**: SC-001
 
