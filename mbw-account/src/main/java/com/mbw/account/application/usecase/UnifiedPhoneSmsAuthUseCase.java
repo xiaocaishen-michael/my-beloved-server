@@ -3,10 +3,12 @@ package com.mbw.account.application.usecase;
 import com.mbw.account.application.command.PhoneSmsAuthCommand;
 import com.mbw.account.application.config.AuthRateLimitProperties;
 import com.mbw.account.application.result.PhoneSmsAuthResult;
+import com.mbw.account.domain.exception.AccountInFreezePeriodException;
 import com.mbw.account.domain.exception.InvalidCredentialsException;
 import com.mbw.account.domain.model.Account;
 import com.mbw.account.domain.model.AccountId;
 import com.mbw.account.domain.model.AccountStateMachine;
+import com.mbw.account.domain.model.AccountStatus;
 import com.mbw.account.domain.model.PhoneCredential;
 import com.mbw.account.domain.model.PhoneNumber;
 import com.mbw.account.domain.model.RefreshTokenRecord;
@@ -46,7 +48,10 @@ import org.springframework.transaction.support.TransactionTemplate;
  *   <li>已注册 ACTIVE 成功 → updateLastLoginAt + sign tokens + 200
  *   <li>未注册自动创建成功 → create Account + PhoneCredential + sign
  *       tokens + outbox AccountCreatedEvent + 200
- *   <li>已注册 FROZEN/ANONYMIZED → dummy hash + InvalidCredentialsException
+ *   <li>已注册 FROZEN → {@link AccountInFreezePeriodException} (HTTP 403,
+ *       explicit disclosure per spec D expose-frozen-account-status
+ *       FR-002 + CL-006; bypasses timing pad per FR-004)
+ *   <li>已注册 ANONYMIZED → dummy hash + InvalidCredentialsException
  *   <li>码错 / 码过期 → dummy hash + InvalidCredentialsException
  * </ul>
  *
@@ -62,7 +67,9 @@ import org.springframework.transaction.support.TransactionTemplate;
  *       <ul>
  *         <li>empty → register branch ({@link #persistNewAccount})
  *         <li>present + ACTIVE → login branch ({@link #persistLogin})
- *         <li>present + FROZEN/ANONYMIZED →
+ *         <li>present + FROZEN → {@link AccountInFreezePeriodException}
+ *             (spec D explicit disclosure)
+ *         <li>present + ANONYMIZED →
  *             {@link InvalidCredentialsException} (FR-005 anti-enumeration)
  *       </ul>
  *   <li>{@link DataIntegrityViolationException} from concurrent
@@ -113,7 +120,8 @@ public class UnifiedPhoneSmsAuthUseCase {
     }
 
     public PhoneSmsAuthResult execute(PhoneSmsAuthCommand cmd) {
-        return TimingDefenseExecutor.executeInConstantTime(TIMING_TARGET, () -> doExecute(cmd));
+        return TimingDefenseExecutor.executeInConstantTime(
+                TIMING_TARGET, () -> doExecute(cmd), ex -> ex instanceof AccountInFreezePeriodException);
     }
 
     private PhoneSmsAuthResult doExecute(PhoneSmsAuthCommand cmd) {
@@ -129,8 +137,14 @@ public class UnifiedPhoneSmsAuthUseCase {
         Optional<Account> existing = accountRepository.findByPhone(phone);
         if (existing.isPresent()) {
             Account account = existing.get();
+            if (account.status() == AccountStatus.FROZEN) {
+                // Disclosure path (per spec D expose-frozen-account-status FR-002):
+                // explicit 403 to support spec C login flow cancel-deletion modal.
+                // ANONYMIZED remains anti-enumeration-collapsed below.
+                throw new AccountInFreezePeriodException(account.freezeUntil());
+            }
             if (!AccountStateMachine.canLogin(account)) {
-                // FROZEN / ANONYMIZED — anti-enumeration: same byte shape as 码错
+                // ANONYMIZED — anti-enumeration: same byte shape as 码错 (preserved per spec D)
                 throw new InvalidCredentialsException();
             }
             return transactionTemplate.execute(status -> persistLogin(account));

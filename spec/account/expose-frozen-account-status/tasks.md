@@ -148,7 +148,7 @@
 
 ---
 
-## T3 [Application]：UnifiedPhoneSmsAuthUseCase 拆 FROZEN/ANONYMIZED + 加 bypassPad lambda
+## T3 ✅ [Application]：UnifiedPhoneSmsAuthUseCase 拆 FROZEN/ANONYMIZED + 加 bypassPad lambda
 
 **Per spec**: FR-002 + FR-004 + CL-003
 
