@@ -58,6 +58,15 @@
          stays narrow. -->
     <suppress files=".*ResendEmailClient\.java" checks="IllegalCatch"/>
 
+    <!-- TimingDefenseExecutor.executeInConstantTime(Duration, Supplier, Predicate)
+         catches RuntimeException uniformly so the user-supplied bypassPad
+         predicate can inspect any business-disclosure subtype (per spec D
+         expose-frozen-account-status FR-004 + CL-003). Listing each subtype
+         (AccountInFreezePeriodException today; future disclosure paths
+         tomorrow) would drift as new spec ships. Errors still propagate
+         and trigger the pad — bypass is RuntimeException-only by design. -->
+    <suppress files=".*TimingDefenseExecutor\.java" checks="IllegalCatch"/>
+
     <!-- FrozenAccountAnonymizationScheduler must keep its batch loop running
          across arbitrary use-case failures (Spring DataAccessException
          subtypes, Resilience4j wrappers, third-party transient errors).

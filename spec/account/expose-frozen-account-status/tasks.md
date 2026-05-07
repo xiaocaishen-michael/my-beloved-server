@@ -81,7 +81,7 @@
 
 ---
 
-## T2 [Domain]：TimingDefenseExecutor 加 bypassPad 参数
+## T2 ✅ [Domain]：TimingDefenseExecutor 加 bypassPad 参数
 
 **Per spec**: FR-004 + CL-003
 
