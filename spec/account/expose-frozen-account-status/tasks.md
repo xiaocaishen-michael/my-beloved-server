@@ -43,7 +43,7 @@
 
 ---
 
-## T1 [Domain]：AccountInFreezePeriodException
+## T1 ✅ [Domain]：AccountInFreezePeriodException
 
 **Per spec**: FR-001 + CL-001 + CL-005
 
