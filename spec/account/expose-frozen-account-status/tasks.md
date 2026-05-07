@@ -342,7 +342,7 @@ public ProblemDetail onAccountInFreezePeriod(AccountInFreezePeriodException ex) 
 
 ---
 
-## T7 [Verify]：OpenAPI Springdoc 自动同步验证 + 真后端冒烟
+## T7 ✅ [Verify]：OpenAPI Springdoc 自动同步验证 + 真后端冒烟
 
 **Per spec**: SC-004 + SC-007
 
@@ -378,7 +378,7 @@ public ProblemDetail onAccountInFreezePeriod(AccountInFreezePeriodException ex) 
 
 ---
 
-## T8 [Verify + Ship]：mvn verify 全绿 + commit + PR
+## T8 ✅ [Verify + Ship]：mvn verify 全绿 + commit + PR
 
 **Per spec**: SC-008 + SC-009 + SC-010
 
