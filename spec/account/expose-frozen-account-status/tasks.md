@@ -231,7 +231,7 @@ if (existing.isPresent()) {
 
 ---
 
-## T4 [Web]：AccountWebExceptionAdvice 加 onAccountInFreezePeriod handler
+## T4 ✅ [Web]：AccountWebExceptionAdvice 加 onAccountInFreezePeriod handler
 
 **Per spec**: FR-003 + CL-001
 
