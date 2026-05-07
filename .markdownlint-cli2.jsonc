@@ -11,7 +11,8 @@
     "MD040": true,         // Fenced code lang required
     "MD025": true,         // Single H1 per file
     "MD034": true,         // No bare URLs
-    "MD060": false         // Table pipe spacing — purely cosmetic, both styles valid
+    "MD060": false,        // Table pipe spacing — purely cosmetic, both styles valid
+    "MD032": false         // Blanks-around-lists — markdownlint 自创防御规则(只为 kramdown 兼容);CommonMark/GFM/GitHub/VS Code/pandoc 都不需要;prettier preset 默认 disable;中文 SDD doc 主要磨损源
   },
   "ignores": [
     "**/target/**",
