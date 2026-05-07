@@ -14,7 +14,7 @@
 
 ---
 
-## T0 [Docs]：同 PR amend phone-sms-auth/spec.md
+## T0 ✅ [Docs]：同 PR amend phone-sms-auth/spec.md
 
 **Per spec**: FR-008 + SC-005 + plan.md S0
 
