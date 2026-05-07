@@ -52,6 +52,7 @@ public class GetAccountProfileUseCase {
         if (account.status() != AccountStatus.ACTIVE) {
             throw new AccountInactiveException();
         }
-        return new AccountProfileResult(account.id(), account.displayName(), account.status(), account.createdAt());
+        return new AccountProfileResult(
+                account.id(), account.phone(), account.displayName(), account.status(), account.createdAt());
     }
 }

@@ -59,6 +59,7 @@ class UpdateDisplayNameUseCaseTest {
         assertThat(account.displayName()).isEqualTo(new DisplayName("Alice"));
         assertThat(result.displayName()).isEqualTo(new DisplayName("Alice"));
         assertThat(result.accountId()).isEqualTo(ACCOUNT_ID);
+        assertThat(result.phone()).isEqualTo(PHONE);
         assertThat(result.status()).isEqualTo(AccountStatus.ACTIVE);
         verify(accountRepository).save(account);
     }

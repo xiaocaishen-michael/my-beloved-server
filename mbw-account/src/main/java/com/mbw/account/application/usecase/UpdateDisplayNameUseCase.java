@@ -63,6 +63,7 @@ public class UpdateDisplayNameUseCase {
         AccountStateMachine.changeDisplayName(account, displayName, Instant.now());
         accountRepository.save(account);
 
-        return new AccountProfileResult(account.id(), account.displayName(), account.status(), account.createdAt());
+        return new AccountProfileResult(
+                account.id(), account.phone(), account.displayName(), account.status(), account.createdAt());
     }
 }

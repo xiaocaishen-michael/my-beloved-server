@@ -68,15 +68,16 @@ class AccountProfileE2EIT {
     private SmsCodeService smsCodeService;
 
     @Test
-    void newly_authenticated_user_GET_me_should_return_200_with_null_displayName() {
-        String token = registerAndLogin();
+    void newly_authenticated_user_GET_me_should_return_200_with_phone_and_null_displayName() {
+        AuthSetup setup = registerAndLogin();
 
         ResponseEntity<ProfileResponse> resp = restTemplate.exchange(
-                "/api/v1/accounts/me", HttpMethod.GET, bearerEntity(token, null), ProfileResponse.class);
+                "/api/v1/accounts/me", HttpMethod.GET, bearerEntity(setup.token(), null), ProfileResponse.class);
 
         assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(resp.getBody()).isNotNull();
         assertThat(resp.getBody().accountId()).isPositive();
+        assertThat(resp.getBody().phone()).isEqualTo(setup.phone());
         assertThat(resp.getBody().displayName()).isNull();
         assertThat(resp.getBody().status()).isEqualTo("ACTIVE");
         assertThat(resp.getBody().createdAt()).isNotBlank();
@@ -84,42 +85,45 @@ class AccountProfileE2EIT {
 
     @Test
     void PATCH_me_with_valid_displayName_should_return_200_and_persist() {
-        String token = registerAndLogin();
+        AuthSetup setup = registerAndLogin();
 
         ResponseEntity<ProfileResponse> patchResp = restTemplate.exchange(
                 "/api/v1/accounts/me",
                 HttpMethod.PATCH,
-                bearerEntity(token, "{\"displayName\":\"Alice\"}"),
+                bearerEntity(setup.token(), "{\"displayName\":\"Alice\"}"),
                 ProfileResponse.class);
 
         assertThat(patchResp.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(patchResp.getBody()).isNotNull();
+        assertThat(patchResp.getBody().phone()).isEqualTo(setup.phone());
         assertThat(patchResp.getBody().displayName()).isEqualTo("Alice");
 
         // Subsequent GET must return the persisted value.
         ResponseEntity<ProfileResponse> getResp = restTemplate.exchange(
-                "/api/v1/accounts/me", HttpMethod.GET, bearerEntity(token, null), ProfileResponse.class);
+                "/api/v1/accounts/me", HttpMethod.GET, bearerEntity(setup.token(), null), ProfileResponse.class);
         assertThat(getResp.getBody()).isNotNull();
+        assertThat(getResp.getBody().phone()).isEqualTo(setup.phone());
         assertThat(getResp.getBody().displayName()).isEqualTo("Alice");
     }
 
     @Test
     void PATCH_me_with_same_displayName_twice_should_be_idempotent() {
-        String token = registerAndLogin();
+        AuthSetup setup = registerAndLogin();
 
         restTemplate.exchange(
                 "/api/v1/accounts/me",
                 HttpMethod.PATCH,
-                bearerEntity(token, "{\"displayName\":\"Alice\"}"),
+                bearerEntity(setup.token(), "{\"displayName\":\"Alice\"}"),
                 ProfileResponse.class);
         ResponseEntity<ProfileResponse> second = restTemplate.exchange(
                 "/api/v1/accounts/me",
                 HttpMethod.PATCH,
-                bearerEntity(token, "{\"displayName\":\"Alice\"}"),
+                bearerEntity(setup.token(), "{\"displayName\":\"Alice\"}"),
                 ProfileResponse.class);
 
         assertThat(second.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(second.getBody()).isNotNull();
+        assertThat(second.getBody().phone()).isEqualTo(setup.phone());
         assertThat(second.getBody().displayName()).isEqualTo("Alice");
     }
 
@@ -155,29 +159,32 @@ class AccountProfileE2EIT {
 
     @Test
     void PATCH_me_with_blank_displayName_should_return_400() {
-        String token = registerAndLogin();
+        AuthSetup setup = registerAndLogin();
 
         ResponseEntity<String> resp = restTemplate.exchange(
-                "/api/v1/accounts/me", HttpMethod.PATCH, bearerEntity(token, "{\"displayName\":\"\"}"), String.class);
+                "/api/v1/accounts/me",
+                HttpMethod.PATCH,
+                bearerEntity(setup.token(), "{\"displayName\":\"\"}"),
+                String.class);
 
         assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
     }
 
     @Test
     void PATCH_me_with_above_32_codepoint_displayName_should_return_400() {
-        String token = registerAndLogin();
+        AuthSetup setup = registerAndLogin();
         String thirtyThree = "a".repeat(33);
 
         ResponseEntity<String> resp = restTemplate.exchange(
                 "/api/v1/accounts/me",
                 HttpMethod.PATCH,
-                bearerEntity(token, "{\"displayName\":\"" + thirtyThree + "\"}"),
+                bearerEntity(setup.token(), "{\"displayName\":\"" + thirtyThree + "\"}"),
                 String.class);
 
         assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
     }
 
-    private String registerAndLogin() {
+    private AuthSetup registerAndLogin() {
         String phone = uniquePhone();
         String code = smsCodeService.generateAndStore(phone);
 
@@ -191,7 +198,7 @@ class AccountProfileE2EIT {
 
         assertThat(auth.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(auth.getBody()).isNotNull();
-        return auth.getBody().accessToken();
+        return new AuthSetup(auth.getBody().accessToken(), phone);
     }
 
     private static HttpEntity<String> bearerEntity(String token, String body) {
@@ -218,5 +225,7 @@ class AccountProfileE2EIT {
 
     private record AuthResponse(long accountId, String accessToken, String refreshToken) {}
 
-    private record ProfileResponse(Long accountId, String displayName, String status, String createdAt) {}
+    private record AuthSetup(String token, String phone) {}
+
+    private record ProfileResponse(Long accountId, String phone, String displayName, String status, String createdAt) {}
 }

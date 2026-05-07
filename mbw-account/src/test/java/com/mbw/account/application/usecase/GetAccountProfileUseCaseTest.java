@@ -59,6 +59,7 @@ class GetAccountProfileUseCaseTest {
         AccountProfileResult result = useCase.execute(ACCOUNT_ID);
 
         assertThat(result.accountId()).isEqualTo(ACCOUNT_ID);
+        assertThat(result.phone()).isEqualTo(PHONE);
         assertThat(result.displayName()).isNull();
         assertThat(result.status()).isEqualTo(AccountStatus.ACTIVE);
         assertThat(result.createdAt()).isEqualTo(CREATED_AT);
@@ -72,6 +73,7 @@ class GetAccountProfileUseCaseTest {
 
         AccountProfileResult result = useCase.execute(ACCOUNT_ID);
 
+        assertThat(result.phone()).isEqualTo(PHONE);
         assertThat(result.displayName()).isEqualTo(displayName);
     }
 
