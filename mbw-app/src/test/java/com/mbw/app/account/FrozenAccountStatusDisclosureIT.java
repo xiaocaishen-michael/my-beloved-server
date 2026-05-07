@@ -116,7 +116,7 @@ class FrozenAccountStatusDisclosureIT {
                 jsonRequest("{\"phone\":\"" + phone + "\",\"code\":\"" + code + "\"}"),
                 String.class);
 
-        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+        assertThat(response.getStatusCode()).as("body=%s", response.getBody()).isEqualTo(HttpStatus.FORBIDDEN);
         assertThat(response.getHeaders().getContentType()).isEqualTo(MediaType.APPLICATION_PROBLEM_JSON);
 
         String body = response.getBody();
@@ -135,15 +135,18 @@ class FrozenAccountStatusDisclosureIT {
 
     @Test
     void should_disclose_consistently_across_100_requests() {
-        String phone = uniquePhone();
+        // Unique phone per iteration mirrors SingleEndpointEnumerationDefenseIT —
+        // sidesteps the auth:<phone> 24h bucket without bending its production
+        // semantics. Each iteration is an independent disclosure scenario.
         Instant freezeUntil = Instant.now().plus(14, ChronoUnit.DAYS).truncatedTo(ChronoUnit.MICROS);
-        seedFrozenAccount(phone, freezeUntil);
 
         for (int i = 0; i < LOOP_ITERATIONS; i++) {
-            String code = smsCodeService.generateAndStore(phone);
+            String iterPhone = uniquePhone();
+            seedFrozenAccount(iterPhone, freezeUntil);
+            String code = smsCodeService.generateAndStore(iterPhone);
             ResponseEntity<String> response = restTemplate.postForEntity(
                     "/api/v1/accounts/phone-sms-auth",
-                    jsonRequest("{\"phone\":\"" + phone + "\",\"code\":\"" + code + "\"}"),
+                    jsonRequest("{\"phone\":\"" + iterPhone + "\",\"code\":\"" + code + "\"}"),
                     String.class);
 
             assertThat(response.getStatusCode())
