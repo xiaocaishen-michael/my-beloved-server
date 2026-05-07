@@ -14,7 +14,7 @@
 
 ---
 
-## T0 [Docs]：同 PR amend phone-sms-auth/spec.md
+## T0 ✅ [Docs]：同 PR amend phone-sms-auth/spec.md
 
 **Per spec**: FR-008 + SC-005 + plan.md S0
 
@@ -43,7 +43,7 @@
 
 ---
 
-## T1 [Domain]：AccountInFreezePeriodException
+## T1 ✅ [Domain]：AccountInFreezePeriodException
 
 **Per spec**: FR-001 + CL-001 + CL-005
 
@@ -81,7 +81,7 @@
 
 ---
 
-## T2 [Domain]：TimingDefenseExecutor 加 bypassPad 参数
+## T2 ✅ [Domain]：TimingDefenseExecutor 加 bypassPad 参数
 
 **Per spec**: FR-004 + CL-003
 
@@ -148,7 +148,7 @@
 
 ---
 
-## T3 [Application]：UnifiedPhoneSmsAuthUseCase 拆 FROZEN/ANONYMIZED + 加 bypassPad lambda
+## T3 ✅ [Application]：UnifiedPhoneSmsAuthUseCase 拆 FROZEN/ANONYMIZED + 加 bypassPad lambda
 
 **Per spec**: FR-002 + FR-004 + CL-003
 
@@ -231,7 +231,7 @@ if (existing.isPresent()) {
 
 ---
 
-## T4 [Web]：AccountWebExceptionAdvice 加 onAccountInFreezePeriod handler
+## T4 ✅ [Web]：AccountWebExceptionAdvice 加 onAccountInFreezePeriod handler
 
 **Per spec**: FR-003 + CL-001
 
@@ -274,7 +274,7 @@ public ProblemDetail onAccountInFreezePeriod(AccountInFreezePeriodException ex) 
 
 ---
 
-## T5 [IT]：修订 SingleEndpointEnumerationDefenseIT 改 3 路径
+## T5 ✅ [IT]：修订 SingleEndpointEnumerationDefenseIT 改 3 路径
 
 **Per spec**: SC-002 + CL-004
 
@@ -305,7 +305,7 @@ public ProblemDetail onAccountInFreezePeriod(AccountInFreezePeriodException ex) 
 
 ---
 
-## T6 [IT]：新建 FrozenAccountStatusDisclosureIT
+## T6 ✅ [IT]：新建 FrozenAccountStatusDisclosureIT
 
 **Per spec**: SC-001
 
@@ -342,7 +342,7 @@ public ProblemDetail onAccountInFreezePeriod(AccountInFreezePeriodException ex) 
 
 ---
 
-## T7 [Verify]：OpenAPI Springdoc 自动同步验证 + 真后端冒烟
+## T7 ✅ [Verify]：OpenAPI Springdoc 自动同步验证 + 真后端冒烟
 
 **Per spec**: SC-004 + SC-007
 
@@ -378,7 +378,7 @@ public ProblemDetail onAccountInFreezePeriod(AccountInFreezePeriodException ex) 
 
 ---
 
-## T8 [Verify + Ship]：mvn verify 全绿 + commit + PR
+## T8 ✅ [Verify + Ship]：mvn verify 全绿 + commit + PR
 
 **Per spec**: SC-008 + SC-009 + SC-010
 

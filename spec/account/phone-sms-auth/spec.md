@@ -106,11 +106,12 @@
 - **FR-005（核心分支逻辑）**：`/phone-sms-auth` use case 内部按 phone 查 DB 分支：
   - phone 不存在 → **自动创建** `Account(phone, status=ACTIVE, lastLoginAt=now())` + outbox `AccountCreatedEvent` + 签 token → 返回 200
   - phone 存在 + status=ACTIVE → updateLastLoginAt + 签 token → 返回 200
-  - phone 存在 + status=FROZEN / ANONYMIZED → 反枚举吞下：dummy bcrypt 计算（timing defense） + 返回 `INVALID_CREDENTIALS` HTTP 401
-- **FR-006（反枚举 timing defense）**：成功路径（已注册 ACTIVE / 未注册自动注册）+ 失败路径（FROZEN / ANONYMIZED / 码错 / 码过期）必须**响应 P95 时延差 ≤ 50ms**：
+  - phone 存在 + status=FROZEN → 抛 `AccountInFreezePeriodException` → HTTP 403 + body `code: ACCOUNT_IN_FREEZE_PERIOD` + `freezeUntil`；**不**走 timing defense pad（disclosure path，wall-clock < 100ms，per spec D `expose-frozen-account-status` FR-002 + CL-006）
+  - phone 存在 + status=ANONYMIZED → 反枚举吞下：dummy bcrypt 计算（timing defense pad 仍生效） + 抛 `InvalidCredentialsException` → HTTP 401
+- **FR-006（反枚举 timing defense）**：timing defense 范围**缩为 ANONYMIZED + 码错 + 码过期 + 未注册自动创建 + 已注册 ACTIVE 路径**——FROZEN 路径已显式 disclosure 不参与（per spec D `expose-frozen-account-status` FR-004 + CL-003 `TimingDefenseExecutor.executeInConstantTime` bypassPad 参数）。覆盖范围内成功路径（已注册 ACTIVE / 未注册自动注册）+ 失败路径（ANONYMIZED / 码错 / 码过期）必须**响应 P95 时延差 ≤ 50ms**：
   - 失败路径调用 `TimingDefenseExecutor` 计算 dummy BCrypt hash（cost=12，5-15ms）
   - 复用既有 `TimingDefenseExecutor` 实现（原 register-by-phone use case 引入，DB schema `password_hash` 字段保留作 dummy hash 计算输入）
-  - 由独立集成测试 `SingleEndpointEnumerationDefenseIT` 验证 1000 次请求 P95 差 ≤ 50ms
+  - 由独立集成测试 `SingleEndpointEnumerationDefenseIT` 验证 1000 次请求 P95 差 ≤ 50ms（**不含 FROZEN 路径**——单独由 spec D `FrozenAccountStatusDisclosureIT` 覆盖）
 - **FR-007（限流规则，复用 + 新增）**：
   - 复用 `sms:<phone>` 60s 1 次（per RateLimitService 既有规则）
   - 复用 `sms:<phone>` 24h 10 次
@@ -144,7 +145,7 @@
 
 - **SC-001**：P1 主流程（User Story 1 + 2）端到端 P95 ≤ **600ms**（不含 SMS gateway 调用，从 `/phone-sms-auth` 入到 200 响应）
 - **SC-002**：100 个不同 phone 并发 `/phone-sms-auth` 请求（混合已注册 / 未注册）—— **0 错误，token 数 = 请求数；新建 Account 数 = 未注册请求数**
-- **SC-003（核心反枚举）**：`/phone-sms-auth` 对 4 种分支响应（已注册 ACTIVE 成功 / 未注册自动注册成功 / FROZEN 失败 / 码错失败）的 status / body / headers / P95 时延**字节级一致 / 时延差 ≤ 50ms**；由 `SingleEndpointEnumerationDefenseIT` 1000 次请求验证
+- **SC-003（核心反枚举）**：`/phone-sms-auth` 对 **3 种分支**响应（已注册 ACTIVE 成功 / 未注册自动注册成功 / ANONYMIZED + 码错共反枚举吞）的 status / body / headers / P95 时延**字节级一致 / 时延差 ≤ 50ms**；由 `SingleEndpointEnumerationDefenseIT` 1000 次请求验证。**FROZEN 单独由 spec D `expose-frozen-account-status` SC-001 `FrozenAccountStatusDisclosureIT` 验证 disclosure 行为**（不在本 IT 覆盖范围）
 - **SC-004**：限流准确性 — FR-007 全部 4 条规则集成测试验证生效，错误返回 429 + 正确 `Retry-After`
 - **SC-005**：`/sms-codes` 入参不含 purpose 字段（per FR-004）；OpenAPI spec 反映新形态
 - **SC-006**：3 个旧 endpoint（`register-by-phone` / `login-by-phone-sms` / `login-by-password`）从 OpenAPI spec 完全消失；前端 `pnpm api:gen` 后旧 API class 自动删除
@@ -194,6 +195,19 @@
 
 **落点**：FR-009 注 "refresh token 持久化在 Phase 1.3 统一回填"；Out of Scope 加"1.x 内自行管理 RefreshTokenRecord"。
 
+### CL-006：FROZEN 反枚举边界变更（per spec D `expose-frozen-account-status`）
+
+**决议**：FROZEN 不再反枚举吞，改为显式 disclosure 返 HTTP 403 + `ACCOUNT_IN_FREEZE_PERIOD`；ANONYMIZED 仍反枚举吞 401 INVALID_CREDENTIALS。
+
+**理由**：
+
+1. PRD § 5.4 + § 7 既定语义；
+2. 下游 spec C `delete-account-cancel-deletion-ui` 拦截 modal 设计依赖此 disclosure 信号；
+3. ANONYMIZED 是不可逆终态，反枚举防 phone 时序复用攻击价值高；
+4. FROZEN 是用户主动注销知情态，信息泄露面小。
+
+**落点**：本 spec FR-005（第 3 分支拆开 FROZEN/ANONYMIZED 单独表述）+ FR-006（timing defense 范围明示，FROZEN 不参与）+ SC-003（IT 路径数 4→3）；server 实现 + 同 PR 落地详见 [`spec/account/expose-frozen-account-status/`](../expose-frozen-account-status/)。
+
 ## Assumptions
 
 - **A-001**：复用既有 register-by-phone Assumptions A-001 ~ A-005（SDK / Redis / JWT secret / BCrypt cost / Token TTL）— 仅命名上的 use case 变了，基础设施假设不变
@@ -213,6 +227,10 @@
 - **DB schema 真删 `email` / `password_hash` 字段** — M2+ 评估（per ADR-0016 Open Questions）
 - **1.x 内自行管理 RefreshTokenRecord** — per CL-005 推迟到 Phase 1.3
 - **找回密码 / 修改密码** — password 已废，per ADR-0016 决策 2；新模式下"忘记密码"在 UX 中无入口
+
+## Change Log
+
+- **2026-05-07** — spec D `expose-frozen-account-status` ship — FR-005 第 3 分支拆开 FROZEN/ANONYMIZED 单独表述；FR-006 timing defense 范围明示（FROZEN 不参与）；SC-003 路径数 4→3；新增 Clarifications CL-006 引用 spec D。本 amendment 与 spec D 同 PR 合入（防 spec drift > 1 week，per constitution Anti-Patterns）。
 
 ## References
 

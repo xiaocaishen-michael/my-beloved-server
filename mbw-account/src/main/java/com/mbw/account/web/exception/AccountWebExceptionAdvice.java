@@ -1,5 +1,6 @@
 package com.mbw.account.web.exception;
 
+import com.mbw.account.domain.exception.AccountInFreezePeriodException;
 import com.mbw.account.domain.exception.AccountInactiveException;
 import com.mbw.account.domain.exception.AccountNotFoundException;
 import com.mbw.account.domain.exception.InvalidCredentialsException;
@@ -32,6 +33,10 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
  * <p>Mappings:
  *
  * <ul>
+ *   <li>{@link AccountInFreezePeriodException} → 403
+ *       {@code ACCOUNT_IN_FREEZE_PERIOD} (FROZEN account login attempt;
+ *       explicit disclosure per spec D expose-frozen-account-status,
+ *       with extended {@code freezeUntil} ISO 8601 UTC field)
  *   <li>{@link InvalidCredentialsException} → 401
  *       {@code INVALID_CREDENTIALS} (FR-007 anti-enumeration uniform
  *       response — wrong code, expired code, already-registered, etc.)
@@ -104,6 +109,16 @@ public class AccountWebExceptionAdvice {
                 HttpStatus.SERVICE_UNAVAILABLE, "SMS gateway temporarily unavailable; please retry");
         problem.setTitle("SMS send failed");
         problem.setProperty("code", "SMS_SEND_FAILED");
+        return problem;
+    }
+
+    @ExceptionHandler(AccountInFreezePeriodException.class)
+    public ProblemDetail onAccountInFreezePeriod(AccountInFreezePeriodException ex) {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(
+                HttpStatus.FORBIDDEN, "Account in freeze period; cancel deletion to re-activate");
+        problem.setTitle("Account in freeze period");
+        problem.setProperty("code", AccountInFreezePeriodException.CODE);
+        problem.setProperty("freezeUntil", ex.getFreezeUntil().toString());
         return problem;
     }
 

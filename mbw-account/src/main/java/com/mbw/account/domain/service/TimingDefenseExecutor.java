@@ -3,6 +3,7 @@ package com.mbw.account.domain.service;
 import com.mbw.account.domain.model.PasswordHash;
 import java.time.Duration;
 import java.util.Objects;
+import java.util.function.Predicate;
 import java.util.function.Supplier;
 
 /**
@@ -67,11 +68,47 @@ public final class TimingDefenseExecutor {
      * @return whatever {@code body} returned
      */
     public static <T> T executeInConstantTime(Duration target, Supplier<T> body) {
+        return executeInConstantTime(target, body, ex -> false);
+    }
+
+    /**
+     * Run {@code body} like {@link #executeInConstantTime(Duration, Supplier)},
+     * but skip the wall-clock pad if {@code bypassPad} returns {@code true}
+     * for the body's thrown {@link RuntimeException}.
+     *
+     * <p><b>Bypass semantics</b>: callers may opt out of the pad for specific
+     * exception types. Used by spec D {@code expose-frozen-account-status}
+     * (FR-004 + CL-003) so the FROZEN disclosure path skips padding — the
+     * disclosure already exists, padding wastes a worker without security
+     * gain. ANONYMIZED + invalid-credentials paths still pad to target.
+     *
+     * <p>Happy path always pads (predicate is never consulted on success);
+     * use the 2-arg overload if no bypass is needed. {@link Error}s
+     * propagate normally and still trigger the pad — bypass is intended
+     * for business-disclosure {@code RuntimeException}s only.
+     *
+     * @param target the target total wall-clock duration (per 2-arg overload)
+     * @param body the work to time-shield
+     * @param bypassPad receives the body's thrown {@code RuntimeException};
+     *     return {@code true} to skip padding (disclosure / explicit-error
+     *     path); return {@code false} to behave like the 2-arg overload
+     * @return whatever {@code body} returned
+     */
+    public static <T> T executeInConstantTime(Duration target, Supplier<T> body, Predicate<Throwable> bypassPad) {
+        Objects.requireNonNull(bypassPad, "bypassPad must not be null");
         long startNanos = System.nanoTime();
+        boolean shouldPad = true;
         try {
             return body.get();
+        } catch (RuntimeException t) {
+            if (bypassPad.test(t)) {
+                shouldPad = false;
+            }
+            throw t;
         } finally {
-            padRemaining(target, startNanos);
+            if (shouldPad) {
+                padRemaining(target, startNanos);
+            }
         }
     }
 

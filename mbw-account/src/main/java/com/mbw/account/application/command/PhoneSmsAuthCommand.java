@@ -12,7 +12,9 @@ import java.util.Objects;
  * <ul>
  *   <li>未注册 → 自动创建 ACTIVE Account + sign tokens + return
  *   <li>已注册 + ACTIVE → updateLastLoginAt + sign tokens + return
- *   <li>已注册 + FROZEN/ANONYMIZED → 反枚举吞为 INVALID_CREDENTIALS
+ *   <li>已注册 + FROZEN → AccountInFreezePeriodException (HTTP 403,
+ *       explicit disclosure per spec D expose-frozen-account-status)
+ *   <li>已注册 + ANONYMIZED → 反枚举吞为 INVALID_CREDENTIALS
  * </ul>
  *
  * <p>{@code clientIp} feeds the {@code auth:<ip>} rate-limit bucket

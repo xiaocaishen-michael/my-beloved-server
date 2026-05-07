@@ -1,5 +1,6 @@
 package com.mbw.account.application.usecase;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -13,6 +14,7 @@ import static org.mockito.Mockito.when;
 import com.mbw.account.application.command.PhoneSmsAuthCommand;
 import com.mbw.account.application.config.AuthRateLimitProperties;
 import com.mbw.account.application.result.PhoneSmsAuthResult;
+import com.mbw.account.domain.exception.AccountInFreezePeriodException;
 import com.mbw.account.domain.exception.InvalidCredentialsException;
 import com.mbw.account.domain.exception.InvalidPhoneFormatException;
 import com.mbw.account.domain.model.Account;
@@ -46,17 +48,22 @@ import org.springframework.transaction.support.TransactionTemplate;
  * Unit tests for {@link UnifiedPhoneSmsAuthUseCase} (per ADR-0016 +
  * spec {@code phone-sms-auth/spec.md} FR-001 / FR-005 / FR-006 / FR-008).
  *
- * <p>8 scenarios cover the full state machine matrix:
+ * <p>11 scenarios cover the full state machine matrix:
  *
  * <ol>
  *   <li>Happy: 已注册 ACTIVE → updateLastLoginAt + tokens
  *   <li>Happy: 未注册 → 自动创建 + tokens
- *   <li>FROZEN account → 反枚举 InvalidCredentialsException
+ *   <li>FROZEN account → AccountInFreezePeriodException disclosure (per
+ *       spec D expose-frozen-account-status FR-002 + CL-006; supersedes
+ *       prior anti-enumeration collapse)
  *   <li>ANONYMIZED account → 反枚举 InvalidCredentialsException
  *   <li>SMS code 错 → InvalidCredentialsException
  *   <li>限流 → RateLimitedException
  *   <li>Phone 格式错 → InvalidPhoneFormatException
  *   <li>并发同号 → DataIntegrityViolationException catch + fallthrough login
+ *   <li>Wall-clock: FROZEN bypasses timing pad (per spec D FR-004)
+ *   <li>Wall-clock: ANONYMIZED still pads to TIMING_TARGET
+ *   <li>Wall-clock: ACTIVE login still pads to TIMING_TARGET
  * </ol>
  */
 @ExtendWith(MockitoExtension.class)
@@ -114,6 +121,19 @@ class UnifiedPhoneSmsAuthUseCaseTest {
         return Account.reconstitute(new AccountId(id), new PhoneNumber(PHONE), status, now, now, null);
     }
 
+    private static Account frozenAccount(long id, Instant freezeUntil) {
+        Instant now = Instant.now();
+        return Account.reconstitute(
+                new AccountId(id),
+                new PhoneNumber(PHONE),
+                AccountStatus.FROZEN,
+                now,
+                now,
+                /* lastLoginAt= */ null,
+                /* displayName= */ null,
+                freezeUntil);
+    }
+
     @Test
     void happy_already_registered_active_should_login_and_persist() {
         Account active = account(42L, AccountStatus.ACTIVE);
@@ -157,12 +177,16 @@ class UnifiedPhoneSmsAuthUseCaseTest {
     }
 
     @Test
-    void frozen_account_should_throw_invalid_credentials_anti_enumeration() {
-        Account frozen = account(33L, AccountStatus.FROZEN);
+    void frozen_account_should_disclose_account_in_freeze_period_with_freeze_until() {
+        Instant freezeUntil = Instant.parse("2026-05-21T03:00:00Z");
+        Account frozen = frozenAccount(33L, freezeUntil);
         when(smsCodeService.verify(PHONE, CODE)).thenReturn(new AttemptOutcome(true, 1, false));
         when(accountRepository.findByPhone(any(PhoneNumber.class))).thenReturn(Optional.of(frozen));
 
-        assertThatThrownBy(() -> useCase().execute(cmd())).isInstanceOf(InvalidCredentialsException.class);
+        assertThatThrownBy(() -> useCase().execute(cmd()))
+                .isInstanceOf(AccountInFreezePeriodException.class)
+                .satisfies(ex -> assertThat(((AccountInFreezePeriodException) ex).getFreezeUntil())
+                        .isEqualTo(freezeUntil));
 
         verify(tokenIssuer, never()).signAccess(any());
         verify(accountRepository, never()).updateLastLoginAt(any(), any());
@@ -235,5 +259,54 @@ class UnifiedPhoneSmsAuthUseCaseTest {
         // Login branch ran via the second findByPhone
         verify(accountRepository, times(2)).findByPhone(any(PhoneNumber.class));
         verify(accountRepository).updateLastLoginAt(eq(new AccountId(50L)), any(Instant.class));
+    }
+
+    @Test
+    void frozen_path_should_bypass_timing_pad() {
+        Instant freezeUntil = Instant.parse("2026-05-21T03:00:00Z");
+        Account frozen = frozenAccount(33L, freezeUntil);
+        when(smsCodeService.verify(PHONE, CODE)).thenReturn(new AttemptOutcome(true, 1, false));
+        when(accountRepository.findByPhone(any(PhoneNumber.class))).thenReturn(Optional.of(frozen));
+
+        long startNanos = System.nanoTime();
+        assertThatThrownBy(() -> useCase().execute(cmd())).isInstanceOf(AccountInFreezePeriodException.class);
+        long elapsedMs = (System.nanoTime() - startNanos) / 1_000_000L;
+
+        assertThat(elapsedMs)
+                .as("FROZEN disclosure path bypasses TIMING_TARGET=400ms pad (per spec D FR-004)")
+                .isLessThan(200L);
+    }
+
+    @Test
+    void anonymized_path_should_still_pad_to_timing_target() {
+        Account anonymized = account(34L, AccountStatus.ANONYMIZED);
+        when(smsCodeService.verify(PHONE, CODE)).thenReturn(new AttemptOutcome(true, 1, false));
+        when(accountRepository.findByPhone(any(PhoneNumber.class))).thenReturn(Optional.of(anonymized));
+
+        long startNanos = System.nanoTime();
+        assertThatThrownBy(() -> useCase().execute(cmd())).isInstanceOf(InvalidCredentialsException.class);
+        long elapsedMs = (System.nanoTime() - startNanos) / 1_000_000L;
+
+        assertThat(elapsedMs)
+                .as("ANONYMIZED still pads to TIMING_TARGET=400ms (anti-enumeration preserved)")
+                .isGreaterThanOrEqualTo(380L);
+    }
+
+    @Test
+    void active_login_should_still_pad_to_timing_target() {
+        Account active = account(42L, AccountStatus.ACTIVE);
+        when(smsCodeService.verify(PHONE, CODE)).thenReturn(new AttemptOutcome(true, 1, false));
+        when(accountRepository.findByPhone(any(PhoneNumber.class))).thenReturn(Optional.of(active));
+        when(tokenIssuer.signAccess(any(AccountId.class))).thenReturn("access-jwt");
+        when(tokenIssuer.signRefresh()).thenReturn("refresh-token-256");
+
+        long startNanos = System.nanoTime();
+        PhoneSmsAuthResult result = useCase().execute(cmd());
+        long elapsedMs = (System.nanoTime() - startNanos) / 1_000_000L;
+
+        assertThat(result.accountId()).isEqualTo(42L);
+        assertThat(elapsedMs)
+                .as("ACTIVE happy path still pads to TIMING_TARGET=400ms (timing defense)")
+                .isGreaterThanOrEqualTo(380L);
     }
 }

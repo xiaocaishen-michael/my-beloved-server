@@ -104,6 +104,66 @@ class TimingDefenseExecutorTest {
                 .isTrue();
     }
 
+    @Test
+    void should_pad_when_3arg_happy_path_returns_normally() {
+        Duration target = Duration.ofMillis(100);
+        long startNanos = System.nanoTime();
+
+        String result = TimingDefenseExecutor.executeInConstantTime(target, () -> "ok", ex -> false);
+
+        long elapsedMs = (System.nanoTime() - startNanos) / 1_000_000L;
+        assertThat(result).isEqualTo("ok");
+        assertThat(elapsedMs)
+                .as("happy path never invokes bypassPad → pad still runs")
+                .isGreaterThanOrEqualTo(target.toMillis() - 5);
+    }
+
+    @Test
+    void should_skip_pad_when_3arg_bypassPad_matches_thrown_exception() {
+        Duration target = Duration.ofMillis(300);
+        long startNanos = System.nanoTime();
+
+        assertThatThrownBy(() -> TimingDefenseExecutor.executeInConstantTime(
+                        target,
+                        () -> {
+                            throw new IllegalStateException("disclosure");
+                        },
+                        ex -> ex instanceof IllegalStateException))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("disclosure");
+
+        long elapsedMs = (System.nanoTime() - startNanos) / 1_000_000L;
+        assertThat(elapsedMs)
+                .as("bypassPad matched → finally pad skipped → wall-clock << target")
+                .isLessThan(200L);
+    }
+
+    @Test
+    void should_pad_when_3arg_bypassPad_does_not_match_exception() {
+        Duration target = Duration.ofMillis(150);
+        long startNanos = System.nanoTime();
+
+        assertThatThrownBy(() -> TimingDefenseExecutor.executeInConstantTime(
+                        target,
+                        () -> {
+                            throw new IllegalStateException("not-disclosed");
+                        },
+                        ex -> ex instanceof IllegalArgumentException))
+                .isInstanceOf(IllegalStateException.class);
+
+        long elapsedMs = (System.nanoTime() - startNanos) / 1_000_000L;
+        assertThat(elapsedMs)
+                .as("bypassPad did not match → pad runs to target")
+                .isGreaterThanOrEqualTo(target.toMillis() - 5);
+    }
+
+    @Test
+    void should_reject_null_bypassPad() {
+        assertThatThrownBy(() -> TimingDefenseExecutor.executeInConstantTime(Duration.ofMillis(50), () -> "ok", null))
+                .isInstanceOf(NullPointerException.class)
+                .hasMessageContaining("bypassPad");
+    }
+
     private static void sleepUninterruptibly(long millis) {
         try {
             Thread.sleep(millis);
