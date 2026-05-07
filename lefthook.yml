@@ -27,6 +27,16 @@ pre-commit:
       run: ./mvnw -B -ntp checkstyle:check
       tags:
         - lint
+    markdownlint:
+      # Catch MD028 / MD031 / etc. before push — CI runs the same check via
+      # markdownlint-cli2 workflow (`.markdownlint-cli2.jsonc` is the
+      # single source of config). Pre-flight lesson logged 2026-05-07
+      # after PR #139 (MD028) + app PR #73 (MD031) each tripped CI.
+      # Trigger only on staged .md (skip Java/yaml-only commits).
+      glob: "*.md"
+      run: npx -y markdownlint-cli2 {staged_files}
+      tags:
+        - lint
 
 # Conventional Commits enforcement at commit time.
 # Regex-based check (no Node dependency) — full ruleset runs in CI via

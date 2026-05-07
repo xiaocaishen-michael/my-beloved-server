@@ -29,7 +29,23 @@ Module strategy: see meta repo [`docs/architecture/modular-strategy.md`](https:/
 
 ## Local development
 
-### Start dependencies in Docker
+### One-shot dev server (recommended)
+
+```bash
+# 起 PG/Redis + Spring Boot mbw-app,自带 dev env vars + 8080 端口冲突检测
+./scripts/dev-server.sh
+
+# 自定义端口
+PORT=8081 ./scripts/dev-server.sh
+```
+
+`scripts/dev-server.sh` wraps:
+
+- `docker compose -f docker-compose.dev.yml up -d --wait postgres redis`
+- `DATASOURCE_PASSWORD=mbw` + `MBW_AUTH_JWT_SECRET=<dev-default>` 默认值(可 export 覆盖)
+- `./mvnw spring-boot:run -pl mbw-app`(含 `--server.port` 透传)
+
+### Start dependencies in Docker (manual)
 
 ```bash
 # Start PG / Redis / MinIO (no app inside Docker; you run Spring Boot from IDE)
