@@ -274,7 +274,7 @@ public ProblemDetail onAccountInFreezePeriod(AccountInFreezePeriodException ex) 
 
 ---
 
-## T5 [IT]：修订 SingleEndpointEnumerationDefenseIT 改 3 路径
+## T5 ✅ [IT]：修订 SingleEndpointEnumerationDefenseIT 改 3 路径
 
 **Per spec**: SC-002 + CL-004
 

@@ -52,13 +52,16 @@ import org.testcontainers.utility.DockerImageName;
  *       401 + {@code INVALID_CREDENTIALS}
  * </ul>
  *
- * <p><b>Scope note</b>: spec T5 calls for 4 branches × 250 (incl.
- * FROZEN). The schema CHECK constraint pins {@code status=ACTIVE} in
- * M1.2, so the FROZEN branch is deferred to M1.3+ when the
- * {@code delete-account} use case adds the FROZEN transition path —
- * unit tests with mocked repositories cover that branch today.
- * Per-branch N is scaled down from 250 → 50 for CI throughput; bumping
- * the constant rescales the assertion automatically.
+ * <p><b>Scope note</b>: 3 branches by design (per spec D
+ * {@code expose-frozen-account-status} CL-004 + phone-sms-auth amended
+ * SC-003). FROZEN disclosure path (status FROZEN + correct SMS code)
+ * is intentionally excluded from this enumeration-defense IT — per
+ * spec D FR-002, FROZEN now returns explicit HTTP 403 +
+ * {@code ACCOUNT_IN_FREEZE_PERIOD} instead of the anti-enumeration
+ * 401 INVALID_CREDENTIALS. FROZEN disclosure behavior is verified
+ * separately by {@code FrozenAccountStatusDisclosureIT} (spec D
+ * SC-001). Per-branch N is scaled down from 250 → 50 for CI
+ * throughput; bumping the constant rescales the assertion automatically.
  *
  * <p>Each request uses a unique phone — the {@code auth:<phone>}
  * 24h-5 bucket would otherwise reject repeats.
