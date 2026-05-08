@@ -41,7 +41,7 @@
 
 ---
 
-### T1 [Domain] `RefreshTokenRecord` 扩展 5 字段
+### T1 ✅ [Domain] `RefreshTokenRecord` 扩展 5 字段
 
 **File**: `mbw-account/src/main/java/com/mbw/account/domain/model/RefreshTokenRecord.java`（**改**）
 
