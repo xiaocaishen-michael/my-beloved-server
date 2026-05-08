@@ -31,7 +31,7 @@ public class RefreshTokenJpaEntity {
     @Column(name = "account_id", nullable = false)
     private Long accountId;
 
-    @Column(name = "device_id", length = 36)
+    @Column(name = "device_id", nullable = false, length = 36)
     private String deviceId;
 
     @Column(name = "device_name", length = 64)
