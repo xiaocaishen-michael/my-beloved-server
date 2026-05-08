@@ -9,6 +9,7 @@ import com.mbw.account.domain.model.RealnameStatus;
 import com.mbw.account.domain.repository.RealnameProfileRepository;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -161,6 +162,49 @@ class RealnameProfileRepositoryImplIT {
         assertThatThrownBy(() -> repository.save(RealnameProfile.unverified(5002L, now)
                         .withPending(REAL_NAME_ENC, ID_CARD_NO_ENC, sharedHash, "biz-B", now)))
                 .isInstanceOf(DataIntegrityViolationException.class);
+    }
+
+    @Test
+    void findStalePendingOlderThan_returns_only_PENDING_rows_older_than_threshold() {
+        Instant now = Instant.now().truncatedTo(ChronoUnit.MICROS);
+        Instant threshold = now.minusSeconds(600); // 10 min cutoff
+
+        // STALE PENDING — updated_at 11 min ago (before threshold) → expected
+        repository.save(RealnameProfile.unverified(7001L, now.minusSeconds(660))
+                .withPending(REAL_NAME_ENC, ID_CARD_NO_ENC, "e".repeat(64), "biz-stale", now.minusSeconds(660)));
+        // FRESH PENDING — updated_at 1 min ago (after threshold) → not returned
+        repository.save(RealnameProfile.unverified(7002L, now.minusSeconds(60))
+                .withPending(REAL_NAME_ENC, ID_CARD_NO_ENC, "f".repeat(64), "biz-fresh", now.minusSeconds(60)));
+        // VERIFIED — old but not PENDING → not returned
+        RealnameProfile verifiedBase = RealnameProfile.unverified(7003L, now.minusSeconds(700))
+                .withPending(REAL_NAME_ENC, ID_CARD_NO_ENC, "g".repeat(64), "biz-verified", now.minusSeconds(700));
+        repository.save(verifiedBase.withVerified(now.minusSeconds(700)));
+
+        List<RealnameProfile> stale = repository.findStalePendingOlderThan(threshold, 10);
+
+        assertThat(stale).hasSize(1);
+        assertThat(stale.get(0).accountId()).isEqualTo(7001L);
+        assertThat(stale.get(0).status()).isEqualTo(RealnameStatus.PENDING);
+    }
+
+    @Test
+    void findStalePendingOlderThan_orders_by_updatedAt_ascending_and_respects_limit() {
+        Instant now = Instant.now().truncatedTo(ChronoUnit.MICROS);
+        Instant threshold = now.minusSeconds(60);
+
+        // 3 stale rows, oldest → newest by updatedAt
+        repository.save(RealnameProfile.unverified(8001L, now.minusSeconds(900))
+                .withPending(REAL_NAME_ENC, ID_CARD_NO_ENC, "h".repeat(64), "biz-old", now.minusSeconds(900)));
+        repository.save(RealnameProfile.unverified(8002L, now.minusSeconds(600))
+                .withPending(REAL_NAME_ENC, ID_CARD_NO_ENC, "i".repeat(64), "biz-mid", now.minusSeconds(600)));
+        repository.save(RealnameProfile.unverified(8003L, now.minusSeconds(300))
+                .withPending(REAL_NAME_ENC, ID_CARD_NO_ENC, "j".repeat(64), "biz-new", now.minusSeconds(300)));
+
+        List<RealnameProfile> firstTwo = repository.findStalePendingOlderThan(threshold, 2);
+
+        assertThat(firstTwo).hasSize(2);
+        assertThat(firstTwo.get(0).accountId()).isEqualTo(8001L); // oldest first
+        assertThat(firstTwo.get(1).accountId()).isEqualTo(8002L);
     }
 
     @Test

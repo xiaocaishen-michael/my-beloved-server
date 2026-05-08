@@ -1,6 +1,8 @@
 package com.mbw.account.domain.repository;
 
 import com.mbw.account.domain.model.RealnameProfile;
+import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -53,4 +55,14 @@ public interface RealnameProfileRepository {
      * @return the persisted profile (with assigned id on first save)
      */
     RealnameProfile save(RealnameProfile profile);
+
+    /**
+     * Fetch up to {@code limit} {@code PENDING} profiles whose {@code updated_at}
+     * is strictly before {@code threshold}, ordered by {@code updated_at} ascending
+     * (oldest first). Used by {@code PendingRealnameRecoveryScheduler} (T13b) to
+     * recover rows whose Aliyun init succeeded but whose terminal state never
+     * landed (HTTP failure between Tx1 commit and provider response, or BASE B+1
+     * compensation gap).
+     */
+    List<RealnameProfile> findStalePendingOlderThan(Instant threshold, int limit);
 }
