@@ -103,7 +103,7 @@
 
 ---
 
-### T5 [Infra] `RefreshTokenJpaEntity` + `RefreshTokenMapper` + `RefreshTokenJpaRepository` 扩展
+### T5 ✅ [Infra] `RefreshTokenJpaEntity` + `RefreshTokenMapper` + `RefreshTokenJpaRepository` 扩展
 
 **Files**:
 
@@ -129,7 +129,7 @@
 
 ---
 
-### T6 [Domain] `RefreshTokenRepository.findActiveByAccountId(AccountId, Pageable)` 接口扩展
+### T6 ✅ [Domain] `RefreshTokenRepository.findActiveByAccountId(AccountId, int, int)` 接口扩展
 
 **File**: `mbw-account/src/main/java/com/mbw/account/domain/repository/RefreshTokenRepository.java`（**改**）
 
