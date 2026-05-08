@@ -12,24 +12,31 @@
 
 ---
 
-## T0 [Infrastructure/Migration]：V11 Flyway create_realname_profile_table
+## T0 [Infrastructure/Migration]：V12 Flyway create_realname_profile_table ✅
 
 **前置**：本 spec 三件套 PR merged + ADR / PRD § 5.10 已 ship（meta PR #65）
 
-**子任务**：
+**子任务**（TDD：先红 → 再写 SQL → 绿）：
 
-- T0.1 新建 `mbw-account/src/main/resources/db/migration/account/V11__create_realname_profile_table.sql`，按 plan.md § 数据模型变更 SQL 完整落盘
-- T0.2 跑 `./mvnw -pl mbw-account flyway:info` 确认 V11 被 Flyway 检出
-- T0.3 跑 Testcontainers 启动确认 V11 自动迁移成功（既有 `AccountSchemaIT` 类似模式）
+- T0.1 新建 `mbw-account/src/test/java/com/mbw/account/infrastructure/persistence/RealnameProfileSchemaIT.java`：`@Testcontainers` 启 PG + Flyway 跑全量 migration；4 个 @Test 直接断 `information_schema` / `pg_indexes`：
+  - `v12_creates_realname_profile_table_with_13_columns()` — 13 字段名 + 类型断言
+  - `v12_creates_partial_unique_index_on_id_card_hash()` — `uk_realname_profile_id_card_hash` 存在且 `WHERE id_card_hash IS NOT NULL`
+  - `v12_creates_index_on_provider_biz_id()` — `idx_realname_profile_provider_biz_id` 存在
+  - `v12_chk_realname_status_rejects_unknown_value()` — 直接 INSERT status='WAT' → SQLState 23514
+  - 期望全 RED（V12 还没写）
+- T0.2 新建 `mbw-account/src/main/resources/db/migration/account/V12__create_realname_profile_table.sql`，按 plan.md § 数据模型变更 SQL 落盘（**无 trigger** 版，per plan amend）
+- T0.3 跑 `./mvnw -pl mbw-account test -Dtest=RealnameProfileSchemaIT` 全 GREEN
+- T0.4 ~~跑 `./mvnw -pl mbw-account flyway:info`~~ — 项目未引入 `flyway-maven-plugin`，Flyway 仅在 Spring Boot 启动时 autoconfigure 应用；T0.3 IT 启动已隐式覆盖（V1-V12 全量应用成功 + DDL 形状断言通过即证明 V12 被检出 + 应用）。amend：本 task 不单独执行
 
 **Verify**:
 
-- DDL 落 `account.realname_profile` 表 + partial unique index `uk_realname_profile_id_card_hash` + index `idx_realname_profile_provider_biz_id` + trigger `trg_realname_profile_updated_at`
-- `psql \\d+ account.realname_profile` 输出含全部 13 字段 + 3 索引
+- DDL 落 `account.realname_profile` 表 + partial unique index `uk_realname_profile_id_card_hash` + index `idx_realname_profile_provider_biz_id` + check `chk_realname_status`
+- `updated_at` 由 JPA `@PreUpdate` 在 T7 写入（per plan amend）；本 task 不落 trigger
+- `RealnameProfileSchemaIT` 全绿
 
 ---
 
-## T1 [Domain]：RealnameProfile 聚合根 + RealnameStatus / FailedReason enums
+## T1 [Domain]：RealnameProfile 聚合根 + RealnameStatus / FailedReason enums ✅
 
 **TDD**：先写 `RealnameProfileTest` 覆盖聚合根不变式 + mask 方法。
 
@@ -65,7 +72,7 @@
 
 ---
 
-## T2 [Domain]：IdentityNumberValidator (GB 11643)
+## T2 [Domain]：IdentityNumberValidator (GB 11643) ✅
 
 **TDD**：先写 `IdentityNumberValidatorTest`。
 
@@ -76,7 +83,7 @@
 | Test 场景 | Input | Expect |
 |---|---|---|
 | 合法：测试号 | `110101199001011237` | true |
-| 合法：末位 X | `11010119900101001X` | true |
+| 合法：末位 X | `11010119900101004X` | true（GB 11643 sum=112, mod=2 → C[2]='X'） |
 | 非法长度：17 位 | `1101011990010112` | false |
 | 非法长度：19 位 | `1101011990010112370` | false |
 | 非法字符：含字母 | `11010119900A011237` | false |
@@ -99,7 +106,7 @@
 
 ---
 
-## T3 [Domain]：RealnameStateMachine
+## T3 [Domain]：RealnameStateMachine ✅
 
 **TDD**：先写 test 覆盖合法 / 非法转换矩阵。
 
@@ -126,7 +133,7 @@
 
 ---
 
-## T4 [Domain]：6 个新异常类
+## T4 [Domain]：6 个新异常类 ✅
 
 **TDD 例外**：纯异常类（继承 `RuntimeException`），无业务逻辑 → 不强制单测，由 use case 测试间接覆盖（per server CLAUDE.md § 一 TDD 例外）。
 
@@ -147,7 +154,7 @@
 
 ---
 
-## T5 [Domain]：RealnameProfileRepository 接口
+## T5 [Domain]：RealnameProfileRepository 接口 ✅
 
 **TDD 例外**：纯接口无逻辑。
 
@@ -170,7 +177,7 @@ public interface RealnameProfileRepository {
 
 ---
 
-## T6 [Application/Port]：CipherService + RealnameVerificationProvider 接口
+## T6 [Application/Port]：CipherService + RealnameVerificationProvider 接口 ✅
 
 **TDD 例外**：纯接口。
 
@@ -188,7 +195,7 @@ public interface RealnameProfileRepository {
 
 ---
 
-## T7 [Infrastructure/Persistence]：JpaEntity + Mapper + JpaRepo + RepositoryImpl
+## T7 [Infrastructure/Persistence]：JpaEntity + Mapper + JpaRepo + RepositoryImpl ✅
 
 **TDD**：先写 `RealnameProfileRepositoryImplIT` （Testcontainers PG），再实现。
 
@@ -578,6 +585,17 @@ amend post-impl：
 ## 实施记录（impl ship 后填写，per memory `feedback_implement_owns_tasks_md_sync`）
 
 > 待 Phase 2 implement 阶段每个 task ship 后回填 PR # / commit ref + 标 ✅。
+
+- **T0** ✅ — V12 migration + RealnameProfileSchemaIT (4 tests GREEN)；plan amend：移除 `set_updated_at` trigger（仓内函数不存在，且与 JPA `@PreUpdate` 双写冲突）；tasks amend：T0.4 `flyway:info` 命令删除（项目无 `flyway-maven-plugin`，autoconfigure 已隐式覆盖）。Branch: `feature/realname-server-impl-pr1-domain-repo`. Commit: `2a0fb94`
+- **T1** ✅ — `RealnameProfile`（immutable class，`unverified()` factory + `withPending/withVerified/withFailed` 状态转换 + 静态 `maskRealName/maskIdCardNo`）+ `RealnameStatus` / `FailedReason` enum；`RealnameProfileTest` 10 tests GREEN（factory + 3 transition + 4 mask + 1 illegal transition + 1 NPE guard）。inline state-machine 校验放 `RealnameProfile.requireLegalTransition`，T3 时 extract 到 `RealnameStateMachine`。mask 方法选择 **静态** 而非 instance method — domain 不存明文，UseCase 解密后调静态方法语义最干净。Commit: `8ee49d0`
+- **T2** ✅ — `IdentityNumberValidator`（静态 `validate(String) → boolean`，校验顺序 长度→字符→地区码→日期→GB 11643）；`IdentityNumberValidatorTest` 11 tests GREEN（含 `@ParameterizedTest` 处理多输入）。tasks amend：原 X-末位测试号 `11010119900101001X` 实际 GB 11643 mod=7（应 5），不合法 → 修为 `11010119900101004X`（mod=2 → C[2]='X' 真合法）。impl 注意点：`DateTimeFormatter` 用 `uuuuMMdd`（proleptic-year）而非 `yyyyMMdd`（year-of-era），后者在 STRICT 模式需 era 字段，会拒所有合法日期。Commit: `35f3657`
+- **T3** ✅ — `RealnameStateMachine`（静态 `assertCanTransition(from, to)`，extract from T1 内联 `requireLegalTransition`）；`RealnameStateMachineTest` 10 tests GREEN（@ParameterizedTest 4 legal + 6 illegal 矩阵）；`RealnameProfile.with*` refactor 改调 `RealnameStateMachine.assertCanTransition`，删 inline 私有方法。20/20 tests pass（10 RealnameProfileTest + 10 RealnameStateMachineTest）。Commit: `8a5698f`
+- **T4** ✅ — 6 个 domain exception 类（`InvalidIdCardFormatException` / `AlreadyVerifiedException` / `IdCardOccupiedException` / `AgreementRequiredException` / `ProviderTimeoutException` / `ProviderErrorException`），全部 extends RuntimeException + `public static final String CODE`，跟既有 `InvalidPhoneFormatException` 风格一致。注意：`InvalidIdCardFormatException` **不持有** submitted ID number（PII，FR-008 / SC-002 防 log 泄漏）；`Provider*` 接 `Throwable cause` wrap 上游 SDK error。`./mvnw -pl mbw-account compile` GREEN。Commit: `fad6db6`
+- **T5** ✅ — `RealnameProfileRepository` domain 接口（4 方法：`findByAccountId` / `findByIdCardHash` / `findByProviderBizId` / `save`，per D-004 不暴露 delete/findAll/count）。javadoc 注意：避开 `{@link spring class}` 引用（domain 零 framework 依赖原则），改纯文本描述。compile GREEN。Commit: `f276556`
+- **T6** ✅ — application/port 下 5 个 type：`CipherService`（encrypt/decrypt byte[]） + `RealnameVerificationProvider`（initVerification/queryVerification） + 3 个 record DTO（`InitVerificationRequest` / `InitVerificationResult` / `QueryVerificationResult` 含 `Outcome` 嵌套 enum 4 值）。`Outcome` 嵌套在 result record 内（namespace 收敛于 query 语境）。`InitVerificationRequest` javadoc 显式标注 plaintext lifetime 边界（不缓存 / 不日志 / 不序列化）。compile GREEN。Commit: `004c0b0`
+- **T7** ✅ — `RealnameProfileJpaEntity` + `RealnameProfileJpaRepository` + `RealnameProfileMapper`（hand-rolled，**不用 MapStruct**）+ `RealnameProfileRepositoryImpl`；domain 加 `RealnameProfile.reconstitute(...)` 工厂供 mapper 用。`RealnameProfileRepositoryImplIT` 7 tests GREEN（save round-trip / find* / upsert / unique violation / partial unique）。tasks amend：(1) IT 路径改 `mbw-account/src/test/...`（与既有 `AccountRepositoryImplIT` 一致；原 spec 写 mbw-app 路径不符既有约定）；(2) Mapper 实现风格用 hand-rolled（既有 `AccountMapper` javadoc 已声明项目不用 MapStruct，理由是 immutable + custom factory + VO 与 MapStruct 生成代码组合差）。Commit: `d97032f`
+
+> **PR-1 (T0-T7) 完成** — branch `feature/realname-server-impl-pr1-domain-repo`，8 commits（2a0fb94 → d97032f），mbw-account 模块 380 tests 全 GREEN。等待 ship 决策（push + 开 PR）。T8+ (infra cipher / client / config) 属 PR-2 范围。
 
 ---
 
