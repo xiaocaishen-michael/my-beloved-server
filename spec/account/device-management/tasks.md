@@ -71,7 +71,7 @@
 
 ---
 
-### T3 [Domain] `JwtTokenIssuer.signAccess(AccountId, DeviceId)` + did claim
+### T3 ✅ [Domain] `JwtTokenIssuer.signAccess(AccountId, DeviceId)` + did claim
 
 **File**: `mbw-account/src/main/java/com/mbw/account/domain/service/JwtTokenIssuer.java`（**改**）
 
