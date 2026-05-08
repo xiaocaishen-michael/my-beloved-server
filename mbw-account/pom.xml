@@ -78,6 +78,22 @@
       <version>2.7.0</version>
     </dependency>
 
+    <!-- Realname verification: Aliyun cloud-auth SDK (T10). Same Tea
+         runtime as dysmsapi20170525 in mbw-app; transitive okhttp 3.x
+         is overridden to 5.3.2 via parent dep-mgmt (CVE-2021-0341). -->
+    <dependency>
+      <groupId>com.aliyun</groupId>
+      <artifactId>cloudauth20190307</artifactId>
+      <version>3.13.2</version>
+    </dependency>
+    <!-- Explicit compile-classpath okhttp so the CVE override reaches
+         AliyunRealnameClient (which configures OkHttpClient timeouts
+         directly) rather than relying on transitive resolution alone. -->
+    <dependency>
+      <groupId>com.squareup.okhttp3</groupId>
+      <artifactId>okhttp</artifactId>
+    </dependency>
+
     <!-- Micrometer core for FrozenAccountAnonymizationScheduler counters /
          timer (anonymize-frozen-accounts spec FR-009). The Prometheus
          registry + auto-config is wired in mbw-app via

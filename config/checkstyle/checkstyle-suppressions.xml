@@ -50,6 +50,13 @@
          would drift as the SDK evolves. -->
     <suppress files=".*AliyunSmsClient\.java" checks="IllegalCatch"/>
 
+    <!-- AliyunRealnameClient mirrors the AliyunSmsClient suppression: the
+         cloud-auth SDK's `Client.initFaceVerify` / `describeVerifyResult`
+         both declare `throws Exception`. Catching Throwable at the integration
+         boundary and immediately re-mapping to ProviderErrorException /
+         ProviderTimeoutException keeps the outward contract narrow. -->
+    <suppress files=".*AliyunRealnameClient\.java" checks="IllegalCatch"/>
+
     <!-- ResendEmailClient mirrors the AliyunSmsClient pattern: Resilience4j's
          `CheckedRunnable.run()` declares `throws Throwable`, so the wrapper
          catch around `Retry.decorateCheckedRunnable(...).run()` must be
