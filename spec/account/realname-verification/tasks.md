@@ -177,7 +177,7 @@ public interface RealnameProfileRepository {
 
 ---
 
-## T6 [Application/Port]：CipherService + RealnameVerificationProvider 接口
+## T6 [Application/Port]：CipherService + RealnameVerificationProvider 接口 ✅
 
 **TDD 例外**：纯接口。
 
@@ -591,7 +591,8 @@ amend post-impl：
 - **T2** ✅ — `IdentityNumberValidator`（静态 `validate(String) → boolean`，校验顺序 长度→字符→地区码→日期→GB 11643）；`IdentityNumberValidatorTest` 11 tests GREEN（含 `@ParameterizedTest` 处理多输入）。tasks amend：原 X-末位测试号 `11010119900101001X` 实际 GB 11643 mod=7（应 5），不合法 → 修为 `11010119900101004X`（mod=2 → C[2]='X' 真合法）。impl 注意点：`DateTimeFormatter` 用 `uuuuMMdd`（proleptic-year）而非 `yyyyMMdd`（year-of-era），后者在 STRICT 模式需 era 字段，会拒所有合法日期。Commit: `35f3657`
 - **T3** ✅ — `RealnameStateMachine`（静态 `assertCanTransition(from, to)`，extract from T1 内联 `requireLegalTransition`）；`RealnameStateMachineTest` 10 tests GREEN（@ParameterizedTest 4 legal + 6 illegal 矩阵）；`RealnameProfile.with*` refactor 改调 `RealnameStateMachine.assertCanTransition`，删 inline 私有方法。20/20 tests pass（10 RealnameProfileTest + 10 RealnameStateMachineTest）。Commit: `8a5698f`
 - **T4** ✅ — 6 个 domain exception 类（`InvalidIdCardFormatException` / `AlreadyVerifiedException` / `IdCardOccupiedException` / `AgreementRequiredException` / `ProviderTimeoutException` / `ProviderErrorException`），全部 extends RuntimeException + `public static final String CODE`，跟既有 `InvalidPhoneFormatException` 风格一致。注意：`InvalidIdCardFormatException` **不持有** submitted ID number（PII，FR-008 / SC-002 防 log 泄漏）；`Provider*` 接 `Throwable cause` wrap 上游 SDK error。`./mvnw -pl mbw-account compile` GREEN。Commit: `fad6db6`
-- **T5** ✅ — `RealnameProfileRepository` domain 接口（4 方法：`findByAccountId` / `findByIdCardHash` / `findByProviderBizId` / `save`，per D-004 不暴露 delete/findAll/count）。javadoc 注意：避开 `{@link spring class}` 引用（domain 零 framework 依赖原则），改纯文本描述。compile GREEN。Commit: pending
+- **T5** ✅ — `RealnameProfileRepository` domain 接口（4 方法：`findByAccountId` / `findByIdCardHash` / `findByProviderBizId` / `save`，per D-004 不暴露 delete/findAll/count）。javadoc 注意：避开 `{@link spring class}` 引用（domain 零 framework 依赖原则），改纯文本描述。compile GREEN。Commit: `f276556`
+- **T6** ✅ — application/port 下 5 个 type：`CipherService`（encrypt/decrypt byte[]） + `RealnameVerificationProvider`（initVerification/queryVerification） + 3 个 record DTO（`InitVerificationRequest` / `InitVerificationResult` / `QueryVerificationResult` 含 `Outcome` 嵌套 enum 4 值）。`Outcome` 嵌套在 result record 内（namespace 收敛于 query 语境）。`InitVerificationRequest` javadoc 显式标注 plaintext lifetime 边界（不缓存 / 不日志 / 不序列化）。compile GREEN。Commit: pending
 
 ---
 
