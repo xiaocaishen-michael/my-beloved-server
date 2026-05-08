@@ -17,4 +17,8 @@ public class ProviderTimeoutException extends RuntimeException {
     public ProviderTimeoutException(Throwable cause) {
         super(CODE, cause);
     }
+
+    public ProviderTimeoutException(String detail, Throwable cause) {
+        super(CODE + ": " + detail, cause);
+    }
 }

@@ -98,15 +98,12 @@
       <artifactId>dysmsapi20170525</artifactId>
       <version>4.5.1</version>
     </dependency>
-    <!-- Aliyun SDK pulls com.squareup.okhttp3:okhttp 3.12.13 transitively
-         (via com.aliyun:tea), which has CVE-2021-0341 (HIGH, fixed in 4.9.2).
-         Pin to a 4.x release here to override; okhttp 4.x keeps the same
-         `com.squareup.okhttp3` package name and Java API surface used by
-         Tea SDK (basic OkHttpClient calls), so the upgrade is API-compatible. -->
+    <!-- Explicit compile-classpath okhttp so the parent dep-mgmt
+         CVE-2021-0341 override reaches code that imports OkHttpClient
+         directly, not just transitive resolution via Aliyun SDK / Tea. -->
     <dependency>
       <groupId>com.squareup.okhttp3</groupId>
       <artifactId>okhttp</artifactId>
-      <version>5.3.2</version>
     </dependency>
     <!-- Programmatic resilience4j Retry around the Aliyun SDK call (T1b);
          core-only — no Spring AOP proxy, so unit tests can drive the

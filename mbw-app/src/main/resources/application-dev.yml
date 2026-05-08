@@ -12,3 +12,16 @@ mbw:
       # runs. See AuthRateLimitProperties for defaults.
       capacity: 50
       period: 1h
+
+  # Realname verification: dev / test profiles short-circuit the upstream
+  # Aliyun cloud-auth call via BypassRealnameClient so iterative work doesn't
+  # need real RAM credentials or scene-id. Production (SPRING_PROFILES_ACTIVE=prod)
+  # enforces real values via RealnameProviderStartupValidator (spec T11).
+  realname:
+    dev-bypass: true
+    # DEK is a dummy 32-zero-byte key (base64-encoded) — EnvDekCipherService
+    # boots cleanly but bypass mode short-circuits before any encrypt call,
+    # so the dummy key never touches real PII. Generate a real key for any
+    # non-bypass dev experiment: `head -c 32 /dev/urandom | base64`.
+    dek:
+      base64: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=

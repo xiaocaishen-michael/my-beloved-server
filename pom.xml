@@ -51,6 +51,18 @@
       Remove once Spring Boot ships a BOM with netty 4.1.133+ default.
     -->
     <netty.version>4.1.133.Final</netty.version>
+    <!--
+      Force okhttp 5.3.2 to fix HIGH CVE-2021-0341 (TLS hostname
+      verification bypass) pulled transitively by every Aliyun SDK we
+      use (dysmsapi20170525, cloudauth20190307) via com.aliyun:tea →
+      okhttp 3.12.13. okhttp 5.x keeps the `com.squareup.okhttp3`
+      package and the basic OkHttpClient API surface Tea relies on, so
+      the upgrade is API-compatible. Modules that consume an Aliyun SDK
+      must also declare okhttp as an explicit dependency so the override
+      reaches their compile classpath, not just transitive resolution.
+      Remove once Aliyun SDK ships with okhttp 4.9.2+ default.
+    -->
+    <okhttp.version>5.3.2</okhttp.version>
 
     <!-- Plugin versions -->
     <spotless-maven-plugin.version>3.4.0</spotless-maven-plugin.version>
@@ -134,6 +146,13 @@
         <groupId>org.bouncycastle</groupId>
         <artifactId>bcprov-jdk18on</artifactId>
         <version>${bouncycastle.version}</version>
+      </dependency>
+      <!-- Force okhttp to fix CVE-2021-0341 transitively pulled by every
+           Aliyun SDK via com.aliyun:tea (see property above). -->
+      <dependency>
+        <groupId>com.squareup.okhttp3</groupId>
+        <artifactId>okhttp</artifactId>
+        <version>${okhttp.version}</version>
       </dependency>
     </dependencies>
   </dependencyManagement>

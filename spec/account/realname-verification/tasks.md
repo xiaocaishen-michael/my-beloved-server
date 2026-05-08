@@ -290,33 +290,38 @@ public interface RealnameProfileRepository {
 
 ## T10 [Infrastructure/Client]：AliyunRealnameClient
 
-**TDD**：先写 test（用 WireMock 模拟阿里云 endpoint）。
+**TDD**：先写 test（Mockito-mock SDK，对齐 `AliyunSmsClientTest` 项目惯例 — spec amend 见下）。
 
 ### T10-test
 
-新建 `mbw-app/src/test/java/com/mbw/account/infrastructure/client/AliyunRealnameClientIT.java`（IT 因为依赖阿里云 SDK 序列化 + WireMock 启动）：
+新建 `mbw-account/src/test/java/com/mbw/account/infrastructure/client/AliyunRealnameClientTest.java`（**`Test` 不是 `IT`，路径在 mbw-account 模块同 impl** — spec amend：原 spec 让用 WireMock IT 放 mbw-app，但 1) AliyunSmsClientTest 已用 Mockito-mock SDK 风格成立惯例，启动开销远低于 WireMock；2) impl 落 mbw-account，IT 放 mbw-app 跨模块组织反惯例 (per RealnameProfileRepositoryImplIT 同模块前例)）：
 
-| Test 场景 | WireMock Stub | Expect |
+| Test 场景 | SDK Stub | Expect |
 |---|---|---|
-| initVerification 成功 | 200 + JSON {BizId, LivenessUrl} | 返回 InitVerificationResult |
-| initVerification 5xx | 503 | throw ProviderTimeoutException |
-| initVerification 业务错（参数 invalid） | 200 + JSON Code != 0 | throw ProviderErrorException |
-| queryVerification 通过 | 200 + JSON SubCode=PASSED | outcome=PASSED |
-| queryVerification 比对失败 | 200 + JSON SubCode=NameIdNotMatch | outcome=NAME_ID_NOT_MATCH |
-| queryVerification 活体失败 | 200 + JSON SubCode=LivenessFailed | outcome=LIVENESS_FAILED |
-| queryVerification 用户取消 | 200 + JSON SubCode=UserCanceled | outcome=USER_CANCELED |
-| queryVerification 超时 | 503 | throw ProviderTimeoutException |
+| initVerification 成功 | `initFaceVerify` 返回 `code=Success` + `resultObject.certifyUrl` | 返回 `InitVerificationResult(livenessUrl=certifyUrl)` |
+| initVerification 5xx | `initFaceVerify` throw `TeaException(statusCode=503)` | throw ProviderTimeoutException |
+| initVerification 业务错（参数 invalid） | `initFaceVerify` 返回 `code=InvalidParameter` | throw ProviderErrorException |
+| queryVerification 通过 | `describeVerifyResult` 返回 `verifyStatus=1` | outcome=PASSED |
+| queryVerification 不通过（默认） | `describeVerifyResult` 返回 `verifyStatus=0` | outcome=NAME_ID_NOT_MATCH（**spec drift**：cloud-auth API 不返回 SubCode 细分语义，所有 verifyStatus=0 默认映射 NAME_ID_NOT_MATCH，原 spec 期望的 LivenessFailed / UserCanceled 在 prod 路径**无法精确区分** — 详见 SC-005 简化说明） |
+| queryVerification 系统错 | `describeVerifyResult` 返回 `verifyStatus=2` | throw ProviderErrorException |
+| queryVerification 待提交 | `describeVerifyResult` 返回 `verifyStatus=-1` | throw ProviderErrorException |
+| queryVerification 超时 | `describeVerifyResult` throw `TeaException(statusCode=503)` | throw ProviderTimeoutException |
+
+> **SC-005 简化说明（spec amend）**：原 FR-009 / SC-005 期望"USER_CANCELED 不增加 24h retry counter"。但 cloudauth20190307 的 `DescribeVerifyResultResponseBody` 仅含 `verifyStatus` (Integer) + scores + material 图片 URLs，**无法区分 USER_CANCELED / NAME_ID_NOT_MATCH / LIVENESS_FAILED**。M1 prod 路径所有 failed outcome 都 fall back 到 NAME_ID_NOT_MATCH，retry counter 一律自增。精确区分需切 callback 架构（initFaceVerify 设 callbackUrl + callbackToken），属另一个 spec 范围。BypassClient 仍按 4 值精确返回（dev 测试需要）。
 
 ### T10-impl
 
-新建 `infrastructure/client/AliyunRealnameClient.java`：
+新建 `infrastructure/client/AliyunRealnameClient.java` + `AliyunRealnameClientConfig.java` + `AliyunRealnameProperties.java`：
 
-- `@Service` + `@ConditionalOnProperty(name="mbw.realname.dev-bypass", havingValue="false", matchIfMissing=true)`
-- impl `RealnameVerificationProvider`
-- 引入阿里云 SDK 依赖：`com.aliyun:cloudauth20190307`（具体版本 plan-impl 阶段确认）；BOM-style 加在父 pom（per CLAUDE.md § 九 加新依赖前主动询问 — **本 PR 触发该询问**，详见 PR description "新依赖审议"段）
-- 调用 `cloudauth.aliyuncs.com` 的 `InitVerify` + `DescribeVerifyResult` API（具体 method 名按 SDK）
-- timeout：connect 3s / read 8s
-- 错误映射按 T10-test 表
+- `AliyunRealnameClient`：`@Service` + `@ConditionalOnProperty(name="mbw.realname.dev-bypass", havingValue="false", matchIfMissing=true)`，impl `RealnameVerificationProvider`，构造器接 SDK `Client` + `AliyunRealnameProperties`（便于 Mockito mock SDK，对齐 `AliyunSmsClient` 风格）
+- `AliyunRealnameClientConfig`：`@Configuration` 同 conditional，提供 `@Bean Client aliyunCloudauthClient(AliyunRealnameProperties)`，consumer-side 校验 accessKeyId / accessKeySecret / sceneId 非空（properties 不加 `@Validated` 避免 dev/test 启动失败 — 同 `MockSmsProperties` 风格）
+- `AliyunRealnameProperties`：record `(accessKeyId, accessKeySecret, endpoint, sceneId)`，prefix=`mbw.realname.aliyun`，endpoint 默认 `cloudauth.aliyuncs.com`
+- 阿里云 SDK 依赖：`com.aliyun:cloudauth20190307:3.13.2`（Apache-2.0，已 user 审议 ✅）落 `mbw-account/pom.xml`；同时把 `okhttp 5.3.2` CVE-2021-0341 override **从 `mbw-app/pom.xml` 上提到父 pom dependencyManagement**（与 netty / pgjdbc / bcprov 同模式，避免每模块复制粘贴 pin），mbw-account 引 explicit `okhttp` (无 version) 让 CVE override 进 compile classpath
+- SDK API 映射（**spec drift fix**：原 spec 写 `InitVerify` + `DescribeVerifyResult` 是 simplified name；SDK 实际方法 `Client#initFaceVerify` + `Client#describeVerifyResult`，response 字段 `resultObject.certifyUrl`（非 `LivenessUrl`）+ `verifyStatus` Integer（非 `SubCode` enum））
+- timeout：connect 3s / read 8s（`Config.setConnectTimeout` / `setReadTimeout`）
+- 错误映射：`TeaException` 中 `statusCode>=500` → `ProviderTimeoutException`，其他 + 业务 code 非 Success / verifyStatus 非 {0,1} → `ProviderErrorException`
+- 同时新增 `ProviderErrorException(String, Throwable)` + `ProviderTimeoutException(String, Throwable)` ctor（PR-1 只有 single-arg ctor，T10 wrap message 需要带 cause）
+- IllegalCatch checkstyle 抑制：在 `config/checkstyle/checkstyle-suppressions.xml` 加 `AliyunRealnameClient.java`（与 `AliyunSmsClient` 同 supression 同理由 — SDK declared `throws Exception`，integration boundary 必须 catch Throwable 再 re-map）
 
 **Verify**: GREEN
 
@@ -328,23 +333,25 @@ public interface RealnameProfileRepository {
 
 ### T11-test
 
-新建 `mbw-app/src/test/java/com/mbw/account/infrastructure/config/RealnameProviderConfigIT.java`：
+新建 `mbw-account/src/test/java/com/mbw/account/infrastructure/config/RealnameProviderConfigIT.java`（**spec amend**：路径 mbw-app → mbw-account，与 impl 同模块；用 Spring Boot `ApplicationContextRunner` 跑 5 个 slim-context 场景，无需 `@SpringBootTest` 启 PG）：
 
 | Test 场景 | Expect |
 |---|---|
-| dev profile + DEV_BYPASS=true | startup OK，注入 BypassRealnameClient |
-| dev profile + DEV_BYPASS 缺失 / false | startup OK，注入 AliyunRealnameClient |
-| prod profile + DEV_BYPASS=true | startup throw IllegalStateException |
-| prod profile + DEK 缺失 | startup throw |
-| prod profile + ALIYUN access key 缺失 | startup throw |
+| dev profile + DEV_BYPASS=true | startup OK，注入 BypassRealnameClient，无 AliyunRealnameClient bean |
+| dev profile + DEV_BYPASS=false（须提供 dummy aliyun creds 让 SDK Client bean 能创建）| startup OK，注入 AliyunRealnameClient，无 BypassRealnameClient bean |
+| prod profile + DEV_BYPASS=true | startup fail，rootCause 含 "dev-bypass=true is forbidden" |
+| prod profile + DEK 缺失 | startup fail，rootCause 含 "mbw.realname.dek.base64" |
+| prod profile + ALIYUN access-key-id 缺失 | startup fail，rootCause 含 "access-key-id" |
 
 ### T11-impl
 
-新建 `infrastructure/config/RealnameProviderConfig.java`：
+新建 `infrastructure/config/RealnameProviderConfig.java` + `RealnameProviderStartupValidator.java`：
 
-- `@Configuration`
-- `@Bean ApplicationRunner realnameStartupValidator(Environment env)`：prod profile 校验 DEV_BYPASS≠true + DEK / PEPPER / aliyun key 全在
-- 缺失即 throw `IllegalStateException`，启动 fail-fast
+- `RealnameProviderConfig`：`@Configuration`，仅声明 `@Bean RealnameProviderStartupValidator(Environment env)`
+- `RealnameProviderStartupValidator`：构造器 fail-fast — prod profile 下校验 DEV_BYPASS≠true + DEK / aliyun access-key-id / aliyun access-key-secret / aliyun scene-id 全在；非 prod profile skip 全部检查
+- 缺失即 throw `IllegalStateException`
+
+**Spec amend** (validator 风格)：原 spec 用 `@Bean ApplicationRunner`，但 ApplicationRunner.run() 在 context 完全 refresh 后才跑，**对 fail-fast 来说太晚**（k8s liveness probe 可能已报告 Pod healthy）。改为 `@Bean RealnameProviderStartupValidator` 在构造器抛 — bean creation 阶段直接 fail context.refresh()，与 `JwtProperties` compact ctor / `EnvDekCipherService` parseKey fail-fast 同模式。原 spec 还提到校验 PEPPER，但 PR-1 / PR-2 都未引入 pepper 配置（id_card_hash 的 hash 实现属 PR-3 use case 范围），本 task 不预先加 PEPPER 校验。
 
 **Verify**: GREEN
 

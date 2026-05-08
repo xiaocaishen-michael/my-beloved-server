@@ -21,4 +21,8 @@ public class ProviderErrorException extends RuntimeException {
     public ProviderErrorException(String detail) {
         super(CODE + ": " + detail);
     }
+
+    public ProviderErrorException(String detail, Throwable cause) {
+        super(CODE + ": " + detail, cause);
+    }
 }
