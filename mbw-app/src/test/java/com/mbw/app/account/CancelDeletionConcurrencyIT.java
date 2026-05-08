@@ -216,7 +216,7 @@ class CancelDeletionConcurrencyIT {
         // on CancelDeletionUseCase.execute rolls back markUsed + status transition + outbox
         doThrow(new RuntimeException("test-induced token signing failure"))
                 .when(tokenIssuer)
-                .signAccess(any());
+                .signAccess(any(), any());
 
         ResponseEntity<String> resp = postJson("/api/v1/auth/cancel-deletion", body("phone", phone, "code", code), ip);
         assertThat(resp.getStatusCode().is2xxSuccessful())

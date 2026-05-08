@@ -163,7 +163,7 @@
 
 ---
 
-### T8 [Infra] `Ip2RegionAdapter` + .xdb 资源
+### T8 🟡 [Infra] `Ip2RegionAdapter` + .xdb 资源(stub only — real adapter follow-up PR)
 
 **Files**:
 
@@ -380,7 +380,7 @@
 
 ---
 
-### T18 [Contract] OpenAPI snapshot regen + `did` claim doc
+### T18 ✅ [Contract] OpenAPI snapshot regen + `did` claim doc
 
 **File**: `mbw-account/src/test/resources/api-docs.snapshot.json`（**改**）
 
