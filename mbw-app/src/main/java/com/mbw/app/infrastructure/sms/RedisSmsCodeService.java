@@ -11,7 +11,10 @@ import java.security.SecureRandom;
 import java.time.Duration;
 import java.util.Locale;
 import java.util.Optional;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 /**
@@ -34,30 +37,58 @@ import org.springframework.stereotype.Component;
 @Component
 public class RedisSmsCodeService implements SmsCodeService {
 
+    private static final Logger LOG = LoggerFactory.getLogger(RedisSmsCodeService.class);
+
     static final Duration CODE_TTL = Duration.ofMinutes(5);
     static final int MAX_ATTEMPTS = 3;
     private static final int CODE_DIGITS = 6;
     private static final int CODE_BOUND = 1_000_000;
+    private static final String FIXED_CODE_PATTERN = "\\d{" + CODE_DIGITS + "}";
 
     private final VerificationCodeRepository repository;
     private final PasswordHasher passwordHasher;
     private final SecureRandom random;
+    private final String devFixedCode;
 
     @Autowired
-    public RedisSmsCodeService(VerificationCodeRepository repository, PasswordHasher passwordHasher) {
-        this(repository, passwordHasher, new SecureRandom());
+    public RedisSmsCodeService(
+            VerificationCodeRepository repository,
+            PasswordHasher passwordHasher,
+            @Value("${mbw.sms.dev-fixed-code:}") String devFixedCode) {
+        this(repository, passwordHasher, new SecureRandom(), devFixedCode);
     }
 
+    // Backwards-compat constructor for unit tests that don't exercise dev-fixed-code branch.
     RedisSmsCodeService(VerificationCodeRepository repository, PasswordHasher passwordHasher, SecureRandom random) {
+        this(repository, passwordHasher, random, null);
+    }
+
+    RedisSmsCodeService(
+            VerificationCodeRepository repository,
+            PasswordHasher passwordHasher,
+            SecureRandom random,
+            String devFixedCode) {
         this.repository = repository;
         this.passwordHasher = passwordHasher;
         this.random = random;
+        this.devFixedCode = devFixedCode;
     }
 
     @Override
     public String generateAndStore(String phone) {
         PhoneNumber phoneNumber = new PhoneNumber(phone);
-        String plaintext = String.format(Locale.ROOT, "%0" + CODE_DIGITS + "d", random.nextInt(CODE_BOUND));
+        String plaintext;
+        if (devFixedCode != null && devFixedCode.matches(FIXED_CODE_PATTERN)) {
+            // Dev/test escape hatch: skip random generation, use the env-provided
+            // fixed code (e.g. 999999) so the user can input it directly without
+            // injecting a magic bcrypt hash into Redis. Prod must NOT set
+            // MBW_SMS_DEV_FIXED_CODE — the env var is undefined in
+            // docker-compose.tight.yml so this branch never fires under prod.
+            LOG.warn("[dev-fixed-code] using fixed SMS code from env (NOT for prod) phone={}", phone);
+            plaintext = devFixedCode;
+        } else {
+            plaintext = String.format(Locale.ROOT, "%0" + CODE_DIGITS + "d", random.nextInt(CODE_BOUND));
+        }
         PasswordHash hash = passwordHasher.hash(plaintext);
         boolean stored = repository.storeIfAbsent(phoneNumber, hash.value(), CODE_TTL);
         if (!stored) {
