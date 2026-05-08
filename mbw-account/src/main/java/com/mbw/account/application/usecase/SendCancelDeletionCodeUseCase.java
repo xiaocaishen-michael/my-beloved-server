@@ -10,12 +10,12 @@ import com.mbw.account.domain.repository.AccountRepository;
 import com.mbw.account.domain.repository.AccountSmsCodeRepository;
 import com.mbw.account.domain.service.PhonePolicy;
 import com.mbw.shared.api.sms.SmsClient;
+import com.mbw.shared.api.sms.SmsCodePlaintextGenerator;
 import com.mbw.shared.web.RateLimitService;
 import io.github.bucket4j.Bandwidth;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.security.SecureRandom;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -64,12 +64,12 @@ public class SendCancelDeletionCodeUseCase {
 
     private static final Logger LOG = LoggerFactory.getLogger(SendCancelDeletionCodeUseCase.class);
     private static final HexFormat HEX = HexFormat.of();
-    private static final SecureRandom RANDOM = new SecureRandom();
 
     private final RateLimitService rateLimitService;
     private final AccountRepository accountRepository;
     private final AccountSmsCodeRepository smsCodeRepository;
     private final SmsClient smsClient;
+    private final SmsCodePlaintextGenerator codeGenerator;
     private final Clock clock;
 
     @Autowired
@@ -77,8 +77,9 @@ public class SendCancelDeletionCodeUseCase {
             RateLimitService rateLimitService,
             AccountRepository accountRepository,
             AccountSmsCodeRepository smsCodeRepository,
-            SmsClient smsClient) {
-        this(rateLimitService, accountRepository, smsCodeRepository, smsClient, Clock.systemUTC());
+            SmsClient smsClient,
+            SmsCodePlaintextGenerator codeGenerator) {
+        this(rateLimitService, accountRepository, smsCodeRepository, smsClient, codeGenerator, Clock.systemUTC());
     }
 
     SendCancelDeletionCodeUseCase(
@@ -86,11 +87,13 @@ public class SendCancelDeletionCodeUseCase {
             AccountRepository accountRepository,
             AccountSmsCodeRepository smsCodeRepository,
             SmsClient smsClient,
+            SmsCodePlaintextGenerator codeGenerator,
             Clock clock) {
         this.rateLimitService = rateLimitService;
         this.accountRepository = accountRepository;
         this.smsCodeRepository = smsCodeRepository;
         this.smsClient = smsClient;
+        this.codeGenerator = codeGenerator;
         this.clock = clock;
     }
 
@@ -119,7 +122,7 @@ public class SendCancelDeletionCodeUseCase {
         }
 
         Account account = maybeAccount.get();
-        String plaintext = generateCode();
+        String plaintext = codeGenerator.generateSixDigit();
         String codeHash = sha256Hex(plaintext);
         Instant expiresAt = now.plus(CODE_TTL);
 
@@ -129,10 +132,6 @@ public class SendCancelDeletionCodeUseCase {
         smsClient.send(account.phone().e164(), SMS_TEMPLATE, Map.of("code", plaintext));
 
         LOG.info("account.cancel-deletion-code.sent phoneHash={}", phoneHash);
-    }
-
-    private static String generateCode() {
-        return String.format("%06d", RANDOM.nextInt(1_000_000));
     }
 
     private static String sha256Hex(String input) {

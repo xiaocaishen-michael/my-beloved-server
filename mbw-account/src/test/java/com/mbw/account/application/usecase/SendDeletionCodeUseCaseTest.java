@@ -64,7 +64,13 @@ class SendDeletionCodeUseCaseTest {
 
     @BeforeEach
     void setUp() {
-        useCase = new SendDeletionCodeUseCase(rateLimitService, accountRepository, smsCodeRepository, smsClient, clock);
+        useCase = new SendDeletionCodeUseCase(
+                rateLimitService,
+                accountRepository,
+                smsCodeRepository,
+                smsClient,
+                new com.mbw.shared.api.sms.SmsCodePlaintextGenerator(""),
+                clock);
     }
 
     @Test
