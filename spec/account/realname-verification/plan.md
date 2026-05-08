@@ -213,13 +213,10 @@ CREATE UNIQUE INDEX uk_realname_profile_id_card_hash
 -- 查询索引
 CREATE INDEX idx_realname_profile_provider_biz_id
   ON account.realname_profile (provider_biz_id);
-
--- 时间字段更新 trigger（与既有表风格一致；具体 trigger 函数复用既有 `account.set_updated_at()`）
-CREATE TRIGGER trg_realname_profile_updated_at
-  BEFORE UPDATE ON account.realname_profile
-  FOR EACH ROW EXECUTE FUNCTION account.set_updated_at();
 ```
 
+> **`updated_at` 维护策略**：与既有 `account.account` 等表风格一致 — 列上 `DEFAULT now()` 兜首次插入；后续更新由 JPA `@PreUpdate` 在应用层显式写入。**不引入 PG trigger**（原 plan 草稿中提及的 `account.set_updated_at()` 函数在仓内不存在，且 trigger + JPA 双写会造成歧义）。如未来需要全模块统一切到 trigger 维护，会作为单独 follow-up 一次性 retro-fit 全表，不混在本 use case 里。
+>
 > **不加跨表 FK** 到 `account.account(id)` — 与既有 `login_audit`、`account_agreement`、`refresh_token` 表风格一致；通过应用层保证引用完整性，便于未来拆服务。
 
 ### Account 表不变
