@@ -68,6 +68,16 @@
       <version>10.9</version>
     </dependency>
 
+    <!-- ip2region offline GeoIP (device-management spec FR-011). Pure JDK
+         port from lionsoul2014/ip2region; we wrap it in
+         Ip2RegionAdapter and pre-load the bundled .xdb (~10 MB) at
+         @PostConstruct so list lookups are in-memory. -->
+    <dependency>
+      <groupId>org.lionsoul</groupId>
+      <artifactId>ip2region</artifactId>
+      <version>2.7.0</version>
+    </dependency>
+
     <!-- Micrometer core for FrozenAccountAnonymizationScheduler counters /
          timer (anonymize-frozen-accounts spec FR-009). The Prometheus
          registry + auto-config is wired in mbw-app via
