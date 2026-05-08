@@ -41,6 +41,16 @@
       Remove once upstream openapiutil ships with 1.84+.
     -->
     <bouncycastle.version>1.84</bouncycastle.version>
+    <!--
+      Override Spring Boot 3.5.14 BOM-managed netty 4.1.132.Final → 4.1.133.Final
+      to fix HIGH CVE-2026-42583 (Netty Lz4FrameDecoder resource exhaustion in
+      io.netty:netty-codec). Applied via netty-bom import declared BEFORE
+      spring-boot-dependencies in <dependencyManagement> — Maven resolves same-
+      artifact BOM entries by first-declared-wins, so netty-bom's 4.1.133 takes
+      precedence over Spring Boot BOM's 4.1.132 across all transitive netty-*.
+      Remove once Spring Boot ships a BOM with netty 4.1.133+ default.
+    -->
+    <netty.version>4.1.133.Final</netty.version>
 
     <!-- Plugin versions -->
     <spotless-maven-plugin.version>3.4.0</spotless-maven-plugin.version>
@@ -67,6 +77,18 @@
 
   <dependencyManagement>
     <dependencies>
+      <!--
+        Netty BOM declared BEFORE Spring Boot BOM so first-declared-wins
+        elevates all transitive netty-* artifacts to 4.1.133.Final, fixing
+        HIGH CVE-2026-42583 (see <netty.version> property note above).
+      -->
+      <dependency>
+        <groupId>io.netty</groupId>
+        <artifactId>netty-bom</artifactId>
+        <version>${netty.version}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
       <!-- Spring Boot BOM -->
       <dependency>
         <groupId>org.springframework.boot</groupId>
