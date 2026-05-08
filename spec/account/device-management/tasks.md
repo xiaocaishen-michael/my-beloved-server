@@ -284,7 +284,7 @@
 
 ---
 
-### T13 [Domain] `DeviceRevokedEvent`
+### T13 ✅ [Domain] `DeviceRevokedEvent`
 
 **File**: `mbw-account/src/main/java/com/mbw/account/api/event/DeviceRevokedEvent.java`（**新建**）
 
