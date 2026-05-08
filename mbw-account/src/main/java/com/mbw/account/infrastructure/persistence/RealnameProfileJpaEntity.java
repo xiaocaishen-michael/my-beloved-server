@@ -13,10 +13,11 @@ import java.time.Instant;
  * the infrastructure layer so the domain {@code RealnameProfile} aggregate
  * stays framework-free; conversion happens via {@link RealnameProfileMapper}.
  *
- * <p>Field-by-field mirrors the V12 migration: BIGINT IDENTITY id, BIGINT
- * UNIQUE account_id, VARCHAR status (chk constraint enforces enum), BYTEA
- * encrypted PII, CHAR(64) hex hash, VARCHAR provider biz id, TIMESTAMPTZ
- * timestamps, INT retry counter.
+ * <p>Field-by-field mirrors the V12 migration (with V14 amend on
+ * {@code id_card_hash} CHAR(64) → VARCHAR(64) for Hibernate schema-validation
+ * compatibility): BIGINT IDENTITY id, BIGINT UNIQUE account_id, VARCHAR status
+ * (chk constraint enforces enum), BYTEA encrypted PII, VARCHAR(64) hex hash,
+ * VARCHAR provider biz id, TIMESTAMPTZ timestamps, INT retry counter.
  *
  * <p>{@code updated_at} is set explicitly by the use-case layer through the
  * domain aggregate ({@code RealnameProfile.with*}) and propagated via mapper
@@ -43,7 +44,7 @@ public class RealnameProfileJpaEntity {
     @Column(name = "id_card_no_enc")
     private byte[] idCardNoEnc;
 
-    @Column(name = "id_card_hash", length = 64, columnDefinition = "char(64)")
+    @Column(name = "id_card_hash", length = 64)
     private String idCardHash;
 
     @Column(name = "provider_biz_id", length = 64)

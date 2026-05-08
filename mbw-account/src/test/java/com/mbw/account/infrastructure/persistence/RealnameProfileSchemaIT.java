@@ -101,7 +101,10 @@ class RealnameProfileSchemaIT {
 
         assertThat(byName.get("id_card_no_enc").get("data_type")).isEqualTo("bytea");
 
-        assertThat(byName.get("id_card_hash").get("data_type")).isEqualTo("character");
+        // V14: id_card_hash CHAR(64) → VARCHAR(64) so Hibernate's String → Types#VARCHAR
+        // default mapping passes ddl-auto=validate at boot. CHAR's space-padding semantics
+        // offered no benefit for fixed-length sha256 hex hashes.
+        assertThat(byName.get("id_card_hash").get("data_type")).isEqualTo("character varying");
         assertThat(byName.get("id_card_hash").get("character_maximum_length")).isEqualTo(64);
         assertThat(byName.get("id_card_hash").get("is_nullable")).isEqualTo("YES");
 
