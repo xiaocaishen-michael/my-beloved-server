@@ -91,7 +91,7 @@
 
 ---
 
-### T4 [Migration] V11 add 5 columns + index
+### T4 ✅ [Migration] V11 add 5 columns + index
 
 **File**: `mbw-account/src/main/resources/db/migration/account/V11__extend_refresh_token_device_metadata.sql`（**新建**）
 
