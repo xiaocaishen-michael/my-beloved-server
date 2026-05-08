@@ -141,7 +141,7 @@
 
 ---
 
-### T7 [Web] `DeviceMetadataExtractor` utility
+### T7 ✅ [Web] `DeviceMetadataExtractor` utility
 
 **File**: `mbw-account/src/main/java/com/mbw/account/web/resolver/DeviceMetadataExtractor.java`（**新建** utility）
 
