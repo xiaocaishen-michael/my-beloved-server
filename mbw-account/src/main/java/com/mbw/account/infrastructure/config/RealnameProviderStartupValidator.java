@@ -33,6 +33,7 @@ class RealnameProviderStartupValidator {
                     "mbw.realname.dev-bypass=true is forbidden in prod profile (would short-circuit upstream verification)");
         }
         requireProperty(env, "mbw.realname.dek.base64");
+        requireProperty(env, "mbw.realname.pepper.value");
         requireProperty(env, "mbw.realname.aliyun.access-key-id");
         requireProperty(env, "mbw.realname.aliyun.access-key-secret");
         requireProperty(env, "mbw.realname.aliyun.scene-id");
