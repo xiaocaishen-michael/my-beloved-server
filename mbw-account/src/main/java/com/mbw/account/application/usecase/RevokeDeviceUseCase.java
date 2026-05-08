@@ -108,8 +108,21 @@ public class RevokeDeviceUseCase {
             return;
         }
 
+        // Atomic UPDATE … WHERE revoked_at IS NULL guards against the read-then-write
+        // race that bare findById + save would have (T16): N concurrent revokes all
+        // pass the in-memory revokedAt==null check, but only the first reaches DB
+        // affecting 1 row; the rest get affected=0 and surface as idempotent 200
+        // with no event published (FR-003 / SC-003).
         Instant now = clock.instant();
-        refreshTokenRepository.save(record.revoke(now));
+        int affected = refreshTokenRepository.revoke(cmd.recordId(), now);
+        if (affected == 0) {
+            LOG.info(
+                    "device.revoke.lost-race accountId={} recordId={} deviceId={}",
+                    cmd.accountId().value(),
+                    cmd.recordId().value(),
+                    shortDeviceId(record));
+            return;
+        }
         eventPublisher.publishEvent(
                 new DeviceRevokedEvent(record.accountId(), record.id(), record.deviceId(), now, now));
         LOG.info(
