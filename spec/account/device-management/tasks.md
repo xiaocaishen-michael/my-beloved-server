@@ -163,7 +163,7 @@
 
 ---
 
-### T8 🟡 [Infra] `Ip2RegionAdapter` + .xdb 资源(stub only — real adapter follow-up PR)
+### T8 ✅ [Infra] `Ip2RegionAdapter` + .xdb 资源
 
 **Files**:
 
@@ -324,7 +324,7 @@
 
 ---
 
-### T15 [E2E] `DeviceManagementControllerE2EIT`
+### T15 ✅ [E2E] `DeviceManagementE2EIT`
 
 **File**: `mbw-account/src/test/java/com/mbw/account/web/DeviceManagementControllerE2EIT.java`（**新建**）
 
@@ -344,7 +344,7 @@
 
 ---
 
-### T16 [Concurrency] `DeviceManagementConcurrencyIT`
+### T16 ✅ [Concurrency] `DeviceManagementConcurrencyIT`
 
 **File**: `mbw-account/src/test/java/com/mbw/account/web/DeviceManagementConcurrencyIT.java`（**新建**）
 
@@ -360,7 +360,7 @@
 
 ---
 
-### T17 [Wiring] Cross-spec regression — `DeviceMetadataPropagationIT`
+### T17 ✅ [Wiring] Cross-spec regression — `DeviceMetadataPropagationIT`
 
 **File**: `mbw-account/src/test/java/com/mbw/account/web/DeviceMetadataPropagationIT.java`（**新建**）
 
