@@ -54,6 +54,61 @@ class RedisSmsCodeServiceTest {
     }
 
     @Test
+    void generateAndStore_should_use_dev_fixed_code_when_env_is_six_digits() {
+        // Random is wired but should be ignored when devFixedCode is valid.
+        SecureRandom unused = new SecureRandom() {
+            @Override
+            public int nextInt(int bound) {
+                throw new AssertionError("random should not be called when devFixedCode is set");
+            }
+        };
+        SmsCodeService service = new RedisSmsCodeService(repository, passwordHasher, unused, "999999");
+        when(passwordHasher.hash("999999")).thenReturn(new PasswordHash(STORED_HASH));
+        when(repository.storeIfAbsent(any(), eq(STORED_HASH), any())).thenReturn(true);
+
+        String code = service.generateAndStore(PHONE);
+
+        assertThat(code).isEqualTo("999999");
+        verify(passwordHasher).hash("999999");
+    }
+
+    @Test
+    void generateAndStore_should_fallback_to_random_when_dev_fixed_code_is_invalid() {
+        // 5 digits — fails FIXED_CODE_PATTERN \d{6}; should fall through to random branch.
+        SecureRandom seeded = new SecureRandom() {
+            @Override
+            public int nextInt(int bound) {
+                return 42;
+            }
+        };
+        SmsCodeService service = new RedisSmsCodeService(repository, passwordHasher, seeded, "12345");
+        when(passwordHasher.hash("000042")).thenReturn(new PasswordHash(STORED_HASH));
+        when(repository.storeIfAbsent(any(), eq(STORED_HASH), any())).thenReturn(true);
+
+        String code = service.generateAndStore(PHONE);
+
+        assertThat(code).isEqualTo("000042");
+    }
+
+    @Test
+    void generateAndStore_should_use_random_when_dev_fixed_code_is_blank() {
+        // Empty string is what Spring binds when MBW_SMS_DEV_FIXED_CODE env is unset.
+        SecureRandom seeded = new SecureRandom() {
+            @Override
+            public int nextInt(int bound) {
+                return 7;
+            }
+        };
+        SmsCodeService service = new RedisSmsCodeService(repository, passwordHasher, seeded, "");
+        when(passwordHasher.hash("000007")).thenReturn(new PasswordHash(STORED_HASH));
+        when(repository.storeIfAbsent(any(), eq(STORED_HASH), any())).thenReturn(true);
+
+        String code = service.generateAndStore(PHONE);
+
+        assertThat(code).isEqualTo("000007");
+    }
+
+    @Test
     void generateAndStore_should_throw_RateLimited_when_pending_code_already_exists() {
         SmsCodeService service = new RedisSmsCodeService(repository, passwordHasher, new SecureRandom());
         when(passwordHasher.hash(any())).thenReturn(new PasswordHash(STORED_HASH));

@@ -35,6 +35,12 @@ docker compose -f docker-compose.dev.yml up -d --wait postgres redis
 export DATASOURCE_PASSWORD="${DATASOURCE_PASSWORD:-mbw}"
 export MBW_AUTH_JWT_SECRET="${MBW_AUTH_JWT_SECRET:-dev-secret-32-bytes-or-more-of-dev-entropy-please-do-not-use}"
 
+# Dev SMS code 写死 999999 — RedisSmsCodeService.generateAndStore 跳过随机生成,
+# 用户直接输 999999 即可通过验证（免 redis 注入 magic hash 折腾）。
+# Prod 不传此 env（docker-compose.tight.yml 没传）→ server 走 random path 不受影响。
+# 想关掉此 dev hack（测真随机 + redis 注入流程）前置 export MBW_SMS_DEV_FIXED_CODE= 覆盖。
+export MBW_SMS_DEV_FIXED_CODE="${MBW_SMS_DEV_FIXED_CODE:-999999}"
+
 # ── 4. Spring Boot run ────────────────────────────────────────────────────
 echo "▶ ./mvnw spring-boot:run -pl mbw-app (server.port=$PORT)"
 exec ./mvnw spring-boot:run -pl mbw-app -Dspring-boot.run.arguments="--server.port=$PORT"

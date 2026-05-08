@@ -78,6 +78,12 @@ mbw:
     mock:
       recipient: ${MOCK_SMS_RECIPIENT:}
       from: ${MOCK_SMS_FROM:}
+    # Dev/test 写死 SMS code（生产必须不设此 env！docker-compose.tight.yml 不传）
+    # 设此 env（6 位数字）后,RedisSmsCodeService.generateAndStore 跳过随机生成,
+    # 直接用此值作 plaintext → 用户直接输此值即可登录,免 redis 注入 magic hash.
+    # 触发条件: env 非空 AND 匹配 \d{6}; 否则走 random path（prod 默认行为）。
+    # 用法: 本地 dev 起 server 时 export MBW_SMS_DEV_FIXED_CODE=999999（scripts/dev-server.sh 已默认）
+    dev-fixed-code: ${MBW_SMS_DEV_FIXED_CODE:}
   email:
     # Email 通道选择（ADR-0013 二次 amend，2026-04-30）：
     #   resend — ResendEmailClient 通过 HTTPS API 发件（生产推荐；Gmail / 国内邮箱投递好）
