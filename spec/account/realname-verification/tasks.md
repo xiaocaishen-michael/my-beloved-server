@@ -36,7 +36,7 @@
 
 ---
 
-## T1 [Domain]：RealnameProfile 聚合根 + RealnameStatus / FailedReason enums
+## T1 [Domain]：RealnameProfile 聚合根 + RealnameStatus / FailedReason enums ✅
 
 **TDD**：先写 `RealnameProfileTest` 覆盖聚合根不变式 + mask 方法。
 
@@ -586,7 +586,8 @@ amend post-impl：
 
 > 待 Phase 2 implement 阶段每个 task ship 后回填 PR # / commit ref + 标 ✅。
 
-- **T0** ✅ — V11 migration + RealnameProfileSchemaIT (4 tests GREEN)；plan amend：移除 `set_updated_at` trigger（仓内函数不存在，且与 JPA `@PreUpdate` 双写冲突）；tasks amend：T0.4 `flyway:info` 命令删除（项目无 `flyway-maven-plugin`，autoconfigure 已隐式覆盖）。Branch: `feature/realname-server-impl-pr1-domain-repo`. Commit ref: pending
+- **T0** ✅ — V11 migration + RealnameProfileSchemaIT (4 tests GREEN)；plan amend：移除 `set_updated_at` trigger（仓内函数不存在，且与 JPA `@PreUpdate` 双写冲突）；tasks amend：T0.4 `flyway:info` 命令删除（项目无 `flyway-maven-plugin`，autoconfigure 已隐式覆盖）。Branch: `feature/realname-server-impl-pr1-domain-repo`. Commit: `2a0fb94`
+- **T1** ✅ — `RealnameProfile`（immutable class，`unverified()` factory + `withPending/withVerified/withFailed` 状态转换 + 静态 `maskRealName/maskIdCardNo`）+ `RealnameStatus` / `FailedReason` enum；`RealnameProfileTest` 10 tests GREEN（factory + 3 transition + 4 mask + 1 illegal transition + 1 NPE guard）。inline state-machine 校验放 `RealnameProfile.requireLegalTransition`，T3 时 extract 到 `RealnameStateMachine`。mask 方法选择 **静态** 而非 instance method — domain 不存明文，UseCase 解密后调静态方法语义最干净。Commit: pending
 
 ---
 
