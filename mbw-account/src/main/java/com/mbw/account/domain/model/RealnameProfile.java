@@ -65,6 +65,47 @@ public final class RealnameProfile {
     }
 
     /**
+     * Reconstruct from persisted state — used by {@code RealnameProfileMapper}
+     * after loading a row from the {@code account.realname_profile} table.
+     * Bypasses the state-machine guard because legality is the persistence
+     * layer's responsibility (the only way to land a row in the DB is through
+     * the use-case write path, which already enforced the matrix).
+     *
+     * <p>{@code id} is non-null on every reconstitute call (rows always carry
+     * an IDENTITY-assigned PK by the time they round-trip back).
+     */
+    public static RealnameProfile reconstitute(
+            Long id,
+            long accountId,
+            RealnameStatus status,
+            byte[] realNameEnc,
+            byte[] idCardNoEnc,
+            String idCardHash,
+            String providerBizId,
+            Instant verifiedAt,
+            FailedReason failedReason,
+            Instant failedAt,
+            int retryCount24h,
+            Instant createdAt,
+            Instant updatedAt) {
+        Objects.requireNonNull(id, "id must not be null on reconstitute");
+        return new RealnameProfile(
+                id,
+                accountId,
+                status,
+                realNameEnc,
+                idCardNoEnc,
+                idCardHash,
+                providerBizId,
+                verifiedAt,
+                failedReason,
+                failedAt,
+                retryCount24h,
+                createdAt,
+                updatedAt);
+    }
+
+    /**
      * Factory for an {@code UNVERIFIED} row — used the first time an account
      * is encountered by realname code paths. All sensitive fields stay null;
      * {@link #retryCount24h} starts at 0.

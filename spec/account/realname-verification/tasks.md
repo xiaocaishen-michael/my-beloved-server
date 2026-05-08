@@ -195,7 +195,7 @@ public interface RealnameProfileRepository {
 
 ---
 
-## T7 [Infrastructure/Persistence]：JpaEntity + Mapper + JpaRepo + RepositoryImpl
+## T7 [Infrastructure/Persistence]：JpaEntity + Mapper + JpaRepo + RepositoryImpl ✅
 
 **TDD**：先写 `RealnameProfileRepositoryImplIT` （Testcontainers PG），再实现。
 
@@ -592,7 +592,8 @@ amend post-impl：
 - **T3** ✅ — `RealnameStateMachine`（静态 `assertCanTransition(from, to)`，extract from T1 内联 `requireLegalTransition`）；`RealnameStateMachineTest` 10 tests GREEN（@ParameterizedTest 4 legal + 6 illegal 矩阵）；`RealnameProfile.with*` refactor 改调 `RealnameStateMachine.assertCanTransition`，删 inline 私有方法。20/20 tests pass（10 RealnameProfileTest + 10 RealnameStateMachineTest）。Commit: `8a5698f`
 - **T4** ✅ — 6 个 domain exception 类（`InvalidIdCardFormatException` / `AlreadyVerifiedException` / `IdCardOccupiedException` / `AgreementRequiredException` / `ProviderTimeoutException` / `ProviderErrorException`），全部 extends RuntimeException + `public static final String CODE`，跟既有 `InvalidPhoneFormatException` 风格一致。注意：`InvalidIdCardFormatException` **不持有** submitted ID number（PII，FR-008 / SC-002 防 log 泄漏）；`Provider*` 接 `Throwable cause` wrap 上游 SDK error。`./mvnw -pl mbw-account compile` GREEN。Commit: `fad6db6`
 - **T5** ✅ — `RealnameProfileRepository` domain 接口（4 方法：`findByAccountId` / `findByIdCardHash` / `findByProviderBizId` / `save`，per D-004 不暴露 delete/findAll/count）。javadoc 注意：避开 `{@link spring class}` 引用（domain 零 framework 依赖原则），改纯文本描述。compile GREEN。Commit: `f276556`
-- **T6** ✅ — application/port 下 5 个 type：`CipherService`（encrypt/decrypt byte[]） + `RealnameVerificationProvider`（initVerification/queryVerification） + 3 个 record DTO（`InitVerificationRequest` / `InitVerificationResult` / `QueryVerificationResult` 含 `Outcome` 嵌套 enum 4 值）。`Outcome` 嵌套在 result record 内（namespace 收敛于 query 语境）。`InitVerificationRequest` javadoc 显式标注 plaintext lifetime 边界（不缓存 / 不日志 / 不序列化）。compile GREEN。Commit: pending
+- **T6** ✅ — application/port 下 5 个 type：`CipherService`（encrypt/decrypt byte[]） + `RealnameVerificationProvider`（initVerification/queryVerification） + 3 个 record DTO（`InitVerificationRequest` / `InitVerificationResult` / `QueryVerificationResult` 含 `Outcome` 嵌套 enum 4 值）。`Outcome` 嵌套在 result record 内（namespace 收敛于 query 语境）。`InitVerificationRequest` javadoc 显式标注 plaintext lifetime 边界（不缓存 / 不日志 / 不序列化）。compile GREEN。Commit: `004c0b0`
+- **T7** ✅ — `RealnameProfileJpaEntity` + `RealnameProfileJpaRepository` + `RealnameProfileMapper`（hand-rolled，**不用 MapStruct**）+ `RealnameProfileRepositoryImpl`；domain 加 `RealnameProfile.reconstitute(...)` 工厂供 mapper 用。`RealnameProfileRepositoryImplIT` 7 tests GREEN（save round-trip / find* / upsert / unique violation / partial unique）。tasks amend：(1) IT 路径改 `mbw-account/src/test/...`（与既有 `AccountRepositoryImplIT` 一致；原 spec 写 mbw-app 路径不符既有约定）；(2) Mapper 实现风格用 hand-rolled（既有 `AccountMapper` javadoc 已声明项目不用 MapStruct，理由是 immutable + custom factory + VO 与 MapStruct 生成代码组合差）。Commit: pending
 
 ---
 
