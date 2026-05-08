@@ -12,7 +12,7 @@
 
 ## Critical Path（按依赖顺序）
 
-### T0 [Domain] DeviceType + LoginMethod enum + DeviceId / DeviceName / IpAddress 值对象
+### T0 ✅ [Domain] DeviceType + LoginMethod enum + DeviceId / DeviceName / IpAddress 值对象
 
 **Files**:
 
@@ -41,7 +41,7 @@
 
 ---
 
-### T1 [Domain] `RefreshTokenRecord` 扩展 5 字段
+### T1 ✅ [Domain] `RefreshTokenRecord` 扩展 5 字段
 
 **File**: `mbw-account/src/main/java/com/mbw/account/domain/model/RefreshTokenRecord.java`（**改**）
 
@@ -59,7 +59,7 @@
 
 ---
 
-### T2 [Domain] `Ip2RegionService` interface
+### T2 ✅ [Domain] `Ip2RegionService` interface
 
 **File**: `mbw-account/src/main/java/com/mbw/account/domain/service/Ip2RegionService.java`（**新建** interface）
 
@@ -71,7 +71,7 @@
 
 ---
 
-### T3 [Domain] `JwtTokenIssuer.signAccess(AccountId, DeviceId)` + did claim
+### T3 ✅ [Domain] `JwtTokenIssuer.signAccess(AccountId, DeviceId)` + did claim
 
 **File**: `mbw-account/src/main/java/com/mbw/account/domain/service/JwtTokenIssuer.java`（**改**）
 
@@ -91,7 +91,7 @@
 
 ---
 
-### T4 [Migration] V11 add 5 columns + index
+### T4 ✅ [Migration] V11 add 5 columns + index
 
 **File**: `mbw-account/src/main/resources/db/migration/account/V11__extend_refresh_token_device_metadata.sql`（**新建**）
 
@@ -103,7 +103,7 @@
 
 ---
 
-### T5 [Infra] `RefreshTokenJpaEntity` + `RefreshTokenMapper` + `RefreshTokenJpaRepository` 扩展
+### T5 ✅ [Infra] `RefreshTokenJpaEntity` + `RefreshTokenMapper` + `RefreshTokenJpaRepository` 扩展
 
 **Files**:
 
@@ -129,7 +129,7 @@
 
 ---
 
-### T6 [Domain] `RefreshTokenRepository.findActiveByAccountId(AccountId, Pageable)` 接口扩展
+### T6 ✅ [Domain] `RefreshTokenRepository.findActiveByAccountId(AccountId, int, int)` 接口扩展
 
 **File**: `mbw-account/src/main/java/com/mbw/account/domain/repository/RefreshTokenRepository.java`（**改**）
 
@@ -141,7 +141,7 @@
 
 ---
 
-### T7 [Web] `DeviceMetadataExtractor` utility
+### T7 ✅ [Web] `DeviceMetadataExtractor` utility
 
 **File**: `mbw-account/src/main/java/com/mbw/account/web/resolver/DeviceMetadataExtractor.java`（**新建** utility）
 
@@ -163,7 +163,7 @@
 
 ---
 
-### T8 [Infra] `Ip2RegionAdapter` + .xdb 资源
+### T8 🟡 [Infra] `Ip2RegionAdapter` + .xdb 资源(stub only — real adapter follow-up PR)
 
 **Files**:
 
@@ -187,7 +187,7 @@
 
 ---
 
-### T9 [Wiring] 5 既有 token-issuing UseCase 接入新签名
+### T9 ✅ [Wiring] 3 既有 token-issuing UseCase 接入新签名
 
 **Files**（5 处 UseCase + 各自 Command）：
 
@@ -219,7 +219,7 @@
 
 ---
 
-### T10 [App] `ListDevicesQuery` + `RevokeDeviceCommand` + `DeviceListResult` + `DeviceItem`
+### T10 ✅ [App] `ListDevicesQuery` + `RevokeDeviceCommand` + `DeviceListResult` + `DeviceItem`
 
 **Files**: 4 records under `mbw-account/src/main/java/com/mbw/account/application/{command,query,result}/`（**新建**）
 
@@ -231,7 +231,7 @@
 
 ---
 
-### T11 [App] `ListDevicesUseCase`
+### T11 ✅ [App] `ListDevicesUseCase`
 
 **File**: `mbw-account/src/main/java/com/mbw/account/application/usecase/ListDevicesUseCase.java`（**新建**）
 
@@ -254,7 +254,7 @@
 
 ---
 
-### T12 [App] `RevokeDeviceUseCase`
+### T12 ✅ [App] `RevokeDeviceUseCase`
 
 **File**: `mbw-account/src/main/java/com/mbw/account/application/usecase/RevokeDeviceUseCase.java`（**新建** + 2 exception class）
 
@@ -284,7 +284,7 @@
 
 ---
 
-### T13 [Domain] `DeviceRevokedEvent`
+### T13 ✅ [Domain] `DeviceRevokedEvent`
 
 **File**: `mbw-account/src/main/java/com/mbw/account/api/event/DeviceRevokedEvent.java`（**新建**）
 
@@ -296,7 +296,7 @@
 
 ---
 
-### T14 [Web] `DeviceManagementController` + `DeviceListResponse` + `DeviceItemResponse`
+### T14 ✅ [Web] `DeviceManagementController` + `DeviceListResponse` + `DeviceItemResponse`
 
 **Files**:
 
@@ -380,7 +380,7 @@
 
 ---
 
-### T18 [Contract] OpenAPI snapshot regen + `did` claim doc
+### T18 ✅ [Contract] OpenAPI snapshot regen + `did` claim doc
 
 **File**: `mbw-account/src/test/resources/api-docs.snapshot.json`（**改**）
 

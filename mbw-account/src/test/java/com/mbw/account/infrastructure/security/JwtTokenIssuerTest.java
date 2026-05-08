@@ -1,16 +1,21 @@
 package com.mbw.account.infrastructure.security;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.mbw.account.domain.model.AccountId;
+import com.mbw.account.domain.model.DeviceId;
+import com.mbw.account.domain.service.AuthenticatedTokenClaims;
 import com.nimbusds.jose.JWSAlgorithm;
 import com.nimbusds.jose.crypto.MACVerifier;
 import com.nimbusds.jwt.SignedJWT;
 import java.nio.charset.StandardCharsets;
 import java.security.SecureRandom;
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.IntStream;
 import org.junit.jupiter.api.Test;
@@ -77,5 +82,79 @@ class JwtTokenIssuerTest {
                 .collect(java.util.stream.Collectors.toSet());
 
         assertThat(tokens).as("100 random refreshes are all distinct").hasSize(100);
+    }
+
+    // ----- Device-management spec FR-008 / FR-006 — did claim + device-aware verify -----
+
+    private static final DeviceId DEVICE_ID = new DeviceId("8a7c1f2e-5b3d-4f6a-9e2c-1d4b5a6c7e8f");
+
+    @Test
+    void signAccess_with_device_should_include_did_claim() throws Exception {
+        String token = issuer.signAccess(new AccountId(42L), DEVICE_ID);
+
+        SignedJWT parsed = SignedJWT.parse(token);
+        assertThat(parsed.getJWTClaimsSet().getStringClaim("did")).isEqualTo(DEVICE_ID.value());
+    }
+
+    @Test
+    void signAccess_with_device_should_keep_subject_iat_exp_unchanged() throws Exception {
+        String token = issuer.signAccess(new AccountId(42L), DEVICE_ID);
+
+        SignedJWT parsed = SignedJWT.parse(token);
+        assertThat(parsed.getJWTClaimsSet().getSubject()).isEqualTo("42");
+        assertThat(parsed.getJWTClaimsSet().getIssueTime().toInstant()).isEqualTo(FIXED_NOW);
+        assertThat(parsed.getJWTClaimsSet().getExpirationTime().toInstant())
+                .isEqualTo(FIXED_NOW.plus(JwtTokenIssuer.ACCESS_TTL));
+    }
+
+    @Test
+    void signAccess_with_device_should_throw_when_deviceId_null() {
+        assertThatThrownBy(() -> issuer.signAccess(new AccountId(42L), null))
+                .isInstanceOf(NullPointerException.class)
+                .hasMessageContaining("deviceId");
+    }
+
+    @Test
+    void verifyAccessWithDevice_should_return_both_claims_when_token_valid() {
+        String token = issuer.signAccess(new AccountId(42L), DEVICE_ID);
+
+        Optional<AuthenticatedTokenClaims> claims = issuer.verifyAccessWithDevice(token);
+
+        assertThat(claims).isPresent();
+        assertThat(claims.get().accountId()).isEqualTo(new AccountId(42L));
+        assertThat(claims.get().deviceId()).isEqualTo(DEVICE_ID);
+    }
+
+    @Test
+    void verifyAccessWithDevice_should_return_empty_when_did_claim_missing_per_FR_006() {
+        // Old-format token signed without did — FR-006 requires reject.
+        String legacyToken = issuer.signAccess(new AccountId(42L));
+
+        Optional<AuthenticatedTokenClaims> claims = issuer.verifyAccessWithDevice(legacyToken);
+
+        assertThat(claims).isEmpty();
+    }
+
+    @Test
+    void verifyAccessWithDevice_should_return_empty_when_token_expired() {
+        String token = issuer.signAccess(new AccountId(42L), DEVICE_ID);
+
+        // Issuer clock fixed at FIXED_NOW; build verifier clock past expiry.
+        JwtTokenIssuer pastExpiry = new JwtTokenIssuer(
+                props,
+                Clock.fixed(FIXED_NOW.plus(JwtTokenIssuer.ACCESS_TTL).plus(Duration.ofSeconds(1)), ZoneOffset.UTC),
+                new SecureRandom());
+
+        assertThat(pastExpiry.verifyAccessWithDevice(token)).isEmpty();
+    }
+
+    @Test
+    void verifyAccessWithDevice_should_return_empty_when_signature_invalid() {
+        String token = issuer.signAccess(new AccountId(42L), DEVICE_ID);
+        // Tamper the last char of the signature segment to break the MAC.
+        String tampered =
+                token.substring(0, token.length() - 1) + (token.charAt(token.length() - 1) == 'a' ? 'b' : 'a');
+
+        assertThat(issuer.verifyAccessWithDevice(tampered)).isEmpty();
     }
 }

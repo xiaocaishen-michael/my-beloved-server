@@ -1,6 +1,8 @@
 package com.mbw.account.infrastructure.security;
 
 import com.mbw.account.domain.model.AccountId;
+import com.mbw.account.domain.model.DeviceId;
+import com.mbw.account.domain.service.AuthenticatedTokenClaims;
 import com.mbw.account.domain.service.TokenIssuer;
 import com.nimbusds.jose.JOSEException;
 import com.nimbusds.jose.JWSAlgorithm;
@@ -19,17 +21,19 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.Base64;
 import java.util.Date;
+import java.util.Objects;
 import java.util.Optional;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 /**
- * Nimbus JOSE-backed implementation of {@link TokenIssuer} (FR-008).
+ * Nimbus JOSE-backed implementation of {@link TokenIssuer} (FR-008 +
+ * device-management spec FR-006 / FR-008).
  *
  * <p>Access tokens use HMAC SHA-256 with claims {@code sub=accountId},
- * {@code iat}, and {@code exp = iat + 15min}. Refresh tokens are 256
- * random bits from {@link SecureRandom} encoded as URL-safe base64
- * without padding.
+ * {@code did=deviceId}, {@code iat}, and {@code exp = iat + 15min}.
+ * Refresh tokens are 256 random bits from {@link SecureRandom} encoded
+ * as URL-safe base64 without padding.
  *
  * <p>Clock-injectable so tests can pin time and assert exp boundaries
  * without flakiness.
@@ -38,6 +42,7 @@ import org.springframework.stereotype.Component;
 public class JwtTokenIssuer implements TokenIssuer {
 
     static final Duration ACCESS_TTL = Duration.ofMinutes(15);
+    static final String DID_CLAIM = "did";
     private static final int REFRESH_TOKEN_BYTES = 32;
 
     private final JWSSigner signer;
@@ -63,13 +68,33 @@ public class JwtTokenIssuer implements TokenIssuer {
     }
 
     @Override
+    public String signAccess(AccountId accountId, DeviceId deviceId) {
+        Objects.requireNonNull(accountId, "accountId must not be null");
+        Objects.requireNonNull(deviceId, "deviceId must not be null");
+        Instant now = clock.instant();
+        JWTClaimsSet claims = new JWTClaimsSet.Builder()
+                .subject(String.valueOf(accountId.value()))
+                .claim(DID_CLAIM, deviceId.value())
+                .issueTime(Date.from(now))
+                .expirationTime(Date.from(now.plus(ACCESS_TTL)))
+                .build();
+        return signClaims(claims);
+    }
+
+    @Override
+    @Deprecated
     public String signAccess(AccountId accountId) {
+        Objects.requireNonNull(accountId, "accountId must not be null");
         Instant now = clock.instant();
         JWTClaimsSet claims = new JWTClaimsSet.Builder()
                 .subject(String.valueOf(accountId.value()))
                 .issueTime(Date.from(now))
                 .expirationTime(Date.from(now.plus(ACCESS_TTL)))
                 .build();
+        return signClaims(claims);
+    }
+
+    private String signClaims(JWTClaimsSet claims) {
         SignedJWT jwt = new SignedJWT(new JWSHeader(JWSAlgorithm.HS256), claims);
         try {
             jwt.sign(signer);
@@ -87,7 +112,35 @@ public class JwtTokenIssuer implements TokenIssuer {
     }
 
     @Override
+    public Optional<AuthenticatedTokenClaims> verifyAccessWithDevice(String token) {
+        Optional<JWTClaimsSet> verified = parseAndVerify(token);
+        if (verified.isEmpty()) {
+            return Optional.empty();
+        }
+        JWTClaimsSet claims = verified.get();
+        Optional<AccountId> sub = extractSubject(claims);
+        if (sub.isEmpty()) {
+            return Optional.empty();
+        }
+        try {
+            String did = claims.getStringClaim(DID_CLAIM);
+            if (did == null || did.isBlank()) {
+                // FR-006: tokens without did claim must be rejected.
+                return Optional.empty();
+            }
+            return Optional.of(new AuthenticatedTokenClaims(sub.get(), new DeviceId(did)));
+        } catch (ParseException | IllegalArgumentException e) {
+            return Optional.empty();
+        }
+    }
+
+    @Override
+    @Deprecated
     public Optional<AccountId> verifyAccess(String token) {
+        return parseAndVerify(token).flatMap(this::extractSubject);
+    }
+
+    private Optional<JWTClaimsSet> parseAndVerify(String token) {
         if (token == null || token.isBlank()) {
             return Optional.empty();
         }
@@ -101,13 +154,21 @@ public class JwtTokenIssuer implements TokenIssuer {
             if (exp == null || exp.toInstant().isBefore(clock.instant())) {
                 return Optional.empty();
             }
-            String sub = claims.getSubject();
-            if (sub == null || sub.isBlank()) {
-                return Optional.empty();
-            }
+            return Optional.of(claims);
+        } catch (ParseException | JOSEException e) {
+            return Optional.empty();
+        }
+    }
+
+    private Optional<AccountId> extractSubject(JWTClaimsSet claims) {
+        String sub = claims.getSubject();
+        if (sub == null || sub.isBlank()) {
+            return Optional.empty();
+        }
+        try {
             return Optional.of(new AccountId(Long.parseLong(sub)));
-        } catch (ParseException | JOSEException | NumberFormatException e) {
-            // Any malformed / wrong-signed / non-numeric-sub case folds to empty
+        } catch (IllegalArgumentException e) {
+            // Catches NumberFormatException (parseLong) and AccountId's positive-id check.
             return Optional.empty();
         }
     }

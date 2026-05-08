@@ -2,11 +2,16 @@ package com.mbw.account.infrastructure.persistence;
 
 import com.mbw.account.domain.model.AccountId;
 import com.mbw.account.domain.model.RefreshTokenHash;
+import com.mbw.account.domain.model.RefreshTokenPage;
 import com.mbw.account.domain.model.RefreshTokenRecord;
 import com.mbw.account.domain.model.RefreshTokenRecordId;
 import com.mbw.account.domain.repository.RefreshTokenRepository;
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -33,6 +38,21 @@ public class RefreshTokenRepositoryImpl implements RefreshTokenRepository {
     @Override
     public Optional<RefreshTokenRecord> findByTokenHash(RefreshTokenHash hash) {
         return jpa.findByTokenHash(hash.value()).map(RefreshTokenMapper::toDomain);
+    }
+
+    @Override
+    public Optional<RefreshTokenRecord> findById(RefreshTokenRecordId id) {
+        return jpa.findById(id.value()).map(RefreshTokenMapper::toDomain);
+    }
+
+    @Override
+    public RefreshTokenPage findActiveByAccountId(AccountId accountId, int page, int size) {
+        Page<RefreshTokenJpaEntity> jpaPage = jpa.findByAccountIdAndRevokedAtIsNull(
+                accountId.value(),
+                PageRequest.of(page, size, Sort.by("createdAt").descending()));
+        List<RefreshTokenRecord> items =
+                jpaPage.getContent().stream().map(RefreshTokenMapper::toDomain).toList();
+        return new RefreshTokenPage(items, jpaPage.getTotalElements());
     }
 
     @Override

@@ -139,7 +139,7 @@ class UnifiedPhoneSmsAuthUseCaseTest {
         Account active = account(42L, AccountStatus.ACTIVE);
         when(smsCodeService.verify(PHONE, CODE)).thenReturn(new AttemptOutcome(true, 1, false));
         when(accountRepository.findByPhone(any(PhoneNumber.class))).thenReturn(Optional.of(active));
-        when(tokenIssuer.signAccess(any(AccountId.class))).thenReturn("access-jwt");
+        when(tokenIssuer.signAccess(any(AccountId.class), any())).thenReturn("access-jwt");
         when(tokenIssuer.signRefresh()).thenReturn("refresh-token-256");
 
         PhoneSmsAuthResult result = useCase().execute(cmd());
@@ -163,7 +163,7 @@ class UnifiedPhoneSmsAuthUseCaseTest {
             a.assignId(new AccountId(99L));
             return a;
         });
-        when(tokenIssuer.signAccess(any(AccountId.class))).thenReturn("access-jwt");
+        when(tokenIssuer.signAccess(any(AccountId.class), any())).thenReturn("access-jwt");
         when(tokenIssuer.signRefresh()).thenReturn("refresh-token-256");
 
         PhoneSmsAuthResult result = useCase().execute(cmd());
@@ -250,7 +250,7 @@ class UnifiedPhoneSmsAuthUseCaseTest {
                 })
                 .when(accountRepository)
                 .save(any(Account.class));
-        when(tokenIssuer.signAccess(any(AccountId.class))).thenReturn("access-jwt");
+        when(tokenIssuer.signAccess(any(AccountId.class), any())).thenReturn("access-jwt");
         when(tokenIssuer.signRefresh()).thenReturn("refresh-token-256");
 
         PhoneSmsAuthResult result = useCase().execute(cmd());
@@ -297,7 +297,7 @@ class UnifiedPhoneSmsAuthUseCaseTest {
         Account active = account(42L, AccountStatus.ACTIVE);
         when(smsCodeService.verify(PHONE, CODE)).thenReturn(new AttemptOutcome(true, 1, false));
         when(accountRepository.findByPhone(any(PhoneNumber.class))).thenReturn(Optional.of(active));
-        when(tokenIssuer.signAccess(any(AccountId.class))).thenReturn("access-jwt");
+        when(tokenIssuer.signAccess(any(AccountId.class), any())).thenReturn("access-jwt");
         when(tokenIssuer.signRefresh()).thenReturn("refresh-token-256");
 
         long startNanos = System.nanoTime();

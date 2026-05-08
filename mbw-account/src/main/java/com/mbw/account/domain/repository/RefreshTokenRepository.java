@@ -2,6 +2,7 @@ package com.mbw.account.domain.repository;
 
 import com.mbw.account.domain.model.AccountId;
 import com.mbw.account.domain.model.RefreshTokenHash;
+import com.mbw.account.domain.model.RefreshTokenPage;
 import com.mbw.account.domain.model.RefreshTokenRecord;
 import com.mbw.account.domain.model.RefreshTokenRecordId;
 import java.time.Instant;
@@ -9,7 +10,8 @@ import java.util.Optional;
 
 /**
  * Domain-side persistence contract for {@link RefreshTokenRecord}
- * (Phase 1.3 / V5 migration).
+ * (Phase 1.3 / V5 migration; device-management spec extends with
+ * {@link #findById} and {@link #findActiveByAccountId}).
  *
  * <p>Pure interface; the implementation in
  * {@code mbw-account.infrastructure.persistence} adapts JPA back to
@@ -30,6 +32,26 @@ public interface RefreshTokenRepository {
      * fold to {@code INVALID_CREDENTIALS} at the use case layer).
      */
     Optional<RefreshTokenRecord> findByTokenHash(RefreshTokenHash hash);
+
+    /**
+     * Look up a row by its database id. Used by the device-management
+     * revoke endpoint to find the row the user wants to log out
+     * (DeviceNotFoundException when missing).
+     */
+    Optional<RefreshTokenRecord> findById(RefreshTokenRecordId id);
+
+    /**
+     * Page through the active rows of one account, sorted by
+     * {@code created_at DESC} (device-management spec FR-001).
+     *
+     * <p>{@code page} is zero-based and {@code size} is the per-page
+     * row count after the controller's clamp to 100 (FR-013); the
+     * implementation walks
+     * {@code idx_refresh_token_account_device_active} which already
+     * filters {@code revoked_at IS NULL}, so even an account with
+     * thousands of historical revokes paginates in constant index range.
+     */
+    RefreshTokenPage findActiveByAccountId(AccountId accountId, int page, int size);
 
     /**
      * Set {@code revoked_at} on a single row. Implementation guards

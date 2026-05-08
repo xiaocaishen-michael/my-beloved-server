@@ -3,6 +3,8 @@ package com.mbw.account.web.exception;
 import com.mbw.account.domain.exception.AccountInFreezePeriodException;
 import com.mbw.account.domain.exception.AccountInactiveException;
 import com.mbw.account.domain.exception.AccountNotFoundException;
+import com.mbw.account.domain.exception.CannotRemoveCurrentDeviceException;
+import com.mbw.account.domain.exception.DeviceNotFoundException;
 import com.mbw.account.domain.exception.InvalidCredentialsException;
 import com.mbw.account.domain.exception.InvalidDeletionCodeException;
 import com.mbw.account.domain.exception.InvalidPhoneFormatException;
@@ -139,6 +141,26 @@ public class AccountWebExceptionAdvice {
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.UNAUTHORIZED, "Authentication failed");
         problem.setTitle("Authentication failed");
         problem.setProperty("code", "AUTH_FAILED");
+        return problem;
+    }
+
+    @ExceptionHandler(DeviceNotFoundException.class)
+    public ProblemDetail onDeviceNotFound(DeviceNotFoundException ex) {
+        // Device-management spec FR-014: anti-enumeration — same body for missing
+        // recordId and cross-account recordId.
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, "Device session not found");
+        problem.setTitle("Device not found");
+        problem.setProperty("code", "DEVICE_NOT_FOUND");
+        return problem;
+    }
+
+    @ExceptionHandler(CannotRemoveCurrentDeviceException.class)
+    public ProblemDetail onCannotRemoveCurrent(CannotRemoveCurrentDeviceException ex) {
+        // Device-management spec FR-005: server rejects self-revoke; client should
+        // route the user to logout-all instead.
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, "当前设备请通过『退出登录』移除");
+        problem.setTitle("Cannot remove current device");
+        problem.setProperty("code", "CANNOT_REMOVE_CURRENT_DEVICE");
         return problem;
     }
 }

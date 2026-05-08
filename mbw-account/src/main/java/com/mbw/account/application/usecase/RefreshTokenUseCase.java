@@ -5,6 +5,7 @@ import com.mbw.account.application.result.RefreshTokenResult;
 import com.mbw.account.domain.exception.InvalidCredentialsException;
 import com.mbw.account.domain.model.Account;
 import com.mbw.account.domain.model.AccountStateMachine;
+import com.mbw.account.domain.model.IpAddress;
 import com.mbw.account.domain.model.RefreshTokenHash;
 import com.mbw.account.domain.model.RefreshTokenRecord;
 import com.mbw.account.domain.repository.AccountRepository;
@@ -97,7 +98,13 @@ public class RefreshTokenUseCase {
 
         // Step 4: rotate inside a tx
         return transactionTemplate.execute(status -> {
-            String newAccess = tokenIssuer.signAccess(oldRecord.accountId());
+            // Per device-management spec FR-012: rotation inherits the
+            // parent row's device_id / device_name / device_type /
+            // login_method so the lineage of "which device first logged
+            // in via which method" survives the chain. Only ip_address
+            // is updated to the new request's IP — that's the whole
+            // point of "last refresh location".
+            String newAccess = tokenIssuer.signAccess(oldRecord.accountId(), oldRecord.deviceId());
             String newRefresh = tokenIssuer.signRefresh();
             RefreshTokenHash newHash = RefreshTokenHasher.hash(newRefresh);
 
@@ -109,8 +116,16 @@ public class RefreshTokenUseCase {
             if (revoked == 0) {
                 throw new InvalidCredentialsException();
             }
-            refreshTokenRepository.save(
-                    RefreshTokenRecord.createActive(newHash, oldRecord.accountId(), now.plus(REFRESH_TOKEN_TTL), now));
+            refreshTokenRepository.save(RefreshTokenRecord.createActive(
+                    newHash,
+                    oldRecord.accountId(),
+                    oldRecord.deviceId(),
+                    oldRecord.deviceName(),
+                    oldRecord.deviceType(),
+                    IpAddress.ofNullable(cmd.clientIp()),
+                    oldRecord.loginMethod(),
+                    now.plus(REFRESH_TOKEN_TTL),
+                    now));
 
             return new RefreshTokenResult(oldRecord.accountId().value(), newAccess, newRefresh);
         });

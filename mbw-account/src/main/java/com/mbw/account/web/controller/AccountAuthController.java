@@ -4,6 +4,8 @@ import com.mbw.account.application.command.PhoneSmsAuthCommand;
 import com.mbw.account.application.result.PhoneSmsAuthResult;
 import com.mbw.account.application.usecase.UnifiedPhoneSmsAuthUseCase;
 import com.mbw.account.web.request.PhoneSmsAuthRequest;
+import com.mbw.account.web.resolver.DeviceMetadata;
+import com.mbw.account.web.resolver.DeviceMetadataExtractor;
 import com.mbw.account.web.response.LoginResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -47,8 +49,9 @@ public class AccountAuthController {
     @PostMapping("/phone-sms-auth")
     public ResponseEntity<LoginResponse> phoneSmsAuth(
             @Valid @RequestBody PhoneSmsAuthRequest body, HttpServletRequest request) {
-        PhoneSmsAuthResult result =
-                phoneSmsAuthUseCase.execute(new PhoneSmsAuthCommand(body.phone(), body.code(), clientIp(request)));
+        DeviceMetadata deviceMetadata = DeviceMetadataExtractor.extractDeviceMetadata(request);
+        PhoneSmsAuthResult result = phoneSmsAuthUseCase.execute(
+                new PhoneSmsAuthCommand(body.phone(), body.code(), clientIp(request), deviceMetadata));
         return ResponseEntity.ok(new LoginResponse(result.accountId(), result.accessToken(), result.refreshToken()));
     }
 

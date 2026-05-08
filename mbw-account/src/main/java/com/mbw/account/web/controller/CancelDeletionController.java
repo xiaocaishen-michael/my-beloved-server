@@ -7,6 +7,8 @@ import com.mbw.account.application.usecase.CancelDeletionUseCase;
 import com.mbw.account.application.usecase.SendCancelDeletionCodeUseCase;
 import com.mbw.account.web.request.CancelDeletionRequest;
 import com.mbw.account.web.request.SendCancelDeletionCodeRequest;
+import com.mbw.account.web.resolver.DeviceMetadata;
+import com.mbw.account.web.resolver.DeviceMetadataExtractor;
 import com.mbw.account.web.response.LoginResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -59,8 +61,9 @@ public class CancelDeletionController {
     @PostMapping
     public ResponseEntity<LoginResponse> cancel(
             @Valid @RequestBody CancelDeletionRequest body, HttpServletRequest request) {
-        CancelDeletionResult result =
-                cancelDeletionUseCase.execute(new CancelDeletionCommand(body.phone(), body.code(), clientIp(request)));
+        DeviceMetadata deviceMetadata = DeviceMetadataExtractor.extractDeviceMetadata(request);
+        CancelDeletionResult result = cancelDeletionUseCase.execute(
+                new CancelDeletionCommand(body.phone(), body.code(), clientIp(request), deviceMetadata));
         return ResponseEntity.ok(new LoginResponse(result.accountId(), result.accessToken(), result.refreshToken()));
     }
 

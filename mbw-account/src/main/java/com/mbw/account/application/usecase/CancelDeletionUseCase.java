@@ -1,5 +1,6 @@
 package com.mbw.account.application.usecase;
 
+import com.mbw.account.api.dto.LoginMethod;
 import com.mbw.account.api.event.AccountDeletionCancelledEvent;
 import com.mbw.account.application.command.CancelDeletionCommand;
 import com.mbw.account.application.result.CancelDeletionResult;
@@ -9,6 +10,7 @@ import com.mbw.account.domain.model.AccountSmsCode;
 import com.mbw.account.domain.model.AccountSmsCodePurpose;
 import com.mbw.account.domain.model.AccountStateMachine;
 import com.mbw.account.domain.model.AccountStatus;
+import com.mbw.account.domain.model.IpAddress;
 import com.mbw.account.domain.model.PhoneNumber;
 import com.mbw.account.domain.model.RefreshTokenRecord;
 import com.mbw.account.domain.repository.AccountRepository;
@@ -17,6 +19,7 @@ import com.mbw.account.domain.repository.RefreshTokenRepository;
 import com.mbw.account.domain.service.PhonePolicy;
 import com.mbw.account.domain.service.RefreshTokenHasher;
 import com.mbw.account.domain.service.TokenIssuer;
+import com.mbw.account.web.resolver.DeviceMetadata;
 import com.mbw.shared.web.RateLimitService;
 import io.github.bucket4j.Bandwidth;
 import java.nio.charset.StandardCharsets;
@@ -181,11 +184,20 @@ public class CancelDeletionUseCase {
 
         eventPublisher.publishEvent(new AccountDeletionCancelledEvent(account.id(), now, now));
 
-        String access = tokenIssuer.signAccess(account.id());
+        DeviceMetadata md = cmd.deviceMetadata() != null ? cmd.deviceMetadata() : DeviceMetadata.fallback();
+        String access = tokenIssuer.signAccess(account.id(), md.deviceId());
         String refresh = tokenIssuer.signRefresh();
 
         refreshTokenRepository.save(RefreshTokenRecord.createActive(
-                RefreshTokenHasher.hash(refresh), account.id(), now.plus(REFRESH_TOKEN_TTL), now));
+                RefreshTokenHasher.hash(refresh),
+                account.id(),
+                md.deviceId(),
+                md.deviceName(),
+                md.deviceType(),
+                IpAddress.ofNullable(cmd.clientIp()),
+                LoginMethod.PHONE_SMS,
+                now.plus(REFRESH_TOKEN_TTL),
+                now));
 
         LOG.info("account.deletion.cancelled accountId={}", account.id().value());
 

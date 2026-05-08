@@ -2,6 +2,8 @@ package com.mbw.account.infrastructure.persistence;
 
 import java.time.Instant;
 import java.util.Optional;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -14,6 +16,14 @@ import org.springframework.data.repository.query.Param;
 interface RefreshTokenJpaRepository extends JpaRepository<RefreshTokenJpaEntity, Long> {
 
     Optional<RefreshTokenJpaEntity> findByTokenHash(String tokenHash);
+
+    /**
+     * Page through the active rows of one account. Walks the partial
+     * index {@code idx_refresh_token_account_device_active} so even
+     * accounts with thousands of historical revokes paginate cheaply
+     * (device-management spec FR-001).
+     */
+    Page<RefreshTokenJpaEntity> findByAccountIdAndRevokedAtIsNull(Long accountId, Pageable pageable);
 
     /**
      * Revoke a single record (Phase 1.3 rotation). Guards with
