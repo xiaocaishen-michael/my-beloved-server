@@ -5,6 +5,7 @@ import java.util.Locale;
 import java.util.Objects;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -38,6 +39,10 @@ public class SmsCodePlaintextGenerator {
     private final SecureRandom random;
     private final String devFixedCode;
 
+    // @Autowired explicit on the primary constructor — Spring 不能自动选 between
+    // this and the package-private test constructor below (multi-ctor bean
+    // wiring rule, per the same fix applied to SmsClient/EmailClient in PR #84).
+    @Autowired
     public SmsCodePlaintextGenerator(@Value("${mbw.sms.dev-fixed-code:}") String devFixedCode) {
         this(devFixedCode, new SecureRandom());
     }
