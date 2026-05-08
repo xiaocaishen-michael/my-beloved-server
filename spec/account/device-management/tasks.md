@@ -219,7 +219,7 @@
 
 ---
 
-### T10 [App] `ListDevicesQuery` + `RevokeDeviceCommand` + `DeviceListResult` + `DeviceItem`
+### T10 ✅ [App] `ListDevicesQuery` + `RevokeDeviceCommand` + `DeviceListResult` + `DeviceItem`
 
 **Files**: 4 records under `mbw-account/src/main/java/com/mbw/account/application/{command,query,result}/`（**新建**）
 
