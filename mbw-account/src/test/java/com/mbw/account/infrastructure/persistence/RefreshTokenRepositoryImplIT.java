@@ -17,6 +17,7 @@ import com.mbw.account.domain.repository.RefreshTokenRepository;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Optional;
+import javax.sql.DataSource;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -29,6 +30,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.PostgreSQLContainer;
@@ -66,6 +68,9 @@ class RefreshTokenRepositoryImplIT {
 
     @Autowired
     private RefreshTokenJpaRepository refreshTokenJpaRepository;
+
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
 
     @AfterEach
     void cleanup() {
@@ -354,6 +359,28 @@ class RefreshTokenRepositoryImplIT {
         assertThat(page.items()).isEmpty();
     }
 
+    // ----- V13 — device_id NOT NULL constraint (schema/domain invariant alignment) -----
+
+    @Test
+    void v13_should_reject_null_device_id_at_db_level() {
+        // V11 left device_id nullable; V13 backfills any pre-existing NULL rows
+        // and tightens the column to NOT NULL so the schema invariant matches the
+        // domain invariant (DeviceId constructor requires non-null UUID). This
+        // probe bypasses the mapper (which never emits NULL) by issuing a raw
+        // INSERT with device_id=NULL and asserts PG rejects it.
+        Instant now = Instant.now().truncatedTo(ChronoUnit.MICROS);
+        assertThatThrownBy(() -> jdbcTemplate.update(
+                        "INSERT INTO account.refresh_token "
+                                + "(token_hash, account_id, device_id, device_type, login_method, expires_at, created_at) "
+                                + "VALUES (?, ?, NULL, 'UNKNOWN', 'PHONE_SMS', ?, ?)",
+                        "f".repeat(64),
+                        1L,
+                        java.sql.Timestamp.from(now.plusSeconds(3600)),
+                        java.sql.Timestamp.from(now)))
+                .isInstanceOf(DataIntegrityViolationException.class)
+                .hasMessageContaining("device_id");
+    }
+
     /** Generates a unique 64-char lowercase hex hash for test isolation. */
     private static RefreshTokenHash uniqueHash() {
         java.util.UUID uuid = java.util.UUID.randomUUID();
@@ -376,6 +403,11 @@ class RefreshTokenRepositoryImplIT {
         @Bean
         RefreshTokenRepositoryImpl refreshTokenRepositoryImpl(RefreshTokenJpaRepository jpa) {
             return new RefreshTokenRepositoryImpl(jpa);
+        }
+
+        @Bean
+        JdbcTemplate jdbcTemplate(DataSource dataSource) {
+            return new JdbcTemplate(dataSource);
         }
     }
 }
