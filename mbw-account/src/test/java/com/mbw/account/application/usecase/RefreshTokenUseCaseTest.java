@@ -77,7 +77,7 @@ class RefreshTokenUseCaseTest {
         });
 
         // Default success path
-        when(tokenIssuer.signAccess(any(AccountId.class))).thenReturn("access-jwt");
+        when(tokenIssuer.signAccess(any(AccountId.class), any())).thenReturn("access-jwt");
         when(tokenIssuer.signRefresh()).thenReturn(NEW_RAW_TOKEN);
         when(refreshTokenRepository.findByTokenHash(any(RefreshTokenHash.class)))
                 .thenReturn(Optional.of(activeOldRecord()));
@@ -98,7 +98,7 @@ class RefreshTokenUseCaseTest {
         verify(refreshTokenRepository).findByTokenHash(OLD_HASH);
         verify(refreshTokenRepository, times(1)).save(any()); // new record persisted
         verify(refreshTokenRepository).revoke(any(RefreshTokenRecordId.class), any(Instant.class));
-        verify(tokenIssuer).signAccess(any(AccountId.class));
+        verify(tokenIssuer).signAccess(any(AccountId.class), any());
         verify(tokenIssuer).signRefresh();
     }
 
@@ -189,7 +189,8 @@ class RefreshTokenUseCaseTest {
 
     @Test
     void should_propagate_token_signing_failure_so_tx_rolls_back() {
-        when(tokenIssuer.signAccess(any(AccountId.class))).thenThrow(new RuntimeException("token signing failed"));
+        when(tokenIssuer.signAccess(any(AccountId.class), any()))
+                .thenThrow(new RuntimeException("token signing failed"));
 
         assertThatThrownBy(() -> useCase.execute(new RefreshTokenCommand(OLD_RAW_TOKEN, CLIENT_IP)))
                 .isInstanceOf(RuntimeException.class)

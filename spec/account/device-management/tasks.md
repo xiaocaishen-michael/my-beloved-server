@@ -187,7 +187,7 @@
 
 ---
 
-### T9 [Wiring] 5 既有 token-issuing UseCase 接入新签名
+### T9 ✅ [Wiring] 3 既有 token-issuing UseCase 接入新签名
 
 **Files**（5 处 UseCase + 各自 Command）：
 

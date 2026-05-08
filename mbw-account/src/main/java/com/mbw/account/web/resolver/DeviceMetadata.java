@@ -22,4 +22,16 @@ public record DeviceMetadata(DeviceId deviceId, DeviceName deviceName, DeviceTyp
         Objects.requireNonNull(deviceId, "deviceId must not be null");
         Objects.requireNonNull(deviceType, "deviceType must not be null");
     }
+
+    /**
+     * Synthetic fallback used by token-issuing UseCases when the
+     * caller did not supply device metadata (legacy callers, internal
+     * test fixtures). Same defaults as the documented degradation path
+     * (CL-001 (a)) — random UUID, null name, UNKNOWN type — so a row
+     * persisted via this fallback is indistinguishable from one
+     * produced by a degraded HTTP client.
+     */
+    public static DeviceMetadata fallback() {
+        return new DeviceMetadata(DeviceId.fromHeaderOrFallback(null), null, DeviceType.UNKNOWN);
+    }
 }

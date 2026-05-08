@@ -127,7 +127,7 @@ class CancelDeletionUseCaseTest {
         when(smsCodeRepository.findActiveByPurposeAndAccountId(
                         eq(AccountSmsCodePurpose.CANCEL_DELETION), eq(ACCOUNT_ID), any()))
                 .thenReturn(Optional.of(activeCode(CODE_HASH)));
-        when(tokenIssuer.signAccess(ACCOUNT_ID)).thenReturn("access.jwt");
+        when(tokenIssuer.signAccess(eq(ACCOUNT_ID), any())).thenReturn("access.jwt");
         when(tokenIssuer.signRefresh()).thenReturn("refresh-raw");
 
         CancelDeletionResult result = useCase.execute(cmd());
@@ -287,7 +287,7 @@ class CancelDeletionUseCaseTest {
                 .thenReturn(Optional.of(activeCode(CODE_HASH)));
         doThrow(new IllegalStateException("token signing failed"))
                 .when(tokenIssuer)
-                .signAccess(ACCOUNT_ID);
+                .signAccess(eq(ACCOUNT_ID), any());
 
         assertThatThrownBy(() -> useCase.execute(cmd())).isInstanceOf(IllegalStateException.class);
 
@@ -306,7 +306,7 @@ class CancelDeletionUseCaseTest {
         when(smsCodeRepository.findActiveByPurposeAndAccountId(
                         eq(AccountSmsCodePurpose.CANCEL_DELETION), eq(ACCOUNT_ID), any()))
                 .thenReturn(Optional.of(activeCode(CODE_HASH)));
-        when(tokenIssuer.signAccess(ACCOUNT_ID)).thenReturn("access.jwt");
+        when(tokenIssuer.signAccess(eq(ACCOUNT_ID), any())).thenReturn("access.jwt");
         when(tokenIssuer.signRefresh()).thenReturn("refresh-raw");
         doThrow(new RuntimeException("DB down")).when(refreshTokenRepository).save(any());
 
