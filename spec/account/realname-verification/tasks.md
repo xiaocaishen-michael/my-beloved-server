@@ -12,21 +12,21 @@
 
 ---
 
-## T0 [Infrastructure/Migration]：V11 Flyway create_realname_profile_table ✅
+## T0 [Infrastructure/Migration]：V12 Flyway create_realname_profile_table ✅
 
 **前置**：本 spec 三件套 PR merged + ADR / PRD § 5.10 已 ship（meta PR #65）
 
 **子任务**（TDD：先红 → 再写 SQL → 绿）：
 
 - T0.1 新建 `mbw-account/src/test/java/com/mbw/account/infrastructure/persistence/RealnameProfileSchemaIT.java`：`@Testcontainers` 启 PG + Flyway 跑全量 migration；4 个 @Test 直接断 `information_schema` / `pg_indexes`：
-  - `v11_creates_realname_profile_table_with_13_columns()` — 13 字段名 + 类型断言
-  - `v11_creates_partial_unique_index_on_id_card_hash()` — `uk_realname_profile_id_card_hash` 存在且 `WHERE id_card_hash IS NOT NULL`
-  - `v11_creates_index_on_provider_biz_id()` — `idx_realname_profile_provider_biz_id` 存在
-  - `v11_chk_realname_status_rejects_unknown_value()` — 直接 INSERT status='WAT' → SQLState 23514
-  - 期望全 RED（V11 还没写）
-- T0.2 新建 `mbw-account/src/main/resources/db/migration/account/V11__create_realname_profile_table.sql`，按 plan.md § 数据模型变更 SQL 落盘（**无 trigger** 版，per plan amend）
+  - `v12_creates_realname_profile_table_with_13_columns()` — 13 字段名 + 类型断言
+  - `v12_creates_partial_unique_index_on_id_card_hash()` — `uk_realname_profile_id_card_hash` 存在且 `WHERE id_card_hash IS NOT NULL`
+  - `v12_creates_index_on_provider_biz_id()` — `idx_realname_profile_provider_biz_id` 存在
+  - `v12_chk_realname_status_rejects_unknown_value()` — 直接 INSERT status='WAT' → SQLState 23514
+  - 期望全 RED（V12 还没写）
+- T0.2 新建 `mbw-account/src/main/resources/db/migration/account/V12__create_realname_profile_table.sql`，按 plan.md § 数据模型变更 SQL 落盘（**无 trigger** 版，per plan amend）
 - T0.3 跑 `./mvnw -pl mbw-account test -Dtest=RealnameProfileSchemaIT` 全 GREEN
-- T0.4 ~~跑 `./mvnw -pl mbw-account flyway:info`~~ — 项目未引入 `flyway-maven-plugin`，Flyway 仅在 Spring Boot 启动时 autoconfigure 应用；T0.3 IT 启动已隐式覆盖（V1-V11 全量应用成功 + DDL 形状断言通过即证明 V11 被检出 + 应用）。amend：本 task 不单独执行
+- T0.4 ~~跑 `./mvnw -pl mbw-account flyway:info`~~ — 项目未引入 `flyway-maven-plugin`，Flyway 仅在 Spring Boot 启动时 autoconfigure 应用；T0.3 IT 启动已隐式覆盖（V1-V12 全量应用成功 + DDL 形状断言通过即证明 V12 被检出 + 应用）。amend：本 task 不单独执行
 
 **Verify**:
 
@@ -586,7 +586,7 @@ amend post-impl：
 
 > 待 Phase 2 implement 阶段每个 task ship 后回填 PR # / commit ref + 标 ✅。
 
-- **T0** ✅ — V11 migration + RealnameProfileSchemaIT (4 tests GREEN)；plan amend：移除 `set_updated_at` trigger（仓内函数不存在，且与 JPA `@PreUpdate` 双写冲突）；tasks amend：T0.4 `flyway:info` 命令删除（项目无 `flyway-maven-plugin`，autoconfigure 已隐式覆盖）。Branch: `feature/realname-server-impl-pr1-domain-repo`. Commit: `2a0fb94`
+- **T0** ✅ — V12 migration + RealnameProfileSchemaIT (4 tests GREEN)；plan amend：移除 `set_updated_at` trigger（仓内函数不存在，且与 JPA `@PreUpdate` 双写冲突）；tasks amend：T0.4 `flyway:info` 命令删除（项目无 `flyway-maven-plugin`，autoconfigure 已隐式覆盖）。Branch: `feature/realname-server-impl-pr1-domain-repo`. Commit: `2a0fb94`
 - **T1** ✅ — `RealnameProfile`（immutable class，`unverified()` factory + `withPending/withVerified/withFailed` 状态转换 + 静态 `maskRealName/maskIdCardNo`）+ `RealnameStatus` / `FailedReason` enum；`RealnameProfileTest` 10 tests GREEN（factory + 3 transition + 4 mask + 1 illegal transition + 1 NPE guard）。inline state-machine 校验放 `RealnameProfile.requireLegalTransition`，T3 时 extract 到 `RealnameStateMachine`。mask 方法选择 **静态** 而非 instance method — domain 不存明文，UseCase 解密后调静态方法语义最干净。Commit: `8ee49d0`
 - **T2** ✅ — `IdentityNumberValidator`（静态 `validate(String) → boolean`，校验顺序 长度→字符→地区码→日期→GB 11643）；`IdentityNumberValidatorTest` 11 tests GREEN（含 `@ParameterizedTest` 处理多输入）。tasks amend：原 X-末位测试号 `11010119900101001X` 实际 GB 11643 mod=7（应 5），不合法 → 修为 `11010119900101004X`（mod=2 → C[2]='X' 真合法）。impl 注意点：`DateTimeFormatter` 用 `uuuuMMdd`（proleptic-year）而非 `yyyyMMdd`（year-of-era），后者在 STRICT 模式需 era 字段，会拒所有合法日期。Commit: `35f3657`
 - **T3** ✅ — `RealnameStateMachine`（静态 `assertCanTransition(from, to)`，extract from T1 内联 `requireLegalTransition`）；`RealnameStateMachineTest` 10 tests GREEN（@ParameterizedTest 4 legal + 6 illegal 矩阵）；`RealnameProfile.with*` refactor 改调 `RealnameStateMachine.assertCanTransition`，删 inline 私有方法。20/20 tests pass（10 RealnameProfileTest + 10 RealnameStateMachineTest）。Commit: `8a5698f`

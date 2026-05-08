@@ -9,18 +9,18 @@ import jakarta.persistence.Table;
 import java.time.Instant;
 
 /**
- * JPA persistence shape for {@code account.realname_profile} (V11). Lives in
+ * JPA persistence shape for {@code account.realname_profile} (V12). Lives in
  * the infrastructure layer so the domain {@code RealnameProfile} aggregate
  * stays framework-free; conversion happens via {@link RealnameProfileMapper}.
  *
- * <p>Field-by-field mirrors the V11 migration: BIGINT IDENTITY id, BIGINT
+ * <p>Field-by-field mirrors the V12 migration: BIGINT IDENTITY id, BIGINT
  * UNIQUE account_id, VARCHAR status (chk constraint enforces enum), BYTEA
  * encrypted PII, CHAR(64) hex hash, VARCHAR provider biz id, TIMESTAMPTZ
  * timestamps, INT retry counter.
  *
  * <p>{@code updated_at} is set explicitly by the use-case layer through the
  * domain aggregate ({@code RealnameProfile.with*}) and propagated via mapper
- * — no JPA {@code @PreUpdate} callback (per V11 amend, consistent with
+ * — no JPA {@code @PreUpdate} callback (per V12 amend, consistent with
  * {@code account.account} and the rest of the schema).
  */
 @Entity

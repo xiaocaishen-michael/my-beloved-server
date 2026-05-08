@@ -176,12 +176,12 @@ HTTP 200
 
 错误路径：domain exception → `mbw-shared.web.GlobalExceptionHandler` → RFC 9457 ProblemDetail。
 
-## 数据模型变更（Flyway V11）
+## 数据模型变更（Flyway V12）
 
 ### 新建表 `account.realname_profile`
 
 ```sql
--- V11__create_realname_profile_table.sql
+-- V12__create_realname_profile_table.sql
 CREATE TABLE account.realname_profile (
     id              BIGSERIAL PRIMARY KEY,
     account_id      BIGINT NOT NULL UNIQUE,
@@ -417,7 +417,7 @@ if profile==prod && (DEK / PEPPER / aliyun key missing) → throw IllegalStateEx
 - ✅ Spring Modulith Verifier：跨模块仅经过 `api` 包；本期 `IdentityApi` 在 `mbw-account.api.service`
 - ✅ ArchUnit：domain 零 framework 依赖；CipherService 接口在 application.port 而非 domain（避免 domain 依赖 byte[] 算法实现细节）
 - ✅ Schema 隔离：新表落 `account` schema；不与其他 schema 跨 FK
-- ✅ expand-migrate-contract：V11 仅新建表，无破坏性 schema 变更（CREATE TABLE 自然兼容）
+- ✅ expand-migrate-contract：V12 仅新建表，无破坏性 schema 变更（CREATE TABLE 自然兼容）
 - ✅ OpenAPI 单一真相源：spec.md 不重复 data schema；Springdoc 注解自动生成
 
 ## 反模式（明确避免）

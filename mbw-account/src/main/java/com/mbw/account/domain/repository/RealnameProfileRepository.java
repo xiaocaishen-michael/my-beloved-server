@@ -22,7 +22,7 @@ public interface RealnameProfileRepository {
 
     /**
      * Look up the realname profile for an account, if one exists.
-     * {@code account_id} carries a UNIQUE constraint at the DB level (V11),
+     * {@code account_id} carries a UNIQUE constraint at the DB level (V12),
      * so this lookup returns at most one row.
      */
     Optional<RealnameProfile> findByAccountId(long accountId);

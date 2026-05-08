@@ -32,7 +32,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
  * Testcontainers PG IT for {@link RealnameProfileRepositoryImpl}
  * (realname-verification spec T7).
  *
- * <p>Boots a real {@code postgres:16-alpine}, applies V1-V11 via Flyway, and
+ * <p>Boots a real {@code postgres:16-alpine}, applies V1-V12 via Flyway, and
  * exercises the production repository code (no mocks). Mirrors the structure
  * of {@code AccountRepositoryImplIT}; lives in {@code mbw-account} (not
  * {@code mbw-app} as the original tasks.md draft suggested) for consistency

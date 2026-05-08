@@ -21,12 +21,12 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 /**
- * Schema-level IT for V11 (realname-verification spec T0).
+ * Schema-level IT for V12 (realname-verification spec T0).
  *
  * <p>Boots a real {@code postgres:16-alpine} container, lets Flyway run all
- * migrations including V11, then queries {@code information_schema} /
+ * migrations including V12, then queries {@code information_schema} /
  * {@code pg_indexes} to verify the DDL shape required by plan.md §
- * "数据模型变更（Flyway V11）". No domain / JPA classes involved — this is a
+ * "数据模型变更（Flyway V12）". No domain / JPA classes involved — this is a
  * pure DDL assertion suite that exists so T0 can RED-GREEN independently of
  * downstream T7 entity mapping.
  *
@@ -56,7 +56,7 @@ class RealnameProfileSchemaIT {
     private JdbcTemplate jdbc;
 
     @Test
-    void v11_creates_realname_profile_table_with_13_columns() {
+    void v12_creates_realname_profile_table_with_13_columns() {
         List<Map<String, Object>> rows = jdbc.queryForList(
                 """
                 SELECT column_name, data_type, character_maximum_length, is_nullable, column_default
@@ -124,7 +124,7 @@ class RealnameProfileSchemaIT {
     }
 
     @Test
-    void v11_creates_partial_unique_index_on_id_card_hash() {
+    void v12_creates_partial_unique_index_on_id_card_hash() {
         // pg_indexes.indexdef carries the full CREATE INDEX statement (incl. WHERE clause)
         String indexdef = jdbc.queryForObject(
                 """
@@ -143,7 +143,7 @@ class RealnameProfileSchemaIT {
     }
 
     @Test
-    void v11_creates_index_on_provider_biz_id() {
+    void v12_creates_index_on_provider_biz_id() {
         Integer count = jdbc.queryForObject(
                 """
                 SELECT COUNT(*) FROM pg_indexes
@@ -157,7 +157,7 @@ class RealnameProfileSchemaIT {
     }
 
     @Test
-    void v11_chk_realname_status_rejects_unknown_value() {
+    void v12_chk_realname_status_rejects_unknown_value() {
         assertThatThrownBy(() -> jdbc.update(
                         "INSERT INTO account.realname_profile (account_id, status) VALUES (?, ?)", 9999L, "WAT"))
                 .isInstanceOf(DataIntegrityViolationException.class);
