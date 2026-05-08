@@ -12,6 +12,8 @@ export default {
     'scope-enum': [0],
     // Header up to 100 chars (default 72 too tight for Chinese summaries).
     'header-max-length': [2, 'always', 100],
+    // Body 150 chars (default 100 too tight; mirrors meta + app commitlint).
+    'body-max-line-length': [2, 'always', 150],
     'subject-case': [0], // mixed Chinese/English; case rules don't apply
   },
   // Skip body line-length check for dependabot — its auto-generated body
