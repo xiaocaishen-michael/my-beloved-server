@@ -59,7 +59,7 @@
 
 ---
 
-### T2 [Domain] `Ip2RegionService` interface
+### T2 ✅ [Domain] `Ip2RegionService` interface
 
 **File**: `mbw-account/src/main/java/com/mbw/account/domain/service/Ip2RegionService.java`（**新建** interface）
 
