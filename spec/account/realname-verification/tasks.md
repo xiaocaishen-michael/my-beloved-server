@@ -72,7 +72,7 @@
 
 ---
 
-## T2 [Domain]：IdentityNumberValidator (GB 11643)
+## T2 [Domain]：IdentityNumberValidator (GB 11643) ✅
 
 **TDD**：先写 `IdentityNumberValidatorTest`。
 
@@ -83,7 +83,7 @@
 | Test 场景 | Input | Expect |
 |---|---|---|
 | 合法：测试号 | `110101199001011237` | true |
-| 合法：末位 X | `11010119900101001X` | true |
+| 合法：末位 X | `11010119900101004X` | true（GB 11643 sum=112, mod=2 → C[2]='X'） |
 | 非法长度：17 位 | `1101011990010112` | false |
 | 非法长度：19 位 | `1101011990010112370` | false |
 | 非法字符：含字母 | `11010119900A011237` | false |
@@ -587,7 +587,8 @@ amend post-impl：
 > 待 Phase 2 implement 阶段每个 task ship 后回填 PR # / commit ref + 标 ✅。
 
 - **T0** ✅ — V11 migration + RealnameProfileSchemaIT (4 tests GREEN)；plan amend：移除 `set_updated_at` trigger（仓内函数不存在，且与 JPA `@PreUpdate` 双写冲突）；tasks amend：T0.4 `flyway:info` 命令删除（项目无 `flyway-maven-plugin`，autoconfigure 已隐式覆盖）。Branch: `feature/realname-server-impl-pr1-domain-repo`. Commit: `2a0fb94`
-- **T1** ✅ — `RealnameProfile`（immutable class，`unverified()` factory + `withPending/withVerified/withFailed` 状态转换 + 静态 `maskRealName/maskIdCardNo`）+ `RealnameStatus` / `FailedReason` enum；`RealnameProfileTest` 10 tests GREEN（factory + 3 transition + 4 mask + 1 illegal transition + 1 NPE guard）。inline state-machine 校验放 `RealnameProfile.requireLegalTransition`，T3 时 extract 到 `RealnameStateMachine`。mask 方法选择 **静态** 而非 instance method — domain 不存明文，UseCase 解密后调静态方法语义最干净。Commit: pending
+- **T1** ✅ — `RealnameProfile`（immutable class，`unverified()` factory + `withPending/withVerified/withFailed` 状态转换 + 静态 `maskRealName/maskIdCardNo`）+ `RealnameStatus` / `FailedReason` enum；`RealnameProfileTest` 10 tests GREEN（factory + 3 transition + 4 mask + 1 illegal transition + 1 NPE guard）。inline state-machine 校验放 `RealnameProfile.requireLegalTransition`，T3 时 extract 到 `RealnameStateMachine`。mask 方法选择 **静态** 而非 instance method — domain 不存明文，UseCase 解密后调静态方法语义最干净。Commit: `8ee49d0`
+- **T2** ✅ — `IdentityNumberValidator`（静态 `validate(String) → boolean`，校验顺序 长度→字符→地区码→日期→GB 11643）；`IdentityNumberValidatorTest` 11 tests GREEN（含 `@ParameterizedTest` 处理多输入）。tasks amend：原 X-末位测试号 `11010119900101001X` 实际 GB 11643 mod=7（应 5），不合法 → 修为 `11010119900101004X`（mod=2 → C[2]='X' 真合法）。impl 注意点：`DateTimeFormatter` 用 `uuuuMMdd`（proleptic-year）而非 `yyyyMMdd`（year-of-era），后者在 STRICT 模式需 era 字段，会拒所有合法日期。Commit: pending
 
 ---
 
