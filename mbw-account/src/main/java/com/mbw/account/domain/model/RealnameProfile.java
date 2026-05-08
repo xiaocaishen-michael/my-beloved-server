@@ -1,5 +1,6 @@
 package com.mbw.account.domain.model;
 
+import com.mbw.account.domain.service.RealnameStateMachine;
 import java.time.Instant;
 import java.util.Objects;
 
@@ -168,7 +169,7 @@ public final class RealnameProfile {
      * obtaining a {@code providerBizId} from the cloud-auth provider.
      *
      * <p>Applicable from {@code UNVERIFIED} (first attempt) or {@code FAILED}
-     * (retry per FR-009). Legality check lives in T3 {@code RealnameStateMachine};
+     * (retry per FR-009). Legality is enforced by {@link RealnameStateMachine};
      * this method itself only writes fields. {@link #createdAt} is preserved;
      * {@link #updatedAt} advances to {@code now}.
      */
@@ -179,7 +180,7 @@ public final class RealnameProfile {
         Objects.requireNonNull(idCardHash, "idCardHash must not be null");
         Objects.requireNonNull(providerBizId, "providerBizId must not be null");
         Objects.requireNonNull(now, "now must not be null");
-        requireLegalTransition(this.status, RealnameStatus.PENDING);
+        RealnameStateMachine.assertCanTransition(this.status, RealnameStatus.PENDING);
         return new RealnameProfile(
                 this.id,
                 this.accountId,
@@ -203,7 +204,7 @@ public final class RealnameProfile {
      */
     public RealnameProfile withVerified(Instant verifiedAt) {
         Objects.requireNonNull(verifiedAt, "verifiedAt must not be null");
-        requireLegalTransition(this.status, RealnameStatus.VERIFIED);
+        RealnameStateMachine.assertCanTransition(this.status, RealnameStatus.VERIFIED);
         return new RealnameProfile(
                 this.id,
                 this.accountId,
@@ -230,7 +231,7 @@ public final class RealnameProfile {
     public RealnameProfile withFailed(FailedReason reason, Instant failedAt) {
         Objects.requireNonNull(reason, "reason must not be null");
         Objects.requireNonNull(failedAt, "failedAt must not be null");
-        requireLegalTransition(this.status, RealnameStatus.FAILED);
+        RealnameStateMachine.assertCanTransition(this.status, RealnameStatus.FAILED);
         int nextRetryCount = (reason == FailedReason.USER_CANCELED) ? this.retryCount24h : this.retryCount24h + 1;
         return new RealnameProfile(
                 this.id,
@@ -246,27 +247,5 @@ public final class RealnameProfile {
                 nextRetryCount,
                 this.createdAt,
                 failedAt);
-    }
-
-    /**
-     * Inline transition matrix — to be extracted into {@code RealnameStateMachine}
-     * (T3) so the matrix has a single home + dedicated tests; until then the
-     * rule lives here so the aggregate's invariant is self-contained.
-     *
-     * <p>Legal: UNVERIFIED→PENDING, PENDING→{VERIFIED, FAILED}, FAILED→PENDING.
-     * VERIFIED is terminal (FR-015); UNVERIFIED→VERIFIED / UNVERIFIED→FAILED /
-     * FAILED→VERIFIED (must traverse PENDING) / VERIFIED→* are all rejected.
-     */
-    private static void requireLegalTransition(RealnameStatus from, RealnameStatus to) {
-        boolean legal =
-                switch (from) {
-                    case UNVERIFIED -> to == RealnameStatus.PENDING;
-                    case PENDING -> to == RealnameStatus.VERIFIED || to == RealnameStatus.FAILED;
-                    case FAILED -> to == RealnameStatus.PENDING;
-                    case VERIFIED -> false;
-                };
-        if (!legal) {
-            throw new IllegalStateException("Illegal realname status transition: " + from + " -> " + to);
-        }
     }
 }
