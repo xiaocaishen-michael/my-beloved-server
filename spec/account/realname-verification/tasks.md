@@ -333,23 +333,25 @@ public interface RealnameProfileRepository {
 
 ### T11-test
 
-新建 `mbw-app/src/test/java/com/mbw/account/infrastructure/config/RealnameProviderConfigIT.java`：
+新建 `mbw-account/src/test/java/com/mbw/account/infrastructure/config/RealnameProviderConfigIT.java`（**spec amend**：路径 mbw-app → mbw-account，与 impl 同模块；用 Spring Boot `ApplicationContextRunner` 跑 5 个 slim-context 场景，无需 `@SpringBootTest` 启 PG）：
 
 | Test 场景 | Expect |
 |---|---|
-| dev profile + DEV_BYPASS=true | startup OK，注入 BypassRealnameClient |
-| dev profile + DEV_BYPASS 缺失 / false | startup OK，注入 AliyunRealnameClient |
-| prod profile + DEV_BYPASS=true | startup throw IllegalStateException |
-| prod profile + DEK 缺失 | startup throw |
-| prod profile + ALIYUN access key 缺失 | startup throw |
+| dev profile + DEV_BYPASS=true | startup OK，注入 BypassRealnameClient，无 AliyunRealnameClient bean |
+| dev profile + DEV_BYPASS=false（须提供 dummy aliyun creds 让 SDK Client bean 能创建）| startup OK，注入 AliyunRealnameClient，无 BypassRealnameClient bean |
+| prod profile + DEV_BYPASS=true | startup fail，rootCause 含 "dev-bypass=true is forbidden" |
+| prod profile + DEK 缺失 | startup fail，rootCause 含 "mbw.realname.dek.base64" |
+| prod profile + ALIYUN access-key-id 缺失 | startup fail，rootCause 含 "access-key-id" |
 
 ### T11-impl
 
-新建 `infrastructure/config/RealnameProviderConfig.java`：
+新建 `infrastructure/config/RealnameProviderConfig.java` + `RealnameProviderStartupValidator.java`：
 
-- `@Configuration`
-- `@Bean ApplicationRunner realnameStartupValidator(Environment env)`：prod profile 校验 DEV_BYPASS≠true + DEK / PEPPER / aliyun key 全在
-- 缺失即 throw `IllegalStateException`，启动 fail-fast
+- `RealnameProviderConfig`：`@Configuration`，仅声明 `@Bean RealnameProviderStartupValidator(Environment env)`
+- `RealnameProviderStartupValidator`：构造器 fail-fast — prod profile 下校验 DEV_BYPASS≠true + DEK / aliyun access-key-id / aliyun access-key-secret / aliyun scene-id 全在；非 prod profile skip 全部检查
+- 缺失即 throw `IllegalStateException`
+
+**Spec amend** (validator 风格)：原 spec 用 `@Bean ApplicationRunner`，但 ApplicationRunner.run() 在 context 完全 refresh 后才跑，**对 fail-fast 来说太晚**（k8s liveness probe 可能已报告 Pod healthy）。改为 `@Bean RealnameProviderStartupValidator` 在构造器抛 — bean creation 阶段直接 fail context.refresh()，与 `JwtProperties` compact ctor / `EnvDekCipherService` parseKey fail-fast 同模式。原 spec 还提到校验 PEPPER，但 PR-1 / PR-2 都未引入 pepper 配置（id_card_hash 的 hash 实现属 PR-3 use case 范围），本 task 不预先加 PEPPER 校验。
 
 **Verify**: GREEN
 
