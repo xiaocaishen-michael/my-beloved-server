@@ -12,7 +12,7 @@
 
 ## Critical Path（按依赖顺序）
 
-### T0 [Domain] DeviceType + LoginMethod enum + DeviceId / DeviceName / IpAddress 值对象
+### T0 ✅ [Domain] DeviceType + LoginMethod enum + DeviceId / DeviceName / IpAddress 值对象
 
 **Files**:
 
