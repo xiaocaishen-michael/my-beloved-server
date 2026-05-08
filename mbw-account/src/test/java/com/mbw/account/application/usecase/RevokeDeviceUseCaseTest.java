@@ -74,16 +74,30 @@ class RevokeDeviceUseCaseTest {
     void should_revoke_and_publish_event_when_other_device_active() {
         RefreshTokenRecord active = activeRecord(TARGET_DEVICE, ACCOUNT_ID);
         when(refreshTokenRepository.findById(RECORD_ID)).thenReturn(Optional.of(active));
+        when(refreshTokenRepository.revoke(RECORD_ID, NOW)).thenReturn(1);
 
         useCase.execute(new RevokeDeviceCommand(ACCOUNT_ID, RECORD_ID, CURRENT_DEVICE, CLIENT_IP));
 
-        verify(refreshTokenRepository).save(any(RefreshTokenRecord.class));
+        verify(refreshTokenRepository).revoke(RECORD_ID, NOW);
         ArgumentCaptor<DeviceRevokedEvent> evt = ArgumentCaptor.forClass(DeviceRevokedEvent.class);
         verify(eventPublisher).publishEvent(evt.capture());
         assertThat(evt.getValue().accountId()).isEqualTo(ACCOUNT_ID);
         assertThat(evt.getValue().recordId()).isEqualTo(RECORD_ID);
         assertThat(evt.getValue().deviceId()).isEqualTo(TARGET_DEVICE);
         assertThat(evt.getValue().revokedAt()).isEqualTo(NOW);
+    }
+
+    @Test
+    void should_treat_zero_affected_rows_as_idempotent_no_event() {
+        // Atomic-update race-loser: a concurrent thread already flipped the row.
+        RefreshTokenRecord active = activeRecord(TARGET_DEVICE, ACCOUNT_ID);
+        when(refreshTokenRepository.findById(RECORD_ID)).thenReturn(Optional.of(active));
+        when(refreshTokenRepository.revoke(RECORD_ID, NOW)).thenReturn(0);
+
+        useCase.execute(new RevokeDeviceCommand(ACCOUNT_ID, RECORD_ID, CURRENT_DEVICE, CLIENT_IP));
+
+        verify(refreshTokenRepository).revoke(RECORD_ID, NOW);
+        verify(eventPublisher, never()).publishEvent(any());
     }
 
     @Test
@@ -169,10 +183,10 @@ class RevokeDeviceUseCaseTest {
     }
 
     @Test
-    void should_propagate_save_failure_so_outer_transaction_rolls_back() {
+    void should_propagate_revoke_failure_so_outer_transaction_rolls_back() {
         RefreshTokenRecord active = activeRecord(TARGET_DEVICE, ACCOUNT_ID);
         when(refreshTokenRepository.findById(RECORD_ID)).thenReturn(Optional.of(active));
-        when(refreshTokenRepository.save(any())).thenThrow(new RuntimeException("DB down"));
+        when(refreshTokenRepository.revoke(RECORD_ID, NOW)).thenThrow(new RuntimeException("DB down"));
 
         assertThatThrownBy(() ->
                         useCase.execute(new RevokeDeviceCommand(ACCOUNT_ID, RECORD_ID, CURRENT_DEVICE, CLIENT_IP)))
@@ -185,6 +199,7 @@ class RevokeDeviceUseCaseTest {
     void should_propagate_publish_failure_so_outer_transaction_rolls_back() {
         RefreshTokenRecord active = activeRecord(TARGET_DEVICE, ACCOUNT_ID);
         when(refreshTokenRepository.findById(RECORD_ID)).thenReturn(Optional.of(active));
+        when(refreshTokenRepository.revoke(RECORD_ID, NOW)).thenReturn(1);
         doThrow(new RuntimeException("outbox unavailable"))
                 .when(eventPublisher)
                 .publishEvent(any(DeviceRevokedEvent.class));
