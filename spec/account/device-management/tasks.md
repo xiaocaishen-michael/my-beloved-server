@@ -296,7 +296,7 @@
 
 ---
 
-### T14 [Web] `DeviceManagementController` + `DeviceListResponse` + `DeviceItemResponse`
+### T14 ✅ [Web] `DeviceManagementController` + `DeviceListResponse` + `DeviceItemResponse`
 
 **Files**:
 
