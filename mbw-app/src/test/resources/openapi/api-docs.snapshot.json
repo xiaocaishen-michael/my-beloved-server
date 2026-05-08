@@ -25,6 +25,34 @@
         }
       }
     },
+    "/api/v1/realname/verifications" : {
+      "post" : {
+        "tags" : [ "realname-controller" ],
+        "operationId" : "initiate",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/RealnameInitiateRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/RealnameInitiateResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/auth/refresh-token" : {
       "post" : {
         "tags" : [ "auth-controller" ],
@@ -217,6 +245,50 @@
         }
       }
     },
+    "/api/v1/realname/verifications/{providerBizId}" : {
+      "get" : {
+        "tags" : [ "realname-controller" ],
+        "operationId" : "confirm",
+        "parameters" : [ {
+          "name" : "providerBizId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/RealnameConfirmResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/realname/me" : {
+      "get" : {
+        "tags" : [ "realname-controller" ],
+        "operationId" : "getMyStatus",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/RealnameStatusResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/auth/devices" : {
       "get" : {
         "tags" : [ "device-management-controller" ],
@@ -286,6 +358,38 @@
           }
         },
         "required" : [ "phone" ]
+      },
+      "RealnameInitiateRequest" : {
+        "type" : "object",
+        "properties" : {
+          "realName" : {
+            "type" : "string",
+            "maxLength" : 64,
+            "minLength" : 0
+          },
+          "idCardNo" : {
+            "type" : "string",
+            "maxLength" : 32,
+            "minLength" : 0
+          },
+          "agreementVersion" : {
+            "type" : "string",
+            "maxLength" : 32,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "agreementVersion", "idCardNo", "realName" ]
+      },
+      "RealnameInitiateResponse" : {
+        "type" : "object",
+        "properties" : {
+          "providerBizId" : {
+            "type" : "string"
+          },
+          "livenessUrl" : {
+            "type" : "string"
+          }
+        }
       },
       "RefreshTokenRequest" : {
         "type" : "object",
@@ -395,6 +499,49 @@
           "createdAt" : {
             "type" : "string",
             "format" : "date-time"
+          }
+        }
+      },
+      "RealnameConfirmResponse" : {
+        "type" : "object",
+        "properties" : {
+          "providerBizId" : {
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "string",
+            "enum" : [ "UNVERIFIED", "PENDING", "VERIFIED", "FAILED" ]
+          },
+          "failedReason" : {
+            "type" : "string",
+            "enum" : [ "NAME_ID_MISMATCH", "LIVENESS_FAILED", "USER_CANCELED", "PROVIDER_ERROR" ]
+          },
+          "verifiedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }
+      },
+      "RealnameStatusResponse" : {
+        "type" : "object",
+        "properties" : {
+          "status" : {
+            "type" : "string",
+            "enum" : [ "UNVERIFIED", "PENDING", "VERIFIED", "FAILED" ]
+          },
+          "realNameMasked" : {
+            "type" : "string"
+          },
+          "idCardMasked" : {
+            "type" : "string"
+          },
+          "verifiedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "failedReason" : {
+            "type" : "string",
+            "enum" : [ "NAME_ID_MISMATCH", "LIVENESS_FAILED", "USER_CANCELED", "PROVIDER_ERROR" ]
           }
         }
       },

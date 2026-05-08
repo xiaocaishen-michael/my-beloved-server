@@ -304,7 +304,7 @@ realnameProfileRepository.findByAccountId(accountId).ifPresent(profile -> {
 
 - `RateLimitService`（既有 Redis backend per ADR-0011）— 新增 `realname:<accountId>` / `realname:<ip>` bucket 命名空间
 - `AccountRepository#findById` + `AccountStateMachine`（既有）— FROZEN 检查
-- `AccountAgreementRepository`（既有 PRD § 5.7）— 协议同意写入
+- ~~`AccountAgreementRepository`（既有 PRD § 5.7）— 协议同意写入~~ **drift #3 fix**（PR-3 T13 期间发现）：PR-1/PR-2 实际未交付该 Repository，仅有 `AgreementRequiredException` domain 异常；PRD § 5.7 协议存证子系统延后到 M3 单独 spec 立项。本期 T13 use case 仅做 `agreementVersion 非空校验 throw AgreementRequiredException`，不调用任何 repo。
 - `mbw-shared.web.GlobalExceptionHandler` + RFC 9457 ProblemDetail
 - `@AuthenticationPrincipal` resolver（Spring Security，既有）— accountId 注入
 - Springdoc OpenAPI（既有）— 自动生成 spec

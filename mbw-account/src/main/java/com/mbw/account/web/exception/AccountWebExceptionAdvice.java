@@ -3,11 +3,19 @@ package com.mbw.account.web.exception;
 import com.mbw.account.domain.exception.AccountInFreezePeriodException;
 import com.mbw.account.domain.exception.AccountInactiveException;
 import com.mbw.account.domain.exception.AccountNotFoundException;
+import com.mbw.account.domain.exception.AgreementRequiredException;
+import com.mbw.account.domain.exception.AlreadyVerifiedException;
 import com.mbw.account.domain.exception.CannotRemoveCurrentDeviceException;
 import com.mbw.account.domain.exception.DeviceNotFoundException;
+import com.mbw.account.domain.exception.IdCardOccupiedException;
 import com.mbw.account.domain.exception.InvalidCredentialsException;
 import com.mbw.account.domain.exception.InvalidDeletionCodeException;
+import com.mbw.account.domain.exception.InvalidIdCardFormatException;
 import com.mbw.account.domain.exception.InvalidPhoneFormatException;
+import com.mbw.account.domain.exception.ProviderErrorException;
+import com.mbw.account.domain.exception.ProviderTimeoutException;
+import com.mbw.account.domain.exception.RealnameProfileAccessDeniedException;
+import com.mbw.account.domain.exception.RealnameProfileNotFoundException;
 import com.mbw.account.domain.exception.WeakPasswordException;
 import com.mbw.shared.api.sms.SmsSendException;
 import com.mbw.shared.web.RateLimitedException;
@@ -161,6 +169,78 @@ public class AccountWebExceptionAdvice {
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, "当前设备请通过『退出登录』移除");
         problem.setTitle("Cannot remove current device");
         problem.setProperty("code", "CANNOT_REMOVE_CURRENT_DEVICE");
+        return problem;
+    }
+
+    @ExceptionHandler(AgreementRequiredException.class)
+    public ProblemDetail onAgreementRequired(AgreementRequiredException ex) {
+        ProblemDetail problem =
+                ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, "Realname agreement must be accepted");
+        problem.setTitle("Agreement required");
+        problem.setProperty("code", AgreementRequiredException.CODE);
+        return problem;
+    }
+
+    @ExceptionHandler(InvalidIdCardFormatException.class)
+    public ProblemDetail onInvalidIdCardFormat(InvalidIdCardFormatException ex) {
+        ProblemDetail problem =
+                ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, "ID card number does not satisfy GB 11643");
+        problem.setTitle("Invalid ID card format");
+        problem.setProperty("code", InvalidIdCardFormatException.CODE);
+        return problem;
+    }
+
+    @ExceptionHandler(AlreadyVerifiedException.class)
+    public ProblemDetail onAlreadyVerified(AlreadyVerifiedException ex) {
+        ProblemDetail problem =
+                ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, "Account is already realname-verified");
+        problem.setTitle("Already verified");
+        problem.setProperty("code", AlreadyVerifiedException.CODE);
+        return problem;
+    }
+
+    @ExceptionHandler(IdCardOccupiedException.class)
+    public ProblemDetail onIdCardOccupied(IdCardOccupiedException ex) {
+        ProblemDetail problem =
+                ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, "ID card is already bound to another account");
+        problem.setTitle("ID card occupied");
+        problem.setProperty("code", IdCardOccupiedException.CODE);
+        return problem;
+    }
+
+    @ExceptionHandler(ProviderTimeoutException.class)
+    public ProblemDetail onProviderTimeout(ProviderTimeoutException ex) {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(
+                HttpStatus.SERVICE_UNAVAILABLE, "Realname provider timed out; please retry");
+        problem.setTitle("Provider timeout");
+        problem.setProperty("code", ProviderTimeoutException.CODE);
+        return problem;
+    }
+
+    @ExceptionHandler(ProviderErrorException.class)
+    public ProblemDetail onProviderError(ProviderErrorException ex) {
+        ProblemDetail problem =
+                ProblemDetail.forStatusAndDetail(HttpStatus.BAD_GATEWAY, "Realname provider returned an error");
+        problem.setTitle("Provider error");
+        problem.setProperty("code", ProviderErrorException.CODE);
+        return problem;
+    }
+
+    @ExceptionHandler(RealnameProfileNotFoundException.class)
+    public ProblemDetail onRealnameProfileNotFound(RealnameProfileNotFoundException ex) {
+        ProblemDetail problem =
+                ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, "Realname verification record not found");
+        problem.setTitle("Realname profile not found");
+        problem.setProperty("code", RealnameProfileNotFoundException.CODE);
+        return problem;
+    }
+
+    @ExceptionHandler(RealnameProfileAccessDeniedException.class)
+    public ProblemDetail onRealnameProfileAccessDenied(RealnameProfileAccessDeniedException ex) {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(
+                HttpStatus.FORBIDDEN, "Caller does not own the requested realname verification record");
+        problem.setTitle("Realname access denied");
+        problem.setProperty("code", RealnameProfileAccessDeniedException.CODE);
         return problem;
     }
 }

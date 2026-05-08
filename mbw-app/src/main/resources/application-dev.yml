@@ -25,3 +25,9 @@ mbw:
     # non-bypass dev experiment: `head -c 32 /dev/urandom | base64`.
     dek:
       base64: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+    # Pepper for idCardHash — fed into sha256(idCardNo || pepper) to defeat
+    # rainbow tables on the 18-digit ID card space. Dev value is a literal
+    # string; production uses MBW_REALNAME_PEPPER env var (any high-entropy
+    # value, e.g. `head -c 32 /dev/urandom | base64`).
+    pepper:
+      value: dev-realname-pepper

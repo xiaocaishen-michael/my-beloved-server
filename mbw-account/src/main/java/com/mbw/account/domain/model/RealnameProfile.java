@@ -273,7 +273,14 @@ public final class RealnameProfile {
         Objects.requireNonNull(reason, "reason must not be null");
         Objects.requireNonNull(failedAt, "failedAt must not be null");
         RealnameStateMachine.assertCanTransition(this.status, RealnameStatus.FAILED);
-        int nextRetryCount = (reason == FailedReason.USER_CANCELED) ? this.retryCount24h : this.retryCount24h + 1;
+        // FR-009 / SC-005 + PR-3 BASE compensation: USER_CANCELED and
+        // PROVIDER_ERROR both leave retryCount24h unchanged. USER_CANCELED is
+        // user-initiated abort; PROVIDER_ERROR is upstream / network failure
+        // outside the user's control — neither should burn the user's 5-per-24h
+        // retry quota. NAME_ID_MISMATCH and LIVENESS_FAILED still increment.
+        int nextRetryCount = (reason == FailedReason.USER_CANCELED || reason == FailedReason.PROVIDER_ERROR)
+                ? this.retryCount24h
+                : this.retryCount24h + 1;
         return new RealnameProfile(
                 this.id,
                 this.accountId,

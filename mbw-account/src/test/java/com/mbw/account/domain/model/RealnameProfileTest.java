@@ -133,7 +133,7 @@ class RealnameProfileTest {
     }
 
     @Test
-    void withFailed_increments_retry_counter_except_for_user_canceled() {
+    void withFailed_increments_retry_counter_except_for_user_canceled_or_provider_error() {
         RealnameProfile pending = RealnameProfile.unverified(ACCOUNT_ID, NOW)
                 .withPending(new byte[] {1}, new byte[] {2}, "h".repeat(64), "biz-004", NOW.plusSeconds(60));
         Instant t1 = NOW.plusSeconds(120);
@@ -154,5 +154,16 @@ class RealnameProfileTest {
         assertThat(after2.status()).isEqualTo(RealnameStatus.FAILED);
         assertThat(after2.failedReason()).isEqualTo(FailedReason.USER_CANCELED);
         assertThat(after2.retryCount24h()).isEqualTo(1);
+
+        // Re-PENDING then FAILED with PROVIDER_ERROR → counter stays at 1 (per PR-3 BASE
+        // compensation: upstream / network failures outside the user's control should not
+        // burn the user's 5-per-24h retry quota — same exemption as USER_CANCELED).
+        RealnameProfile retry2 =
+                after2.withPending(new byte[] {1}, new byte[] {2}, "h".repeat(64), "biz-006", NOW.plusSeconds(300));
+        Instant t3 = NOW.plusSeconds(360);
+        RealnameProfile after3 = retry2.withFailed(FailedReason.PROVIDER_ERROR, t3);
+        assertThat(after3.status()).isEqualTo(RealnameStatus.FAILED);
+        assertThat(after3.failedReason()).isEqualTo(FailedReason.PROVIDER_ERROR);
+        assertThat(after3.retryCount24h()).isEqualTo(1);
     }
 }

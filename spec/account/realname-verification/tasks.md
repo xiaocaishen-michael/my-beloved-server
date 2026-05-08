@@ -387,7 +387,14 @@ public interface RealnameProfileRepository {
 
 ### T13-test
 
-新建 `application/usecase/InitiateRealnameVerificationUseCaseTest.java`：覆盖 plan.md § 核心 use case 流程的 11 分支（FROZEN / 协议缺失 / 格式错 / 限流 account / 限流 ip / ALREADY_VERIFIED / ID_CARD_OCCUPIED 跨账号 / 阿里云超时 / 阿里云错 / DataIntegrity 兜底 / happy）。Mock：`AccountRepository` / `RealnameProfileRepository` / `IdentityNumberValidator` / `RateLimitService` / `CipherService` / `RealnameVerificationProvider` / `AccountAgreementRepository`。
+新建 `application/usecase/InitiateRealnameVerificationUseCaseTest.java`：覆盖 plan.md § 核心 use case 流程的 11 分支（FROZEN / 协议缺失 / 格式错 / 限流 account / 限流 ip / ALREADY_VERIFIED / ID_CARD_OCCUPIED 跨账号 / 阿里云超时 / 阿里云错 / DataIntegrity 兜底 / happy）。Mock：`TransactionTemplate` / `AccountRepository` / `RealnameProfileRepository` / `IdentityHashService` / `RateLimitService` / `CipherService` / `RealnameVerificationProvider`。
+
+**Spec amend**（mock 清单 + drift #3 / B+1 事务）：
+
+- 原列 `IdentityNumberValidator` 是 static 工具类（不可 mock），从 mock 清单移除；测试用合法身份证号走真实校验，invalid 分支用反例字符串触发 false 返回。
+- 原列 `AccountAgreementRepository` per drift #3 不再使用：T13 use case 仅做 `agreementVersion 非空校验 throw AgreementRequiredException`，不做协议存证（M3 单独 spec 立项）。从 mock 清单移除。
+- 加 `IdentityHashService`（PR-3 prereq B1 已注入）。
+- 加 `TransactionTemplate`（BASE B+1 拆事务，见 T13-impl amend）。
 
 **Verify**: 全 RED
 
@@ -395,9 +402,67 @@ public interface RealnameProfileRepository {
 
 新建 `application/usecase/InitiateRealnameVerificationUseCase.java` + `application/command/InitiateRealnameCommand.java` + `application/result/InitiateRealnameResult.java`。
 
-`@Transactional(rollbackFor = Throwable.class, isolation = SERIALIZABLE)`。
+**Spec amend**（事务边界 = BASE B+1，覆盖原 `@Transactional(rollbackFor = Throwable.class, isolation = SERIALIZABLE)` 单事务设计）：
+
+- 改用 `TransactionTemplate` 显式拆两段事务。Tx1：validate + write PENDING row → commit；HTTP `provider.initVerification(...)` 在事务**外**；HTTP 失败 → Tx2（compensation）：mark PENDING → FAILED + `PROVIDER_ERROR`，再 rethrow 原 `ProviderTimeoutException` / `ProviderErrorException`。
+- 理由：阿里云 init 调用 ~150ms-3s，包入单事务会持锁过久；用户拍板"倾向 BASE 理论"。
+- compensation 仅 catch `ProviderTimeoutException | ProviderErrorException`（Checkstyle `IllegalCatch` 禁 catch RuntimeException）；其他未预期异常由 T13b PendingRealnameRecoveryScheduler 兜底。
+- compensation 用 `withFailed(PROVIDER_ERROR, now)` 而非 PENDING→UNVERIFIED（RealnameStateMachine 不允许此回滚）。`PROVIDER_ERROR` 不递增 `retryCount24h`（PR-3 prereq A 已落地）。
 
 **Verify**: T13-test 全 GREEN
+
+---
+
+## T13b [Infrastructure]：PendingRealnameRecoveryScheduler
+
+**TDD**：先写 unit test，repo 新方法配 IT。
+
+### T13b-repo
+
+`RealnameProfileRepository` domain 接口新增：
+
+```java
+List<RealnameProfile> findStalePendingOlderThan(Instant threshold, int limit);
+```
+
+`RealnameProfileJpaRepository` 加 `@Query` JPQL：`status='PENDING' AND updatedAt < :threshold ORDER BY updatedAt ASC` + `Pageable` 限 limit。`Impl` 通过 `PageRequest.of(0, limit)` 调用并 `map(RealnameProfileMapper::toDomain)`。
+
+`RealnameProfileRepositoryImplIT` 加 2 个 IT：
+1. `findStalePendingOlderThan_returns_only_PENDING_rows_older_than_threshold` — 3 行（STALE PENDING / FRESH PENDING / VERIFIED 老）只返回 STALE PENDING
+2. `findStalePendingOlderThan_orders_by_updatedAt_ascending_and_respects_limit` — 3 行 stale，limit=2 返回最老 2 行
+
+### T13b-test
+
+新建 `infrastructure/scheduling/PendingRealnameRecoverySchedulerTest.java`，8 cases：
+- 空 stale list → 不调 provider，不 save
+- PASSED → save with VERIFIED
+- NAME_ID_NOT_MATCH → save with FAILED+NAME_ID_MISMATCH
+- LIVENESS_FAILED → save with FAILED+LIVENESS_FAILED
+- USER_CANCELED → save with FAILED+USER_CANCELED
+- ProviderTimeoutException → swallow，不 save，timeout counter +1
+- ProviderErrorException → save with FAILED+PROVIDER_ERROR，errors counter +1
+- 多行 + 一个 timeout 一个 PASSED → 互不影响
+
+**Verify**: 全 RED
+
+### T13b-impl
+
+新建 `infrastructure/scheduling/PendingRealnameRecoveryScheduler.java`，mirror `FrozenAccountAnonymizationScheduler` 风格：
+
+- `@Component`，构造注入 + 包私 ctor 注入 `Clock`（测试可控）
+- `@Scheduled(fixedRate = 5L * 60L * 1000L)` — compile-time 常量，不能用 `Duration.ofMinutes(5).toMillis()`（annotation 元素必须 constant expression）
+- 常量：`STALE_THRESHOLD = Duration.ofMinutes(10)`, `LIMIT = 100`
+- 流程：
+  1. `now = Instant.now(clock)`，`threshold = now.minus(STALE_THRESHOLD)`
+  2. `stale = repo.findStalePendingOlderThan(threshold, LIMIT)`
+  3. for-each row：
+     - try `provider.queryVerification(bizId)` → applyOutcome → `repo.save(updated)`
+     - catch `ProviderTimeoutException` → swallow + log WARN，next tick 再试
+     - catch `ProviderErrorException` → save `withFailed(PROVIDER_ERROR, now)` + log WARN
+- `applyOutcome` 用 switch expression 映射 4 个 Outcome → 状态转换
+- Micrometer counters：`account.realname.recovery.{scanned,recovered,timeouts,errors}`
+
+**Verify**: T13b-test 全 GREEN + T13b-repo IT 全 GREEN
 
 ---
 

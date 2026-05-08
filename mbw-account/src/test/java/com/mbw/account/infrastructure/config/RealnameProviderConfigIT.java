@@ -68,6 +68,7 @@ class RealnameProviderConfigIT {
                 .withInitializer(ctx -> ctx.getEnvironment().setActiveProfiles("prod"))
                 .withPropertyValues(
                         "mbw.realname.dev-bypass=false",
+                        "mbw.realname.pepper.value=p",
                         "mbw.realname.aliyun.access-key-id=ak",
                         "mbw.realname.aliyun.access-key-secret=secret",
                         "mbw.realname.aliyun.scene-id=100200")
@@ -78,12 +79,29 @@ class RealnameProviderConfigIT {
     }
 
     @Test
+    void prod_profile_missing_pepper_should_fail_startup() {
+        contextRunner
+                .withInitializer(ctx -> ctx.getEnvironment().setActiveProfiles("prod"))
+                .withPropertyValues(
+                        "mbw.realname.dev-bypass=false",
+                        "mbw.realname.dek.base64=" + dummyDek32(),
+                        "mbw.realname.aliyun.access-key-id=ak",
+                        "mbw.realname.aliyun.access-key-secret=secret",
+                        "mbw.realname.aliyun.scene-id=100200")
+                .run(context -> {
+                    assertThat(context).hasFailed();
+                    assertThat(context).getFailure().rootCause().hasMessageContaining("mbw.realname.pepper.value");
+                });
+    }
+
+    @Test
     void prod_profile_missing_aliyun_access_key_should_fail_startup() {
         contextRunner
                 .withInitializer(ctx -> ctx.getEnvironment().setActiveProfiles("prod"))
                 .withPropertyValues(
                         "mbw.realname.dev-bypass=false",
                         "mbw.realname.dek.base64=" + dummyDek32(),
+                        "mbw.realname.pepper.value=p",
                         "mbw.realname.aliyun.access-key-secret=secret",
                         "mbw.realname.aliyun.scene-id=100200")
                 .run(context -> {

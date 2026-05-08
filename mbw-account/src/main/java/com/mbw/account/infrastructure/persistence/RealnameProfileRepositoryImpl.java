@@ -2,7 +2,10 @@ package com.mbw.account.infrastructure.persistence;
 
 import com.mbw.account.domain.model.RealnameProfile;
 import com.mbw.account.domain.repository.RealnameProfileRepository;
+import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Repository;
 
 /**
@@ -51,5 +54,12 @@ public class RealnameProfileRepositoryImpl implements RealnameProfileRepository 
         RealnameProfileJpaEntity entity = RealnameProfileMapper.toEntity(profile);
         RealnameProfileJpaEntity saved = jpa.save(entity);
         return RealnameProfileMapper.toDomain(saved);
+    }
+
+    @Override
+    public List<RealnameProfile> findStalePendingOlderThan(Instant threshold, int limit) {
+        return jpa.findStalePendingOlderThan(threshold, PageRequest.of(0, limit)).stream()
+                .map(RealnameProfileMapper::toDomain)
+                .toList();
     }
 }
