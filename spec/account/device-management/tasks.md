@@ -254,7 +254,7 @@
 
 ---
 
-### T12 [App] `RevokeDeviceUseCase`
+### T12 ✅ [App] `RevokeDeviceUseCase`
 
 **File**: `mbw-account/src/main/java/com/mbw/account/application/usecase/RevokeDeviceUseCase.java`（**新建** + 2 exception class）
 
