@@ -36,7 +36,9 @@ public class IdentityHashService {
 
     public IdentityHashService(RealnamePepperProperties properties) {
         if (properties.value() == null || properties.value().isBlank()) {
-            throw new IllegalStateException("mbw.realname.pepper.value is required (set MBW_REALNAME_PEPPER env var)");
+            throw new IllegalStateException(
+                    "mbw.realname.pepper.value is required (set MBW_REALNAME_PEPPER_VALUE env var — note _VALUE"
+                            + " suffix; relaxed-binding maps MBW_REALNAME_PEPPER to mbw.realname.pepper, missing the .value field)");
         }
         this.pepper = properties.value().getBytes(StandardCharsets.UTF_8);
     }
