@@ -108,6 +108,17 @@ services:
       SPRING_DATA_REDIS_PASSWORD: ${REDIS_PASSWORD}
       # Auth
       MBW_AUTH_JWT_SECRET: ${JWT_SECRET}
+      # Realname-verification (per RealnameProviderStartupValidator). The
+      # pepper env key is `MBW_REALNAME_PEPPER_VALUE` (NOT `_PEPPER`) because
+      # Spring relaxed binding maps `MBW_REALNAME_PEPPER` → property
+      # `mbw.realname.pepper`, but the record field is `value` (full key
+      # `mbw.realname.pepper.value`) — only `_PEPPER_VALUE` suffix reaches it.
+      # The other 4 keys already match relaxed-binding rules as-is.
+      MBW_REALNAME_PEPPER_VALUE: ${MBW_REALNAME_PEPPER_VALUE}
+      MBW_REALNAME_DEK_BASE64: ${MBW_REALNAME_DEK_BASE64}
+      MBW_REALNAME_ALIYUN_ACCESS_KEY_ID: ${MBW_REALNAME_ALIYUN_ACCESS_KEY_ID}
+      MBW_REALNAME_ALIYUN_ACCESS_KEY_SECRET: ${MBW_REALNAME_ALIYUN_ACCESS_KEY_SECRET}
+      MBW_REALNAME_ALIYUN_SCENE_ID: ${MBW_REALNAME_ALIYUN_SCENE_ID}
       # SMS 通道选择（ADR-0013）：M1 默认 mock；切真 SMS 时设
       # provider=aliyun（营业执照 + 阿里云签名审核通过后启用 ALIYUN_SMS_* 段）。
       MBW_SMS_PROVIDER: ${MBW_SMS_PROVIDER:-mock}
