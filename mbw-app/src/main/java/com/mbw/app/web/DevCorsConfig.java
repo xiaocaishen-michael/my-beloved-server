@@ -7,9 +7,10 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 /**
  * Dev-only CORS allow-list for the local Expo Web client running on
- * {@code http://localhost:8081}. Production cross-origin policy is the
- * Nginx reverse proxy's responsibility (same-origin via {@code /api/}
- * path), so this configuration is gated behind the {@code dev} profile.
+ * {@code http://localhost:8081}. Production CORS is handled by
+ * {@link ProdCorsConfig} (cross-origin: Cloudflare Pages
+ * {@code app.xiaocaishen.me} → API {@code api.xiaocaishen.me}); this
+ * configuration is gated behind the {@code dev} profile.
  *
  * <p>Allows {@code Authorization} header so the client can attach
  * Bearer JWTs after login. {@code allowCredentials=false} because the
