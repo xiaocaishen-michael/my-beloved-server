@@ -25,6 +25,11 @@ on:
         description: "Image tag to deploy (e.g. v0.1.5)"
         required: true
         type: string
+      skip_git_fetch:
+        description: "Bypass git fetch + reset on ECS (use when orchestration files unchanged + ECS → GitHub flaky)"
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -64,37 +69,45 @@ jobs:
           ACR_PASSWORD: ${{ secrets.ACR_PASSWORD }}
           APP_HOST: ${{ secrets.APP_HOST }}
           APP_SSH_USER: ${{ secrets.APP_SSH_USER }}
+          SKIP_GIT_FETCH: ${{ github.event_name == 'workflow_dispatch' && inputs.skip_git_fetch || 'false' }}
         run: |
           # Pass secrets as positional args to remote bash so the heredoc can be
           # quoted (no client-side $-expansion → no SC2087, no accidental local
-          # leak). Remote bash binds $1/$2/$3 to TAG/ACR_USERNAME/ACR_PASSWORD.
+          # leak). Remote bash binds $1..$4 to TAG/ACR_USERNAME/ACR_PASSWORD/SKIP_GIT_FETCH.
           ssh -o StrictHostKeyChecking=accept-new "$APP_SSH_USER@$APP_HOST" \
-              bash -s "$TAG" "$ACR_USERNAME" "$ACR_PASSWORD" <<'REMOTE'
+              bash -s "$TAG" "$ACR_USERNAME" "$ACR_PASSWORD" "$SKIP_GIT_FETCH" <<'REMOTE'
           set -e
           TAG="$1"
           ACR_USERNAME="$2"
           ACR_PASSWORD="$3"
+          SKIP_GIT_FETCH="$4"
           ACR_REGISTRY="crpi-uy44w7zpjef3f9w1.cn-shanghai.personal.cr.aliyuncs.com"
 
           cd /home/admin/my-beloved-server
 
           # Refresh compose configs / runbook (in case main moved while build ran).
-          # ECS → GitHub goes via international link — TLS抖 is common (撞过两次,
-          # 2026-04-30 + 2026-05-01). Retry 3 × 5s before giving up.
-          GIT_OK=false
-          for i in 1 2 3; do
-            if git fetch --tags origin main; then
-              GIT_OK=true
-              break
+          # ECS → GitHub goes via international link — TLS抖 is common. Retry 3 × 5s
+          # before giving up. Pass skip_git_fetch=true via workflow_dispatch when
+          # GFW is being aggressive AND orchestration files didn't change in this
+          # release (image-only fix); the local working tree on ECS keeps being used.
+          if [ "$SKIP_GIT_FETCH" = "true" ]; then
+            echo "::warning::git fetch skipped — using orchestration files currently on ECS disk"
+          else
+            GIT_OK=false
+            for i in 1 2 3; do
+              if git fetch --tags origin main; then
+                GIT_OK=true
+                break
+              fi
+              echo "git fetch attempt $i/3 failed (likely international link blip), retrying in 5s..."
+              sleep 5
+            done
+            if [ "$GIT_OK" != "true" ]; then
+              echo "::error::git fetch failed after 3 retries — re-trigger via workflow_dispatch with skip_git_fetch=true if orchestration files unchanged"
+              exit 1
             fi
-            echo "git fetch attempt $i/3 failed (likely international link blip), retrying in 5s..."
-            sleep 5
-          done
-          if [ "$GIT_OK" != "true" ]; then
-            echo "::error::git fetch failed after 3 retries — re-trigger deploy when network stabilizes"
-            exit 1
+            git reset --hard origin/main
           fi
-          git reset --hard origin/main
 
           # Update .env.app to use ACR image at target tag.
           # 1) Disable any local MBW_APP_IMAGE override (docker-compose.tight.yml's
