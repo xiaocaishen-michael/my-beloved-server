@@ -1,5 +1,32 @@
 # Changelog
 
+## [0.3.0](https://github.com/xiaocaishen-michael/my-beloved-server/compare/v0.2.0...v0.3.0) (2026-05-10)
+
+
+### Features
+
+* **account:** dev-fixed SMS code env hatch + bump example email ([#146](https://github.com/xiaocaishen-michael/my-beloved-server/issues/146)) ([152fe62](https://github.com/xiaocaishen-michael/my-beloved-server/commit/152fe623f7d12377d233178563c865a7d19ca922))
+* **account:** device-management T8 real adapter + T15/T16/T17 ITs ([#154](https://github.com/xiaocaishen-michael/my-beloved-server/issues/154)) ([58b380d](https://github.com/xiaocaishen-michael/my-beloved-server/commit/58b380da67be84a28838ccbd7f36c413a5aff984))
+* **account:** extend dev-fixed-code env to deletion + cancel-deletion flows ([#148](https://github.com/xiaocaishen-michael/my-beloved-server/issues/148)) ([22c2135](https://github.com/xiaocaishen-michael/my-beloved-server/commit/22c21352f36ae87690aab2ebe46b18cad8c982fb))
+* **account:** impl device-management (M1.X / T0-T14, T18) ([#153](https://github.com/xiaocaishen-michael/my-beloved-server/issues/153)) ([8e49e97](https://github.com/xiaocaishen-michael/my-beloved-server/commit/8e49e97275c4383ce6fb71ebcb78e43ff15e9920))
+* **account:** realname-verification PR-1 — domain + repo (T0-T7) ([#155](https://github.com/xiaocaishen-michael/my-beloved-server/issues/155)) ([ce35b0d](https://github.com/xiaocaishen-michael/my-beloved-server/commit/ce35b0d9a513aa87214795613906e654f895128a))
+* **account:** realname-verification PR-2 — infrastructure (T8-T11) ([#157](https://github.com/xiaocaishen-michael/my-beloved-server/issues/157)) ([456f228](https://github.com/xiaocaishen-michael/my-beloved-server/commit/456f2282ff9205ca8f98a7f70b8d6a2836a34563))
+* **account:** realname-verification PR-3 — application + web (T12-T16) ([#158](https://github.com/xiaocaishen-michael/my-beloved-server/issues/158)) ([13f11a5](https://github.com/xiaocaishen-michael/my-beloved-server/commit/13f11a5294a143619db6b6e52b08d1090a42f296))
+* **core:** add ProdCorsConfig for Cloudflare Pages cross-origin ([#161](https://github.com/xiaocaishen-michael/my-beloved-server/issues/161)) ([5c2e9ee](https://github.com/xiaocaishen-michael/my-beloved-server/commit/5c2e9ee156784791ec58f317ddeb514a9f8c4794))
+
+
+### Bug Fixes
+
+* **account:** realname_profile.id_card_hash CHAR → VARCHAR — fix Hibernate boot validation ([#160](https://github.com/xiaocaishen-michael/my-beloved-server/issues/160)) ([b8cf2e5](https://github.com/xiaocaishen-michael/my-beloved-server/commit/b8cf2e5624c1ad689f304de375d26127c942d0a6))
+* **account:** refresh_token.device_id NOT NULL — align schema/domain invariant ([#159](https://github.com/xiaocaishen-michael/my-beloved-server/issues/159)) ([43e603b](https://github.com/xiaocaishen-michael/my-beloved-server/commit/43e603b7c56fe3275c841ffde4061eec3b74f819))
+* **repo:** bump netty BOM to 4.1.133.Final (CVE-2026-42583) ([#156](https://github.com/xiaocaishen-michael/my-beloved-server/issues/156)) ([f044c72](https://github.com/xiaocaishen-michael/my-beloved-server/commit/f044c72279aab43689c3c277c1abf0f682c71314))
+
+
+### Maintenance
+
+* **main:** release 0.2.1-SNAPSHOT ([#144](https://github.com/xiaocaishen-michael/my-beloved-server/issues/144)) ([76c71cd](https://github.com/xiaocaishen-michael/my-beloved-server/commit/76c71cd5511d24c5301c7898354bdacb78079a5a))
+* **repo:** commitlint body-max-line-length 100 → 150 (统一三仓) ([#152](https://github.com/xiaocaishen-michael/my-beloved-server/issues/152)) ([b5fcdb3](https://github.com/xiaocaishen-michael/my-beloved-server/commit/b5fcdb348cee23d2982156bcb269ebdbfedc3d10))
+
 ## [0.2.0](https://github.com/xiaocaishen-michael/my-beloved-server/compare/v0.1.0...v0.2.0) (2026-05-07)
 
 
