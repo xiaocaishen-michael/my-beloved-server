@@ -50,7 +50,7 @@
       precedence over Spring Boot BOM's 4.1.132 across all transitive netty-*.
       Remove once Spring Boot ships a BOM with netty 4.1.133+ default.
     -->
-    <netty.version>4.1.133.Final</netty.version>
+    <netty.version>4.2.13.Final</netty.version>
     <!--
       Force okhttp 5.3.2 to fix HIGH CVE-2021-0341 (TLS hostname
       verification bypass) pulled transitively by every Aliyun SDK we
