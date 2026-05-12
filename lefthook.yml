@@ -10,14 +10,15 @@ pre-commit:
       tags:
         - security
     spotless:
-      # Trip wire on staged Java files.
-      # Currently runs full-reactor (~10s on warm cache); acceptable for
-      # solo dev. To shave to ~3s on single-file commits, swap to:
-      #   run: ./mvnw -B -ntp spotless:check -DspotlessFiles="$(echo {staged_files} | tr ' ' ',')"
-      # but verify the lefthook {staged_files} quoting handles paths with
-      # spaces or special chars correctly first.
+      # Auto-applies Palantir Java Format on staged Java files and re-stages
+      # any formatted files (stage_fixed: true). ~10s on warm cache for the
+      # full reactor; acceptable for solo dev.
+      # To shave to ~3s on single-file commits (when lefthook {staged_files}
+      # quoting is verified), swap run to:
+      #   ./mvnw -B -ntp spotless:apply -DspotlessFiles="$(echo {staged_files} | tr ' ' ',')"
       glob: "*.java"
-      run: ./mvnw -B -ntp spotless:check
+      run: ./mvnw -B -ntp spotless:apply
+      stage_fixed: true
       tags:
         - format
     checkstyle:
