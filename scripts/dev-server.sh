@@ -45,5 +45,9 @@ export MBW_AUTH_JWT_SECRET="${MBW_AUTH_JWT_SECRET:-dev-secret-32-bytes-or-more-o
 export MBW_SMS_DEV_FIXED_CODE="${MBW_SMS_DEV_FIXED_CODE:-999999}"
 
 # ── 4. Spring Boot run ────────────────────────────────────────────────────
-echo "▶ ./mvnw spring-boot:run -pl mbw-app (server.port=$PORT)"
-exec ./mvnw spring-boot:run -pl mbw-app -Dspring-boot.run.arguments="--server.port=$PORT"
+# -am(--also-make) 确保 mbw-shared + mbw-account 等上游模块先 build:
+#   副 worktree 首次跑没 ~/.m2 缓存,不带 -am 会"Could not find artifact ...
+#   :mbw-shared:jar:<ver>"。-am 让 maven 沿 reactor 图自动 build 依赖。
+# 主仓主 worktree 二次跑 ~/.m2 缓存命中,-am 额外开销极低(秒级 reactor 扫描)。
+echo "▶ ./mvnw spring-boot:run -pl mbw-app -am (server.port=$PORT)"
+exec ./mvnw spring-boot:run -pl mbw-app -am -Dspring-boot.run.arguments="--server.port=$PORT"
