@@ -144,8 +144,8 @@
 | 外键 | **禁止跨 schema FK**；同 schema 内能用 ID 引用就尽量不用 FK |
 | 索引命名 | 普通：`idx_<table>_<col>`；唯一：`uk_<table>_<col>` |
 | Partial unique index | PG 语法 `CREATE UNIQUE INDEX ... WHERE col IS NOT NULL`（如 phone 可空唯一） |
-| Migration 命名 | `V<version>__<snake_case_description>.sql`，模块独立目录 |
-| Migration 不可变 | 已合入 main 的 migration **禁止修改**；改动以新 migration 实现 |
+| Migration 命名 | `V<version>__<snake_case_description>.sql`，模块独立目录。V14 之前用序号 `V1` ~ `V14`；**V15 起切时间戳 `V<YYYYMMDDHHMMSS>__<desc>.sql`**（避免多 feature 并行撞号；Flyway 数值比较 14 < 20260513120000 自动排序兼容）|
+| Migration 不可变 | 已合入 main 的 migration **禁止修改**；改动以新 migration 实现。CI 加 immutability check（diff `origin/main` 检测 modified migration），不允许 `git diff --diff-filter=MD` 命中 |
 
 ### 不兼容变更：expand-migrate-contract 三步法
 

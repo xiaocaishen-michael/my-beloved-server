@@ -20,6 +20,52 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+        with:
+          # fetch-depth: 0 → enables Migration immutability check below
+          # (needs `origin/main` ref for `git diff origin/main...HEAD`).
+          # Cost: ~3s extra clone vs shallow; acceptable since cache:'maven'
+          # dominates checkout time.
+          fetch-depth: 0
+
+      - name: Migration version conflict check
+        # Detect duplicate Flyway version numbers across all module migration
+        # dirs (V<n>__ or V<YYYYMMDDHHMMSS>__ formats). Fails fast on conflict
+        # BEFORE mvn verify spends ~5min compiling. Per CLAUDE.md § 5: V15 起
+        # 切时间戳避免撞号，但 lint 兜底防漏。
+        run: |
+          dups=$(find . -name 'V*__*.sql' -path '*/db/migration/*' -not -path '*/target/*' \
+            | sed -E 's|.*/V([^_]+)__.*|\1|' \
+            | sort | uniq -d)
+          if [[ -n "$dups" ]]; then
+            echo "❌ Duplicate Flyway version numbers detected:"
+            echo "$dups"
+            echo ""
+            echo "Files involved:"
+            for v in $dups; do
+              find . -name "V${v}__*.sql" -path '*/db/migration/*' -not -path '*/target/*'
+            done
+            exit 1
+          fi
+          echo "✅ No duplicate Flyway version numbers"
+
+      - name: Migration immutability check
+        # PR-only: detect modifications/deletions of migration files that
+        # already exist on main. Per CLAUDE.md § 5: migrations are immutable
+        # once merged; changes go in new migration files (expand-migrate-contract).
+        if: github.event_name == 'pull_request'
+        run: |
+          # --diff-filter=MD catches Modified + Deleted (rename source).
+          # New migration files (A) are allowed.
+          modified=$(git diff origin/main...HEAD --name-only --diff-filter=MD \
+            | grep -E 'db/migration/.*V.*\.sql$' || true)
+          if [[ -n "$modified" ]]; then
+            echo "❌ Modified/deleted existing migrations (migrations are immutable):"
+            echo "$modified"
+            echo ""
+            echo "Per CLAUDE.md § 5: changes go in NEW migration files (expand-migrate-contract)."
+            exit 1
+          fi
+          echo "✅ No existing migrations modified"
 
       - name: Set up JDK 21
         uses: actions/setup-java@v5
