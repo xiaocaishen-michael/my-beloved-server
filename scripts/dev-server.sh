@@ -16,6 +16,9 @@ set -euo pipefail
 SERVER_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$SERVER_DIR"
 
+# 副 worktree 的 .envrc(direnv 自动加载)会先 export PORT 为分配的偏移端口
+# (feat-open 从 8081 递增找空闲),主仓主 worktree 无 .envrc → fallback 8080.
+# 即 `${PORT:-8080}` 不是 default 而是 worktree 隔离机制的兜底层。
 PORT="${PORT:-8080}"
 
 # ── 1. Port check (fail-loud if 8080 owned by another process) ────────────
