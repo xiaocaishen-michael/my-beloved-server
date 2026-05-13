@@ -7,7 +7,7 @@ paths:
 
 # Docker / Compose 约束（自动注入）
 
-> 详细背景与选型理由：`docs/conventions/docker.md`
+A-Split future-split 拓扑下的 compose 拆分约定见 meta 仓 [`docs/adr/0012-deployment-a-split.md`](https://github.com/xiaocaishen-michael/no-vain-years/blob/main/docs/adr/0012-deployment-a-split.md) § Future Implementation Guide。
 
 ## Dockerfile
 
@@ -17,12 +17,14 @@ paths:
 - 必须 non-root user（`addgroup` + `adduser` + `USER` 指令）
 - `ENTRYPOINT` 用 exec 形式（PID 1 = JVM，正确接收 SIGTERM）
 - 显式 `EXPOSE` 端口
+- `ENV`：JVM 调优（如 `JAVA_OPTS`）通过 ENV，可被 runtime override
 
 ## .dockerignore 必含
 
 `target/` `*/target/` `.git/` `.env` `.env.*`（保留 `!.env.example`）
 `docs/` `spec/` `.specify/` `.claude/` `.github/` `lefthook.yml`
 `Dockerfile` `.dockerignore`
+IDE / OS junk：`.idea/` `*.iml` `.DS_Store` 等
 
 ## docker-compose
 
@@ -32,11 +34,14 @@ paths:
 - volumes 命名加项目前缀（如 `mbw-pgdata`）
 - 文件按角色后缀分：`docker-compose.dev.yml` / `.tight.yml` / `.app.yml` / `.data.yml`
 - **禁止**单一 `docker-compose.yml` 混 dev/prod
+- `profiles:`：可选服务（dev 不默认起的）用 `profiles: [...]` 标注
+- `container_name`：dev 友好可显式指定；prod 慎用（多 instance 冲突）
 
 ## 安全
 
 - secrets 不 bake 进镜像；通过 ENV / mounted secrets 注入
 - CI 跑 trivy image scan + fs scan（HIGH+ severity 阻塞合并）
+- trivy `ignore-unfixed: true`：不阻塞修不了的上游 vendor 漏洞
 
 ## 反模式
 
