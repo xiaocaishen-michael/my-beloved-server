@@ -313,7 +313,7 @@ Maven 插件 `surefire`（单测）+ `failsafe`（集成测）分离，集成测
 
 ## 十、Pre-commit / Lint
 
-- 格式化：Spotless + Palantir Java Format（见 [meta ADR-0007](https://github.com/xiaocaishen-michael/no-vain-years/blob/main/docs/adr/0007-eslint-prettier-not-biome.md) + [code-quality.md](https://github.com/xiaocaishen-michael/no-vain-years/blob/main/docs/conventions/code-quality.md)），配置在父 `pom.xml` 的 `<spotless-maven-plugin>` 节
+- 格式化：Spotless + Palantir Java Format（见 [meta ADR-0007](https://github.com/xiaocaishen-michael/no-vain-years/blob/main/docs/adr/0007-eslint-prettier-not-biome.md)），配置在父 `pom.xml` 的 `<spotless-maven-plugin>` 节
 - 静态检查：Checkstyle，规则集在 `config/checkstyle/checkstyle.xml`（让出 whitespace / indent / line-length / import-order 给 Palantir）
 - CI 强制：`./mvnw verify` 不通过不能合并（GitHub Actions required check）
 
