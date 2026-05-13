@@ -8,8 +8,6 @@
   Coordinates with Spotless + Palantir Java Format:
     Palantir handles whitespace / indent / line length / brace position / import order.
     Checkstyle handles naming / coding bugs / class design / Javadoc (public API) / metrics.
-
-  See meta repo docs/conventions/code-quality.md for the full rationale.
 -->
 <module name="Checker">
     <property name="severity" value="error"/>
