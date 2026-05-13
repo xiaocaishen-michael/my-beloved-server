@@ -26,6 +26,17 @@ updates:
       # Stay on 8.x until the Boot 4 / Jackson 3 ecosystem wave (M3+).
       - dependency-name: "net.logstash.logback:*"
         update-types: ["version-update:semver-major"]
+      # netty 4.2 is a major-line jump in a Spring Boot / reactor-netty
+      # transitive (HTTP stack). CI green covers compile+tests but not
+      # protocol behavior under load. Revisit in a dedicated session when
+      # a 4.2 feature is needed. (PR #167 closed.)
+      - dependency-name: "io.netty:*"
+        update-types: ["version-update:semver-major"]
+      # ip2region 3.x is a real API rewrite (newWithBuffer / search
+      # signatures changed). PR #166 failed compile. Stay on 2.x until
+      # there's a feature reason to adapt Ip2RegionAdapter to 3.x.
+      - dependency-name: "org.lionsoul:ip2region"
+        update-types: ["version-update:semver-major"]
     # Reduce PR noise by grouping related dependencies into single PRs.
     groups:
       spring:
