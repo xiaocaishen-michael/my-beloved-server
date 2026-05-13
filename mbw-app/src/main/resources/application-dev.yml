@@ -2,6 +2,14 @@
 # is set (application.yml's spring.profiles.default=dev kicks in). Production
 # explicitly sets SPRING_PROFILES_ACTIVE=prod (docker-compose.tight.yml) so
 # none of this leaks.
+spring:
+  datasource:
+    hikari:
+      # 多 feature worktree 并行时 dev 期降低单连接池容量(plan §6.2.2 D6)。
+      # 主仓默认 10 conn → 4 feature 并行 × 10 = 40,接近 PG max_connections=100
+      # 临界。dev 降 5 conn → 4 feature × 5 = 20,余 80 给 psql/DBeaver/IT。
+      maximum-pool-size: 5
+
 mbw:
   auth:
     rate-limit:

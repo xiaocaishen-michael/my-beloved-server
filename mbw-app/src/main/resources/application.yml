@@ -42,6 +42,12 @@ spring:
     redis:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
+      # 主仓主 worktree 用 db=0；副 worktree 通过 .envrc 注入 REDIS_DB=1..15 实现
+      # 跨 feature 限流 / cache key 隔离（plan §6.2 D4 / §6.3 端口分配方案）。
+      # bucket4j ProxyManager 通过 LettuceConnectionFactory.getNativeClient() 拿
+      # 底层 RedisClient，Spring 把此 database 字段传到 RedisURI，bucket4j 的
+      # redisClient.connect() 也用同一 db number，因此 db 隔离对限流同样生效。
+      database: ${REDIS_DB:0}
       timeout: 2s
 
   modulith:
