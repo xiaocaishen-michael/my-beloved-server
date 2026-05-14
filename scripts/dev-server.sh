@@ -16,9 +16,13 @@ set -euo pipefail
 SERVER_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$SERVER_DIR"
 
-# 副 worktree 的 .envrc(direnv 自动加载)会先 export PORT 为分配的偏移端口
-# (feat-open 从 8081 递增找空闲),主仓主 worktree 无 .envrc → fallback 8080.
-# 即 `${PORT:-8080}` 不是 default 而是 worktree 隔离机制的兜底层。
+# 自动加载 .envrc(若存在):副 worktree feat-open 写的 per-feature 端口/DB/DSN.
+# bash source 直读,不依赖 direnv hook —— Claude 等 non-interactive shell 也能用.
+# .envrc 由 feat-open 生成为 pure-shell 格式(纯 export 行),source 不依赖 direnv 函数.
+[[ -f .envrc ]] && source .envrc
+
+# 副 worktree .envrc 已 export PORT 为 feat-open 分配的偏移端口(从 8081 递增找空闲);
+# 主仓主 worktree 无 .envrc → fallback 8080.
 PORT="${PORT:-8080}"
 
 # ── 1. Port check (fail-loud if 8080 owned by another process) ────────────
