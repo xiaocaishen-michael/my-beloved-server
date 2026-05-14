@@ -2,9 +2,7 @@
 
 单 ECS 2c4g 全栈部署的 hand-on 步骤手册。**对照执行，遇到偏差停下排查 — 不要硬跑**。
 
-> 拓扑 / 资源预算 / 升级路径见 meta 仓 [`docs/architecture/deployment.md`](https://github.com/xiaocaishen-michael/no-vain-years/blob/main/docs/architecture/deployment.md)；高层决策见 [ADR-0002 § Update 2026-04-30](https://github.com/xiaocaishen-michael/no-vain-years/blob/main/docs/adr/0002-deployment-a-tight.md) + [ADR-0012 § Amendment 2026-04-30](https://github.com/xiaocaishen-michael/no-vain-years/blob/main/docs/adr/0012-deployment-a-split.md)。
->
-> A-Split 双节点形态见 [`./first-deploy.md`](./first-deploy.md) — 保留作未来真分裂参考，**M1 不激活**。
+> 拓扑 / 资源预算 / 升级路径见 meta 仓 [`docs/architecture/deployment.md`](https://github.com/xiaocaishen-michael/no-vain-years/blob/main/docs/architecture/deployment.md)；高层决策见 [ADR-0002 § Update 2026-04-30](https://github.com/xiaocaishen-michael/no-vain-years/blob/main/docs/adr/0002-deployment-a-tight.md) + [ADR-0012 § Amendment 2026-04-30](https://github.com/xiaocaishen-michael/no-vain-years/blob/main/docs/adr/0012-deployment-a-split.md)（Superseded）。曾试 A-Split 拓扑物料归档在 [`../archive/split-2026-04/`](../archive/split-2026-04/)。
 
 ## 节点信息（部署前填齐）
 
@@ -16,12 +14,12 @@
 
 | 凭证 | 来源 | 落在哪 |
 |---|---|---|
-| `JWT_SECRET` | `openssl rand -hex 32` | `.env.app` + 纸质备份（写本子锁抽屉，[ADR-0002 update](https://github.com/xiaocaishen-michael/no-vain-years/blob/main/docs/adr/0002-deployment-a-tight.md) § Update 2026-04-30 决议）|
-| `DB_PASSWORD` | `openssl rand -hex 32` | `.env.app`（单节点无需跨节点同步）|
-| `REDIS_PASSWORD` | `openssl rand -hex 32` | `.env.app` |
-| `RESEND_API_KEY` | resend.com → API Keys（Sending access on `mail.xiaocaishen.me`）| `.env.app` |
-| `MOCK_SMS_RECIPIENT` | `zhangleipd@aliyun.com`（写死，[ADR-0013](https://github.com/xiaocaishen-michael/no-vain-years/blob/main/docs/adr/0013-defer-sms-to-business-license.md)）| `.env.app` |
-| `MOCK_SMS_FROM` | `noreply@mail.xiaocaishen.me` | `.env.app` |
+| `JWT_SECRET` | `openssl rand -hex 32` | `.env.production` + 纸质备份（写本子锁抽屉，[ADR-0002 update](https://github.com/xiaocaishen-michael/no-vain-years/blob/main/docs/adr/0002-deployment-a-tight.md) § Update 2026-04-30 决议）|
+| `DB_PASSWORD` | `openssl rand -hex 32` | `.env.production`（单节点无需跨节点同步）|
+| `REDIS_PASSWORD` | `openssl rand -hex 32` | `.env.production` |
+| `RESEND_API_KEY` | resend.com → API Keys（Sending access on `mail.xiaocaishen.me`）| `.env.production` |
+| `MOCK_SMS_RECIPIENT` | `zhangleipd@aliyun.com`（写死，[ADR-0013](https://github.com/xiaocaishen-michael/no-vain-years/blob/main/docs/adr/0013-defer-sms-to-business-license.md)）| `.env.production` |
+| `MOCK_SMS_FROM` | `noreply@mail.xiaocaishen.me` | `.env.production` |
 | `ACR_USERNAME` | RAM 子用户全名 `mbw-server@<accountid>.onaliyun.com`（去 RAM 控制台 → 用户详情查"登录名"）| 临时使用，docker login 后无需持久化 |
 | `ACR_PASSWORD` | Aliyun 容器镜像服务 → 个人版实例 → 访问凭证 → 设置的固定密码 | 同上 |
 
@@ -42,7 +40,7 @@
 
 ## 1. ECS bootstrap（一次性）
 
-ssh 到 ECS（root），git clone 仓库，跑 `ecs-bootstrap.sh tight`。
+ssh 到 ECS（root），git clone 仓库，跑 `ecs-bootstrap.sh`。
 
 ```bash
 ssh root@101.133.128.62
@@ -51,9 +49,8 @@ ssh root@101.133.128.62
 git clone https://github.com/xiaocaishen-michael/my-beloved-server.git /tmp/repo
 cd /tmp/repo
 
-# Args: role home_ip
-# home_ip 拿你本机 `curl ifconfig.me` 的结果
-sudo bash ops/runbook/ecs-bootstrap.sh tight 138.128.221.158
+# Args: home_ip — 你本机 `curl ifconfig.me` 的结果
+sudo bash ops/runbook/ecs-bootstrap.sh 138.128.221.158
 
 # 完成后转交给 admin 用户（Aliyun cloud image 默认非 root 用户，已预配 sudo + ssh keys）
 sudo mv /tmp/repo /home/admin/my-beloved-server
@@ -80,19 +77,19 @@ bootstrap 脚本会：
 
 ---
 
-## 2. 配置 .env.app + 启动全栈
+## 2. 配置 .env.production + 启动全栈
 
 ```bash
 ssh admin@101.133.128.62
 
 cd ~/my-beloved-server
 
-cp .env.app.example .env.app
-nano .env.app
+cp .env.production.example .env.production
+nano .env.production
 #   --- 必填 ---
 #   MBW_VERSION=v0.1.x                              ← 当前 release-please tag
 #   DB_USERNAME=mbw
-#   DB_PASSWORD=<openssl rand -hex 32>              ← 不再需要跨节点同步
+#   DB_PASSWORD=<openssl rand -hex 32>
 #   REDIS_PASSWORD=<openssl rand -hex 32>
 #   JWT_SECRET=<openssl rand -hex 32 + 纸质备份>
 #
@@ -102,10 +99,6 @@ nano .env.app
 #
 #   MBW_EMAIL_PROVIDER=resend
 #   RESEND_API_KEY=re_xxxxx                         ← Resend send-only key
-#
-#   --- 不再需要（单节点）---
-#   DATA_NODE_HOST                                  ← 删掉，docker-compose.tight.yml
-#                                                     使用服务名 postgres / redis 内部解析
 
 # 登录 Aliyun ACR（cn-shanghai 同 region intranet 拉取，~5s for 180MB）
 # 凭证 = ACR 个人版控制台设的"固定密码"（不是 AccessKey）；
@@ -113,14 +106,14 @@ nano .env.app
 echo "$ACR_PASSWORD" | docker login crpi-uy44w7zpjef3f9w1.cn-shanghai.personal.cr.aliyuncs.com -u "$ACR_USERNAME" --password-stdin
 
 # 拉镜像（image URL 由 docker-compose.tight.yml 默认 → ACR；可选 MBW_VERSION env 锁版本）
-MBW_VERSION=v0.1.x docker compose -f docker-compose.tight.yml --env-file .env.app pull app
+MBW_VERSION=v0.1.x docker compose -f docker-compose.tight.yml --env-file .env.production pull app
 
 # 启动 PG + Redis + app（暂不起 nginx，等 Let's Encrypt 拿证书后再起）
-docker compose -f docker-compose.tight.yml --env-file .env.app up -d postgres redis app
+docker compose -f docker-compose.tight.yml --env-file .env.production up -d postgres redis app
 
 # 等 healthcheck 全绿（首次 ~60s，含 Spring 启动）
-docker compose -f docker-compose.tight.yml --env-file .env.app ps
-docker compose -f docker-compose.tight.yml --env-file .env.app logs --tail=50 app
+docker compose -f docker-compose.tight.yml --env-file .env.production ps
+docker compose -f docker-compose.tight.yml --env-file .env.production logs --tail=50 app
 # 期望见到 "Started MbwApplication in X seconds"
 ```
 
@@ -145,8 +138,8 @@ sudo cp -r /etc/letsencrypt/* \
     /var/lib/docker/volumes/mbw-tight_mbw-letsencrypt/_data/
 
 # 启动 nginx
-docker compose -f docker-compose.tight.yml --env-file .env.app up -d nginx
-docker compose -f docker-compose.tight.yml --env-file .env.app ps
+docker compose -f docker-compose.tight.yml --env-file .env.production up -d nginx
+docker compose -f docker-compose.tight.yml --env-file .env.production ps
 ```
 
 ### 续签 cron
@@ -230,7 +223,7 @@ curl -fsS -X POST https://api.xiaocaishen.me/api/v1/accounts/register-by-phone \
 任何步骤失败：
 
 ```bash
-docker compose -f docker-compose.tight.yml --env-file .env.app logs --tail=100 app
+docker compose -f docker-compose.tight.yml --env-file .env.production logs --tail=100 app
 ```
 
 常见错误对照：

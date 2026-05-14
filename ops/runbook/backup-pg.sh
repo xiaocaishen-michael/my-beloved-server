@@ -7,7 +7,7 @@
 #       >>/var/log/mbw-backup.log 2>&1
 #
 # Prereqs (one-time on the node):
-#   1. .env.app exists at the repo root with DB_USERNAME / DB_PASSWORD
+#   1. .env.production exists at the repo root with DB_USERNAME / DB_PASSWORD
 #      (M1 A-Tight v2 single-node — uses the same env file as the app)
 #   2. aliyun-cli installed + ~/.aliyun/config.json configured for profile
 #      mbw-server (region cn-shanghai); ~/.ossutilconfig also needed (Aliyun
@@ -30,11 +30,9 @@
 
 set -euo pipefail
 
-# Config — defaults for M1 A-Tight v2 single-node form. For future-split
-# (real A-Split topology) override BACKUP_DIR=/data/backup,
-# COMPOSE_FILE=docker-compose.data.yml, ENV_FILE=.env.data.
+# Config — defaults for M1 A-Tight v2 single-node form.
 COMPOSE_FILE="${COMPOSE_FILE:-/home/admin/my-beloved-server/docker-compose.tight.yml}"
-ENV_FILE="${ENV_FILE:-/home/admin/my-beloved-server/.env.app}"
+ENV_FILE="${ENV_FILE:-/home/admin/my-beloved-server/.env.production}"
 BACKUP_DIR="${BACKUP_DIR:-/home/admin/backup}"
 OSS_BUCKET="${OSS_BUCKET:-mbw-oss}"
 OSS_PROFILE="${OSS_PROFILE:-mbw-server}"

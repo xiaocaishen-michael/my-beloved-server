@@ -7,8 +7,6 @@ paths:
 
 # Docker / Compose 约束（自动注入）
 
-A-Split future-split 拓扑下的 compose 拆分约定见 meta 仓 [`docs/adr/0012-deployment-a-split.md`](https://github.com/xiaocaishen-michael/no-vain-years/blob/main/docs/adr/0012-deployment-a-split.md) § Future Implementation Guide。
-
 ## Dockerfile
 
 - base image: runtime=`eclipse-temurin:<version>-jre`（**never** `:latest`）；builder=`<version>-jdk`
@@ -32,7 +30,7 @@ IDE / OS junk：`.idea/` `*.iml` `.DS_Store` 等
 - image 版本显式 pin（**never** `:latest`）
 - 每个服务必须有 `healthcheck`（让 `depends_on: condition: service_healthy` 生效）
 - volumes 命名加项目前缀（如 `mbw-pgdata`）
-- 文件按角色后缀分：`docker-compose.dev.yml` / `.tight.yml` / `.app.yml` / `.data.yml`
+- 文件按角色后缀分：`docker-compose.dev.yml`（本机开发）/ `.tight.yml`（M1 单节点生产）
 - **禁止**单一 `docker-compose.yml` 混 dev/prod
 - `profiles:`：可选服务（dev 不默认起的）用 `profiles: [...]` 标注
 - `container_name`：dev 友好可显式指定；prod 慎用（多 instance 冲突）

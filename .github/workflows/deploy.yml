@@ -5,7 +5,7 @@ name: Deploy
 #
 # Steps run on the production ECS via SSH:
 #   1. git pull main (refresh compose configs / runbook)
-#   2. Update .env.app: disable MBW_APP_IMAGE override + set MBW_VERSION
+#   2. Update .env.production: disable MBW_APP_IMAGE override + set MBW_VERSION
 #      → docker-compose.tight.yml's default ${MBW_APP_IMAGE:-crpi-...} kicks in
 #        and pulls from Aliyun ACR with the right tag
 #   3. docker login ACR → pull → up -d --force-recreate app
@@ -109,16 +109,16 @@ jobs:
             git reset --hard origin/main
           fi
 
-          # Update .env.app to use ACR image at target tag.
+          # Update .env.production to use ACR image at target tag.
           # 1) Disable any local MBW_APP_IMAGE override (docker-compose.tight.yml's
           #    default ${MBW_APP_IMAGE:-crpi-.../mbw_xcs/mbw-app:${MBW_VERSION:-latest}}
           #    will fall through to the ACR URL).
-          sed -i 's|^MBW_APP_IMAGE=.*|# MBW_APP_IMAGE= (disabled by deploy.yml)|' .env.app
+          sed -i 's|^MBW_APP_IMAGE=.*|# MBW_APP_IMAGE= (disabled by deploy.yml)|' .env.production
           # 2) Set MBW_VERSION to the target tag.
-          if grep -q '^MBW_VERSION=' .env.app; then
-            sed -i "s|^MBW_VERSION=.*|MBW_VERSION=$TAG|" .env.app
+          if grep -q '^MBW_VERSION=' .env.production; then
+            sed -i "s|^MBW_VERSION=.*|MBW_VERSION=$TAG|" .env.production
           else
-            echo "MBW_VERSION=$TAG" >> .env.app
+            echo "MBW_VERSION=$TAG" >> .env.production
           fi
 
           # Login to Aliyun ACR (intranet pull, ~5s for 180MB).
@@ -126,8 +126,8 @@ jobs:
               -u "$ACR_USERNAME" --password-stdin
 
           # Pull new image + recreate app container only (postgres / redis / nginx untouched).
-          docker compose -f docker-compose.tight.yml --env-file .env.app pull app
-          docker compose -f docker-compose.tight.yml --env-file .env.app up -d --force-recreate app
+          docker compose -f docker-compose.tight.yml --env-file .env.production pull app
+          docker compose -f docker-compose.tight.yml --env-file .env.production up -d --force-recreate app
 
           # Wait up to 120s for app healthcheck.
           HEALTHY=false
@@ -143,7 +143,7 @@ jobs:
 
           if [ "$HEALTHY" != "true" ]; then
             echo "::error::App did not become healthy within 120s — last logs:"
-            docker compose -f docker-compose.tight.yml --env-file .env.app logs --tail=80 app
+            docker compose -f docker-compose.tight.yml --env-file .env.production logs --tail=80 app
             exit 1
           fi
 

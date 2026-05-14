@@ -1,22 +1,15 @@
 #!/usr/bin/env bash
 #
-# One-time ECS bootstrap script for M1 deployment.
+# One-time ECS bootstrap script for M1 deployment (A-Tight v2 single-node).
 # Run as root (or with sudo) on the ECS — once per machine.
 #
 # Usage:
-#   sudo bash ecs-bootstrap.sh <role> <home_ip> [app_internal_ip]
+#   sudo bash ecs-bootstrap.sh <home_ip>
 #
 # Args:
-#   role             — "tight" (M1 active) | "app" | "data" (future-split):
-#                      tight: single ECS hosting all services (current M1)
-#                      app:   future-split App node (kept for future use)
-#                      data:  future-split Data node (kept for future use)
-#   home_ip          — Your home/office public IP (allowed to SSH on :22).
-#                      `curl ifconfig.me` from your laptop. Use CIDR /32 if
-#                      you want exactly that one address.
-#   app_internal_ip  — Required only for role=data. App node's intranet IP
-#                      (allowed to reach :5432 / :6379). Find via Aliyun
-#                      console → ECS → "intranet IPv4".
+#   home_ip — Your home/office public IP (allowed to SSH on :22).
+#             `curl ifconfig.me` from your laptop. Use CIDR /32 if you
+#             want exactly that one address.
 #
 # What this does:
 #   1. apt update + base packages
@@ -25,20 +18,15 @@
 #      No new user is created; we ride the cloud image's default identity.
 #   3. Install Docker CE + compose plugin (Aliyun mirror)
 #   4. Set timezone Asia/Shanghai + enable chrony for time sync
-#   5. Configure UFW (local firewall, double-defence with cloud security group):
-#      - tight: SKIPPED on Aliyun SWAS (incompat with SWAS management plane;
-#               2026-05-01 incident — host-side ufw isolates the instance).
-#               Cloud-side firewall (SWAS console) is the single boundary.
-#      - app:   22 from home_ip, 80/443 from anywhere (real ECS scenario)
-#      - data:  22 from home_ip, 5432/6379 from app_internal_ip (real ECS scenario)
-#   6. Data node only: format + mount /dev/vdb at /data (PG/Redis volumes).
-#      tight role does NOT mount a data disk — per ADR-0002 § Update 2026-04-30
-#      decision to drop data disk; PG/Redis fall back to system disk + pg_dump
-#      → OSS daily backup as the data protection mechanism.
+#   5. UFW (local firewall) is SKIPPED on Aliyun SWAS (incompat with SWAS
+#      management plane; 2026-05-01 incident — host-side ufw isolates the
+#      instance). Cloud-side firewall (SWAS console) is the single boundary.
+#   6. No data disk format/mount — per ADR-0002 § Update 2026-04-30 the
+#      M1 A-Tight v2 form drops the data disk; PG/Redis fall back to system
+#      disk + pg_dump → OSS daily backup as the data protection mechanism.
 #
-# Idempotency: re-running this script should be a no-op. Each step
-# checks before applying. Exception: data disk format only runs if
-# /dev/vdb has no filesystem — safe by design.
+# Idempotency: re-running this script should be a no-op. Each step checks
+# before applying.
 #
 # Target OS: Ubuntu 22.04 LTS. Aliyun Linux 3 differs in package manager
 # (yum vs apt) and Docker repo URL — branch this script if needed.
@@ -46,33 +34,20 @@
 set -euo pipefail
 
 # ---------- args ----------
-if [[ $# -lt 2 ]]; then
-    echo "Usage: $0 <tight|app|data> <home_ip> [app_internal_ip]" >&2
+if [[ $# -lt 1 ]]; then
+    echo "Usage: $0 <home_ip>" >&2
     exit 1
 fi
 
-ROLE="$1"
-HOME_IP="$2"
-APP_INTERNAL_IP="${3:-}"
-
-if [[ "$ROLE" != "tight" && "$ROLE" != "app" && "$ROLE" != "data" ]]; then
-    echo "Error: role must be 'tight', 'app', or 'data', got '$ROLE'" >&2
-    exit 1
-fi
-
-if [[ "$ROLE" == "data" && -z "$APP_INTERNAL_IP" ]]; then
-    echo "Error: role=data requires app_internal_ip as third argument" >&2
-    exit 1
-fi
+HOME_IP="$1"
 
 if [[ $EUID -ne 0 ]]; then
     echo "Error: must run as root (or via sudo)" >&2
     exit 1
 fi
 
-echo "==> Bootstrapping role=$ROLE on $(hostname) ($(uname -m))"
+echo "==> Bootstrapping M1 A-Tight v2 single-node on $(hostname) ($(uname -m))"
 echo "==> Home IP allowed for SSH: $HOME_IP"
-[[ "$ROLE" == "data" ]] && echo "==> App internal IP allowed for DB/Redis: $APP_INTERNAL_IP"
 
 # ---------- 1. apt update + base packages ----------
 echo "==> [1/6] apt update + base packages"
@@ -87,7 +62,7 @@ export NEEDRESTART_SUSPEND=1
 apt-get update -qq
 apt-get install -y -qq \
     ca-certificates curl gnupg lsb-release \
-    chrony ufw \
+    chrony \
     python3-pip jq
 
 # ---------- 2. deploy user (use Aliyun's default `admin`) ----------
@@ -148,83 +123,25 @@ echo "==> [4/6] Timezone Asia/Shanghai + chrony NTP"
 timedatectl set-timezone Asia/Shanghai
 systemctl enable --now chrony
 
-# ---------- 5. UFW (skipped for tight role on Aliyun SWAS) ----------
+# ---------- 5. UFW skipped on Aliyun SWAS ----------
 # UFW is incompatible with Aliyun's "Lightweight Application Server" (SWAS,
 # 轻量应用服务器) — enabling host-side firewall makes SWAS management plane
 # heartbeat lose access, the instance gets flagged unhealthy, and Aliyun
 # isolates it (ssh + ICMP-only afterwards). Confirmed twice 2026-04-30 +
 # 2026-05-01 during M1 bootstrap.
 #
-# On real ECS this scenario does not happen — VPC routes a dedicated path
-# for management plane that ufw default-deny cannot intercept. So `app` /
-# `data` (future-split with real ECS) keep ufw as defense-in-depth.
-#
-# For tight role (M1 single SWAS): cloud-side firewall (SWAS console) is
-# the single security boundary. Configure 80/443 public + 22 home-IP-only
-# in the SWAS console "防火墙" (Firewall) page.
-if [[ "$ROLE" == "tight" ]]; then
-    echo "==> [5/6] role=tight on Aliyun SWAS — skipping ufw (incompat with SWAS management plane)"
-    echo "    Cloud-side firewall (SWAS console) is the single security boundary"
-else
-    echo "==> [5/6] UFW firewall (local, complementing the cloud security group)"
-    # Reset → clean slate, idempotent
-    ufw --force reset >/dev/null
-    ufw default deny incoming
-    ufw default allow outgoing
+# Cloud-side firewall (SWAS console) is the single security boundary.
+# Configure 80/443 public + 22 home-IP-only in the SWAS console "防火墙"
+# (Firewall) page.
+echo "==> [5/6] Skipping ufw on Aliyun SWAS (incompat with SWAS management plane)"
+echo "    Cloud-side firewall (SWAS console) is the single security boundary"
 
-    # SSH from home IP only — not from anywhere
-    ufw allow from "$HOME_IP" to any port 22 proto tcp comment 'home SSH'
-
-    if [[ "$ROLE" == "app" ]]; then
-        ufw allow 80/tcp comment 'public HTTP'
-        ufw allow 443/tcp comment 'public HTTPS'
-    fi
-    if [[ "$ROLE" == "data" ]]; then
-        ufw allow from "$APP_INTERNAL_IP" to any port 5432 proto tcp comment 'PG from app'
-        ufw allow from "$APP_INTERNAL_IP" to any port 6379 proto tcp comment 'Redis from app'
-    fi
-
-    ufw --force enable
-    ufw status verbose
-fi
-
-# ---------- 6. Data node — format + mount /dev/vdb at /data ----------
-# tight role: skipped (no data disk per ADR-0002 § Update 2026-04-30).
-if [[ "$ROLE" == "data" ]]; then
-    echo "==> [6/6] Data disk: ensure /dev/vdb mounted at /data"
-    if [[ ! -b /dev/vdb ]]; then
-        echo "    !! /dev/vdb not present — is the data disk attached in Aliyun console?" >&2
-        echo "    !! skipping data disk setup; PG/Redis volumes will land on system disk (NOT recommended for prod)" >&2
-    else
-        # Check if /dev/vdb has a filesystem
-        if ! blkid /dev/vdb >/dev/null 2>&1; then
-            echo "    /dev/vdb has no filesystem, formatting as ext4"
-            mkfs.ext4 -F /dev/vdb
-        else
-            echo "    /dev/vdb already has filesystem $(blkid -o value -s TYPE /dev/vdb), skipping format"
-        fi
-
-        mkdir -p /data
-        # Add to fstab if not already there
-        if ! grep -q '^/dev/vdb' /etc/fstab; then
-            UUID=$(blkid -o value -s UUID /dev/vdb)
-            echo "UUID=$UUID /data ext4 defaults,nofail 0 2" >>/etc/fstab
-            echo "    added /dev/vdb (UUID=$UUID) to /etc/fstab"
-        fi
-
-        # Mount (idempotent — `mount -a` only mounts what's not already mounted)
-        mount -a
-
-        # Sub-dirs for PG / Redis / pg_dump backup
-        mkdir -p /data/pg /data/redis /data/backup
-        chown -R admin:admin /data
-        echo "    /data mounted; sub-dirs prepared (pg / redis / backup)"
-    fi
-elif [[ "$ROLE" == "app" ]]; then
-    echo "==> [6/6] role=app — skipping data disk step (data lives on Data node)"
-else
-    echo "==> [6/6] role=tight — skipping data disk step (per ADR-0002 § Update 2026-04-30)"
-fi
+# ---------- 6. No data disk on M1 A-Tight v2 ----------
+# Per ADR-0002 § Update 2026-04-30 the M1 form drops the data disk;
+# PG/Redis volumes land on the system disk (Aliyun ESSD) and the daily
+# pg_dump → OSS upload (ops/runbook/backup-pg.sh) is the sole data
+# protection mechanism.
+echo "==> [6/6] Skipping data disk step (per ADR-0002 § Update 2026-04-30)"
 
 echo
 echo "✅ Bootstrap done. Re-login as admin (or 'su - admin') and proceed with single-node-deploy.md."

@@ -1,21 +1,15 @@
 # Production compose for M1 A-Tight v2 — single ECS 2c4g hosting all services
 # (Spring Boot + PostgreSQL + Redis + Nginx).
 #
-# This is the M1 active production compose. The split-topology files
-# (docker-compose.app.yml + docker-compose.data.yml) are kept in the
-# repo as future-A-Split reference but NOT activated for M1 — see
-# meta repo docs/adr/0012-deployment-a-split.md § Amendment 2026-04-30
-# for the un-pivot rationale.
-#
 # Usage on the production ECS:
-#   docker compose -f docker-compose.tight.yml --env-file .env.app up -d
-#   docker compose -f docker-compose.tight.yml --env-file .env.app ps
-#   docker compose -f docker-compose.tight.yml --env-file .env.app logs -f app
+#   docker compose -f docker-compose.tight.yml --env-file .env.production up -d
+#   docker compose -f docker-compose.tight.yml --env-file .env.production ps
+#   docker compose -f docker-compose.tight.yml --env-file .env.production logs -f app
 #
 # Local dry-run with a self-built image:
 #   docker build -t mbw-app:dev .
 #   MBW_APP_IMAGE=mbw-app:dev \
-#     docker compose -f docker-compose.tight.yml --env-file .env.app up -d
+#     docker compose -f docker-compose.tight.yml --env-file .env.production up -d
 #
 # Memory budget on 2c4g (per meta deployment.md):
 #   OS + Docker daemon              ~280 MB
@@ -40,8 +34,8 @@ services:
       POSTGRES_USER: ${DB_USERNAME}
       POSTGRES_PASSWORD: ${DB_PASSWORD}
     command:
-      # Tighter than A-Split data node settings — single 4GB host shared
-      # with JVM 1.5g + Redis 256m + nginx + OS, can't afford 384MB shared_buffers.
+      # Single 4GB host shared with JVM 1.5g + Redis 256m + nginx + OS,
+      # can't afford 384MB shared_buffers.
       - "postgres"
       - "-c"
       - "shared_buffers=256MB"
@@ -94,9 +88,9 @@ services:
       # does NOT silently activate DevCorsConfig (would open CORS to localhost:8081
       # in production). Must stay set; do not delete.
       SPRING_PROFILES_ACTIVE: prod
-      # JVM — A-Tight v2 single 4GB host shared with PG/Redis/nginx;
-      # heap caps at 1.5g (vs A-Split's 2g). ExitOnOutOfMemoryError
-      # makes container restart policy do the recovery instead of swap.
+      # JVM — single 4GB host shared with PG/Redis/nginx; heap caps at 1.5g.
+      # ExitOnOutOfMemoryError makes container restart policy do the recovery
+      # instead of swap.
       JAVA_OPTS: "-Xms512m -Xmx1500m -XX:MaxMetaspaceSize=256m -XX:MaxDirectMemorySize=128m -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -XX:+ExitOnOutOfMemoryError"
       # Data layer — service names resolve via docker network.
       DATASOURCE_URL: "jdbc:postgresql://postgres:5432/mbw"
