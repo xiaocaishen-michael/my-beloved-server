@@ -28,7 +28,12 @@ WORKDIR /build/extracted
 RUN java -Djarmode=layertools -jar /build/mbw-app/target/mbw-app-*-exec.jar extract
 
 # ---- Stage 2: runtime ----
-FROM eclipse-temurin:21-jre AS runtime
+# Pinned to -noble (Ubuntu 24.04). Unsuffixed `21-jre` now resolves to
+# the `resolute` variant (Ubuntu 26.04), which ships pebble as default
+# entrypoint — its bundled Go stdlib triggers 5 HIGH CVEs in Trivy.
+# Fix unreleased upstream (canonical/pebble#862 open); Adoptium does
+# not own the base layer (adoptium/containers#906). Noble has no pebble.
+FROM eclipse-temurin:21-jre-noble AS runtime
 WORKDIR /app
 
 # Run as non-root.
