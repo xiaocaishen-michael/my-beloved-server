@@ -1,5 +1,28 @@
 # Changelog
 
+## [0.3.1](https://github.com/xiaocaishen-michael/my-beloved-server/compare/v0.3.0...v0.3.1) (2026-05-14)
+
+
+### Bug Fixes
+
+* **core:** dev-server.sh 加 -am 让副 worktree 首次跑找到 cross-module deps ([#177](https://github.com/xiaocaishen-michael/my-beloved-server/issues/177)) ([7bf4fdb](https://github.com/xiaocaishen-michael/my-beloved-server/commit/7bf4fdbff2ae9184ce4be403e49c1b6a92cc05f2))
+* **core:** dev-server.sh 自 source .envrc 不依赖 direnv hook ([#181](https://github.com/xiaocaishen-michael/my-beloved-server/issues/181)) ([a4cde2e](https://github.com/xiaocaishen-michael/my-beloved-server/commit/a4cde2ed668c2dd5a41fa8232e087c93152b0c74))
+* **repo:** pin runtime base to eclipse-temurin:21-jre-noble ([#180](https://github.com/xiaocaishen-michael/my-beloved-server/issues/180)) ([5ec6264](https://github.com/xiaocaishen-michael/my-beloved-server/commit/5ec62646634bd386f563b4cc9c54a1258fa798b7))
+
+
+### Maintenance
+
+* **core:** per-feature isolation infra (Redis db / Flyway / Hikari / CI lint) ([#175](https://github.com/xiaocaishen-michael/my-beloved-server/issues/175)) ([115a273](https://github.com/xiaocaishen-michael/my-beloved-server/commit/115a273e0d6e8428db1c9b030f025b8e0733b701))
+* **main:** release 0.3.1-SNAPSHOT ([#162](https://github.com/xiaocaishen-michael/my-beloved-server/issues/162)) ([bfb96cc](https://github.com/xiaocaishen-michael/my-beloved-server/commit/bfb96cc355244d3dc88443563aaeb432b5427274))
+* **ops:** archive A-Split materials & rename .env.app → .env.production ([#183](https://github.com/xiaocaishen-michael/my-beloved-server/issues/183)) ([e2800ce](https://github.com/xiaocaishen-michael/my-beloved-server/commit/e2800cee7ce73a6184c73f30d160d9163d6644bc))
+* **repo:** add path-scoped rules for Docker and API contract (O7) ([#172](https://github.com/xiaocaishen-michael/my-beloved-server/issues/172)) ([7eba3db](https://github.com/xiaocaishen-michael/my-beloved-server/commit/7eba3db9bd2cc0c3c76cfa61ad92408eac0ea1ab))
+* **repo:** add skip_git_fetch toggle to deploy.yml ([#163](https://github.com/xiaocaishen-michael/my-beloved-server/issues/163)) ([ce4741b](https://github.com/xiaocaishen-michael/my-beloved-server/commit/ce4741b4cd24440a7e1897a1f275dcca24878aac))
+* **repo:** dependabot ignore netty/ip2region semver-major ([#179](https://github.com/xiaocaishen-michael/my-beloved-server/issues/179)) ([535dd4d](https://github.com/xiaocaishen-michael/my-beloved-server/commit/535dd4df24382ddde0a2dfe0de8012b72ddf3332))
+* **repo:** path-scope checkstyle rationale (out of meta always-load) ([#173](https://github.com/xiaocaishen-michael/my-beloved-server/issues/173)) ([cc88881](https://github.com/xiaocaishen-michael/my-beloved-server/commit/cc88881c27a9a32fdda6eaf2ebc6eb3a83d0f1ff))
+* **repo:** spotless:check → auto-apply in pre-commit hook (O6) ([#169](https://github.com/xiaocaishen-michael/my-beloved-server/issues/169)) ([b328e5a](https://github.com/xiaocaishen-michael/my-beloved-server/commit/b328e5ad3cb65b95645f84c34af9e071b326647e))
+* **repo:** spotless:check → auto-apply in pre-commit hook (O6) ([#171](https://github.com/xiaocaishen-michael/my-beloved-server/issues/171)) ([107e9f9](https://github.com/xiaocaishen-michael/my-beloved-server/commit/107e9f90b6908728b79bce3a049142b792d3cb0f))
+* **repo:** wire realname env to compose + fix pepper env name ([#165](https://github.com/xiaocaishen-michael/my-beloved-server/issues/165)) ([dc0a095](https://github.com/xiaocaishen-michael/my-beloved-server/commit/dc0a09510819a21a7b664977c3f96ba2db0d1dbf))
+
 ## [0.3.0](https://github.com/xiaocaishen-michael/my-beloved-server/compare/v0.2.0...v0.3.0) (2026-05-10)
 
 
