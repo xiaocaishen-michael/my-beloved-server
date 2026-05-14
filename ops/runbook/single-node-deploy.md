@@ -18,7 +18,7 @@
 | `DB_PASSWORD` | `openssl rand -hex 32` | `.env.production`（单节点无需跨节点同步）|
 | `REDIS_PASSWORD` | `openssl rand -hex 32` | `.env.production` |
 | `RESEND_API_KEY` | resend.com → API Keys（Sending access on `mail.xiaocaishen.me`）| `.env.production` |
-| `MOCK_SMS_RECIPIENT` | `zhangleipd@aliyun.com`（写死，[ADR-0013](https://github.com/xiaocaishen-michael/no-vain-years/blob/main/docs/adr/0013-defer-sms-to-business-license.md)）| `.env.production` |
+| `MOCK_SMS_RECIPIENT` | `zhangleizlwpd@gmail.com`（写死，[ADR-0013](https://github.com/xiaocaishen-michael/no-vain-years/blob/main/docs/adr/0013-defer-sms-to-business-license.md)）| `.env.production` |
 | `MOCK_SMS_FROM` | `noreply@mail.xiaocaishen.me` | `.env.production` |
 | `ACR_USERNAME` | RAM 子用户全名 `mbw-server@<accountid>.onaliyun.com`（去 RAM 控制台 → 用户详情查"登录名"）| 临时使用，docker login 后无需持久化 |
 | `ACR_PASSWORD` | Aliyun 容器镜像服务 → 个人版实例 → 访问凭证 → 设置的固定密码 | 同上 |
@@ -94,7 +94,7 @@ nano .env.production
 #   JWT_SECRET=<openssl rand -hex 32 + 纸质备份>
 #
 #   MBW_SMS_PROVIDER=mock
-#   MOCK_SMS_RECIPIENT=zhangleipd@aliyun.com
+#   MOCK_SMS_RECIPIENT=zhangleizlwpd@gmail.com
 #   MOCK_SMS_FROM=noreply@mail.xiaocaishen.me
 #
 #   MBW_EMAIL_PROVIDER=resend
@@ -205,16 +205,17 @@ aliyun ossutil ls oss://mbw-oss/pg/ --profile mbw-server
 curl -fsS https://api.xiaocaishen.me/actuator/health | jq
 # 期待: {"status":"UP"}
 
-# 5.2 触发 SMS（实际走 Resend → zhangleipd@aliyun.com 收件箱）
+# 5.2 触发 SMS（实际走 Resend → zhangleizlwpd@gmail.com 收件箱）
 curl -fsS -X POST https://api.xiaocaishen.me/api/v1/sms-codes \
     -H "Content-Type: application/json" \
     -d '{"phone":"+8613800138000"}'
 
-# 5.3 登 zhangleipd@aliyun.com 看邮件，标题含 "+8613800138000"，
+# 5.3 登 zhangleizlwpd@gmail.com 看邮件，标题含 "+8613800138000"，
 #     正文有 code=XXXXXX
 
-# 5.4 用 code 注册
-curl -fsS -X POST https://api.xiaocaishen.me/api/v1/accounts/register-by-phone \
+# 5.4 用 code 完成 phone-SMS 认证（[ADR-0016](https://github.com/xiaocaishen-michael/no-vain-years/blob/main/docs/adr/0016-unified-mobile-first-auth.md)
+#     unified：首次该 phone → 自动 register，已存在 → login；同 endpoint 同 response shape）
+curl -fsS -X POST https://api.xiaocaishen.me/api/v1/accounts/phone-sms-auth \
     -H "Content-Type: application/json" \
     -d '{"phone":"+8613800138000","code":"<CODE_FROM_EMAIL>"}' | jq
 # 期待: {"accountId": ..., "accessToken": "...", "refreshToken": "..."}
@@ -233,7 +234,7 @@ docker compose -f docker-compose.tight.yml --env-file .env.production logs --tai
 | 5.1 connection refused | nginx 没起 / 安全组 443 未放行 |
 | 5.1 SSL handshake failed | 证书路径错 / docker volume mount 失败 |
 | 5.2 503 SMS_SEND_FAILED | RESEND_API_KEY 缺 / 域名未 verify / 看 Resend dashboard 具体 status |
-| 5.4 INVALID_CODE | 邮箱里没找到 code，或抄错 |
+| 5.4 INVALID_CREDENTIALS（HTTP 401）| 邮箱里没找到 code / 抄错 / code 已过 5min TTL；ADR-0016 反枚举不区分"code 错"与"phone 未注册" |
 | 启动 fail | DB_PASSWORD / REDIS_PASSWORD 不对，Spring 连不上 → log 见 "Connection refused" |
 
 ---
