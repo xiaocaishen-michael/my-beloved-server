@@ -38,6 +38,21 @@ pre-commit:
       run: npx -y markdownlint-cli2 {staged_files}
       tags:
         - lint
+    tasks-md-drift:
+      # commit 含 impl 代码 (.java) 但 tasks.md 未 staged → 拒
+      # per memory feedback_implement_owns_tasks_md_sync + plan § 2.5
+      # 出口: --no-verify (仅限格式化 / typo / 紧急 hotfix)
+      run: |
+        if echo "{staged_files}" | grep -qE '\.java$'; then
+          if ! echo "{staged_files}" | grep -qE 'specs/.+/tasks\.md$'; then
+            echo "❌ 本次 commit 含 .java impl 代码但 tasks.md 未 staged"
+            echo "   per docs/conventions/sdd.md § /implement 闭环 6 步"
+            echo "   出口: --no-verify (仅限格式化 / typo / 紧急 hotfix)"
+            exit 1
+          fi
+        fi
+      tags:
+        - sdd
 
 # Conventional Commits enforcement at commit time.
 # Regex-based check (no Node dependency) — full ruleset runs in CI via
