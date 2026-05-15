@@ -1,0 +1,12 @@
+{
+  "presets": {
+    "context7-injection": {
+      "enabled": true,
+      "priority": 5
+    },
+    "task-closure": {
+      "enabled": true,
+      "priority": 10
+    }
+  }
+}
