@@ -42,9 +42,13 @@ pre-commit:
       # commit 含 impl 代码 (.java) 但 tasks.md 未 staged → 拒
       # per memory feedback_implement_owns_tasks_md_sync + plan § 2.5
       # 出口: --no-verify (仅限格式化 / typo / 紧急 hotfix)
+      # Regex 用 `( |$)` 边界 — {staged_files} 展开为 space-separated 一行,
+      # 用 `$` 只检查整行末尾文件后缀, 中间文件漏检 (e.g. tasks.md 在中部但
+      # 末尾是 specs/.../plan.md 时 false negative).
+      # 同步 app PR #120 fix (per [[feedback_lefthook_staged_files_grep_boundary]]).
       run: |
-        if echo "{staged_files}" | grep -qE '\.java$'; then
-          if ! echo "{staged_files}" | grep -qE 'specs/.+/tasks\.md$'; then
+        if echo "{staged_files}" | grep -qE '\.java( |$)'; then
+          if ! echo "{staged_files}" | grep -qE 'specs/.+/tasks\.md( |$)'; then
             echo "❌ 本次 commit 含 .java impl 代码但 tasks.md 未 staged"
             echo "   per docs/conventions/sdd.md § /implement 闭环 6 步"
             echo "   出口: --no-verify (仅限格式化 / typo / 紧急 hotfix)"

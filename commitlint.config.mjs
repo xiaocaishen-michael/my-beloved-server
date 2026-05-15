@@ -14,6 +14,10 @@ export default {
     'header-max-length': [2, 'always', 100],
     // Body 150 chars (default 100 too tight; mirrors meta + app commitlint).
     'body-max-line-length': [2, 'always', 150],
+    // Align footer to body limit. Default 100 caught body lines when commit
+    // contains a trailer (e.g. Co-Authored-By:) — commitlint footer algorithm
+    // pulls trailing body content into footer scope. server PR #191 实证 2026-05-15.
+    'footer-max-line-length': [2, 'always', 150],
     'subject-case': [0], // mixed Chinese/English; case rules don't apply
   },
   // Skip body line-length check for dependabot — its auto-generated body
