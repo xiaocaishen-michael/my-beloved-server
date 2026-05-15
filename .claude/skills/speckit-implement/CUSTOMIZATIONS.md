@@ -67,7 +67,12 @@
 
 本目录额外存一份**未经定制的上游 SKILL.md body 快照**(去掉 frontmatter,保留 body)作为升级时的 diff 基线。每次重新对齐上游后**同步刷新**。
 
-当前快照基线 = `templates/commands/implement.md` @ spec-kit installed via `uvx specify init`(2026-05-04 时点本仓 init)。
+当前快照基线 = `templates/commands/implement.md` @ spec-kit **v0.8.7**（2026-05-15 升级时取自 GitHub raw `https://raw.githubusercontent.com/github/spec-kit/v0.8.7/templates/commands/implement.md`）。
+
+**升级历史**：
+
+- 2026-05-04：spec-kit 0.8.2.dev0 init，C1-C4 首次 apply
+- 2026-05-15：升级到 0.8.7，重 apply C1-C4；新增 v0.8.6 引入的 constitution context loading 行（step 3 `**IF EXISTS**: Read .specify/memory/constitution.md`），与 C1-C4 不冲突已自动保留
 
 ## 关联文档
 

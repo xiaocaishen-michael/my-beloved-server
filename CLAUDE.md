@@ -178,5 +178,6 @@ Spring Boot starter 跟父 pom BOM；**加新三方依赖前主动询问**（避
 ---
 
 <!-- SPECKIT START -->
-**SDD via spec-kit**: business modules use `/speckit-specify` → `/speckit-plan` → `/speckit-tasks` → `/speckit-implement`. All outputs MUST follow [`.specify/memory/constitution.md`](.specify/memory/constitution.md), which captures non-negotiable architecture (Modular Monolith, DDD 5-layer, TDD), tech stack (Spring Boot 3.5.x, Spring Modulith 1.4.x), quality gates (Spotless + Palantir + Checkstyle), and anti-patterns. Cross-repo SDD policy: see meta repo [`docs/conventions/sdd.md`](https://github.com/xiaocaishen-michael/no-vain-years/blob/main/docs/conventions/sdd.md).
+For additional context about technologies to be used, project structure,
+shell commands, and other important information, read the current plan
 <!-- SPECKIT END -->
