@@ -2,7 +2,7 @@ package com.mbw.account.domain.model;
 
 /**
  * Sealed root for the credential type hierarchy (CL-001 in
- * {@code spec/account/register-by-phone/spec.md}).
+ * {@code specs/auth/register-by-phone/spec.md}).
  *
  * <p>An ACTIVE account always has a {@link PhoneCredential} and may
  * optionally have a {@link PasswordCredential} (FR-003 makes the

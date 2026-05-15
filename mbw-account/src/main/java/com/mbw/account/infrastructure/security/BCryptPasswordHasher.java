@@ -8,7 +8,7 @@ import org.springframework.stereotype.Component;
 /**
  * BCrypt-backed implementation of {@link PasswordHasher}.
  *
- * <p>Cost = 8 per {@code spec/account/register-by-phone/plan.md} —
+ * <p>Cost = 8 per {@code specs/auth/register-by-phone/plan.md} —
  * balances per-request CPU cost against the FR-013 timing-defense
  * budget (constant-time wrapper pads to 400ms, leaving ~50ms of
  * margin even on the busiest path that hashes a password). Future

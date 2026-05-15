@@ -22,23 +22,23 @@
 
 **子任务(单 commit 完成)**：
 
-- T0.1 改 `specs/account/phone-sms-auth/spec.md` FR-005 第 3 分支：当前文本 "已注册 + status=FROZEN / ANONYMIZED → 反枚举吞下：dummy bcrypt 计算（timing defense） + 返回 `INVALID_CREDENTIALS` HTTP 401" 拆开为：
+- T0.1 改 `specs/auth/phone-sms-auth/spec.md` FR-005 第 3 分支：当前文本 "已注册 + status=FROZEN / ANONYMIZED → 反枚举吞下：dummy bcrypt 计算（timing defense） + 返回 `INVALID_CREDENTIALS` HTTP 401" 拆开为：
   - **FROZEN（per spec D）**：抛 `AccountInFreezePeriodException` → HTTP 403 + body `code: ACCOUNT_IN_FREEZE_PERIOD` + `freezeUntil`；不走 timing defense pad（disclosure path,wall-clock < 100ms）
   - **ANONYMIZED**：保持反枚举吞 `InvalidCredentialsException` HTTP 401；timing defense pad 仍生效
-- T0.2 改 `specs/account/phone-sms-auth/spec.md` FR-006：timing defense 范围明示 "缩为 ANONYMIZED + 码错 + 未注册自动创建路径，FROZEN 路径已显式 disclosure 不参与（per spec D `expose-frozen-account-status` FR-004 + CL-003 `TimingDefenseExecutor.executeInConstantTime` bypassPad 参数）"
-- T0.3 改 `specs/account/phone-sms-auth/spec.md` SC-003：路径数 "4 种分支" → "3 种分支（已注册 ACTIVE 成功 / 未注册自动注册成功 / ANONYMIZED + 码错共反枚举吞）"；删 "FROZEN 失败" 子句；加注释 "FROZEN 单独由 spec D `expose-frozen-account-status` SC-001 `FrozenAccountStatusDisclosureIT` 验证 disclosure 行为"
-- T0.4 改 `specs/account/phone-sms-auth/spec.md` Clarifications 段加新条 CL-006：
+- T0.2 改 `specs/auth/phone-sms-auth/spec.md` FR-006：timing defense 范围明示 "缩为 ANONYMIZED + 码错 + 未注册自动创建路径，FROZEN 路径已显式 disclosure 不参与（per spec D `expose-frozen-account-status` FR-004 + CL-003 `TimingDefenseExecutor.executeInConstantTime` bypassPad 参数）"
+- T0.3 改 `specs/auth/phone-sms-auth/spec.md` SC-003：路径数 "4 种分支" → "3 种分支（已注册 ACTIVE 成功 / 未注册自动注册成功 / ANONYMIZED + 码错共反枚举吞）"；删 "FROZEN 失败" 子句；加注释 "FROZEN 单独由 spec D `expose-frozen-account-status` SC-001 `FrozenAccountStatusDisclosureIT` 验证 disclosure 行为"
+- T0.4 改 `specs/auth/phone-sms-auth/spec.md` Clarifications 段加新条 CL-006：
   - **CL-006 — FROZEN 反枚举边界变更（per spec D `expose-frozen-account-status`）**
     - **决议**：FROZEN 不再反枚举吞，改为显式 disclosure 返 HTTP 403 + `ACCOUNT_IN_FREEZE_PERIOD`；ANONYMIZED 仍反枚举吞 401 INVALID_CREDENTIALS
     - **理由**：① PRD § 5.4 + § 7 既定语义；② 下游 spec C delete-account-cancel-deletion-ui 拦截 modal 设计依赖此信号；③ ANONYMIZED 是不可逆终态，反枚举防 phone 时序复用攻击价值高；④ FROZEN 是用户主动注销知情态，信息泄露面小
     - **落点**：本 spec FR-005（第 3 分支拆开）+ FR-006（timing defense 范围）+ SC-003（IT 路径数）；server 实现 + 同 PR 落地详见 `specs/account/expose-frozen-account-status/`
-- T0.5 改 `specs/account/phone-sms-auth/spec.md` 变更记录加新条：
+- T0.5 改 `specs/auth/phone-sms-auth/spec.md` 变更记录加新条：
   - **2026-05-XX**（实施日期）：spec D `expose-frozen-account-status` ship — FR-005 第 3 分支拆开 FROZEN/ANONYMIZED 单独表述；FR-006 timing defense 范围明示；SC-003 路径数 4→3；新增 Clarifications CL-006 引用 spec D。本 amendment 与 spec D 同 PR 合入(防 spec drift)。
 
 **Verify**：
 
-- `grep -n "FROZEN" specs/account/phone-sms-auth/spec.md` — FR-005 段含 disclosure 描述；FR-006 段含 "缩为 ANONYMIZED" 措辞；SC-003 段含 "3 种分支" 措辞
-- `grep -n "CL-006" specs/account/phone-sms-auth/spec.md` — Clarifications 段含 CL-006
+- `grep -n "FROZEN" specs/auth/phone-sms-auth/spec.md` — FR-005 段含 disclosure 描述；FR-006 段含 "缩为 ANONYMIZED" 措辞；SC-003 段含 "3 种分支" 措辞
+- `grep -n "CL-006" specs/auth/phone-sms-auth/spec.md` — Clarifications 段含 CL-006
 - markdownlint pre-flight pass(per meta MEMORY `feedback_markdownlint_preflight.md`)
 
 ---

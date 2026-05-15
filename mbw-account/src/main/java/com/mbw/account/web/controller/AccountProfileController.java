@@ -18,7 +18,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 /**
  * HTTP entry point for the account-profile use case (per
- * {@code spec/account/account-profile/spec.md}).
+ * {@code specs/account/profile/spec.md}).
  *
  * <p>Endpoints:
  *

@@ -7,7 +7,7 @@ import java.util.regex.Pattern;
  * E.164-formatted phone number value object.
  *
  * <p>M1.1 accepts mainland China numbers only (carrier prefixes 13–19),
- * matching {@code spec/account/register-by-phone/spec.md} FR-001. The
+ * matching {@code specs/auth/register-by-phone/spec.md} FR-001. The
  * single-column unique constraint on the persisted {@code phone} string
  * (FR-005) lives at the database layer, not here — this record only
  * encodes the format invariant.

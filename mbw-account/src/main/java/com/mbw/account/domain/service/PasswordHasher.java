@@ -5,7 +5,7 @@ import com.mbw.account.domain.model.PasswordHash;
 /**
  * Domain-side abstraction for password hashing. The implementation
  * ({@code BCryptPasswordHasher} in {@code infrastructure.security})
- * uses BCrypt cost 8 per {@code spec/account/register-by-phone/plan.md}.
+ * uses BCrypt cost 8 per {@code specs/auth/register-by-phone/plan.md}.
  *
  * <p>Use cases call {@link #hash} before constructing
  * {@code PasswordCredential}; {@link #matches} powers verification on

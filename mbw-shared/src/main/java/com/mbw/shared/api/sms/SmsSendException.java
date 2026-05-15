@@ -8,7 +8,7 @@ package com.mbw.shared.api.sms;
  * circuit-breaker decorators without forcing every caller to declare
  * {@code throws}. Application code maps this to a domain error code
  * (typically {@code SMS_SEND_FAILED}); see
- * {@code spec/account/register-by-phone/spec.md} FR-006.
+ * {@code specs/auth/register-by-phone/spec.md} FR-006.
  */
 public class SmsSendException extends RuntimeException {
 

@@ -24,7 +24,7 @@ import org.springframework.stereotype.Component;
  * (Lua-atomic Redis ops, mbw-account/infrastructure/persistence) with
  * BCrypt hashing via {@link PasswordHasher}, presenting the
  * cross-module {@link SmsCodeService} contract per
- * {@code spec/account/register-by-phone/plan.md} § "SmsCodeService 跨
+ * {@code specs/auth/register-by-phone/plan.md} § "SmsCodeService 跨
  * 模块归属".
  *
  * <p>{@link #generateAndStore} returns plaintext so the caller can

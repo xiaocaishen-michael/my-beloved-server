@@ -122,7 +122,7 @@ T10（前端 `pnpm api:gen:dev` + spec / impl 配套）由 app 仓 PR [#63](http
 
 ```sql
 -- M1.2 onboarding：account.display_name 字段
--- per specs/account/account-profile/spec.md FR-007 / plan.md § V6 migration
+-- per specs/account/profile/spec.md FR-007 / plan.md § V6 migration
 -- 注意：nullable + 无 unique + 无 default → auto-create 走 phoneSmsAuth 自动注册路径时 NULL
 
 ALTER TABLE account.account
@@ -422,5 +422,5 @@ grep -r "displayName" mbw-account/src/main/java | grep -v account-profile | grep
 - [`./plan.md`](./plan.md) — 实现路径
 - [server CLAUDE.md § 一 TDD](https://github.com/xiaocaishen-michael/my-beloved-server/blob/main/CLAUDE.md) — TDD enforcement
 - [server CLAUDE.md § 五 数据库 / JPA](https://github.com/xiaocaishen-michael/my-beloved-server/blob/main/CLAUDE.md) — V6 expand 单 PR 跳步合规
-- [`specs/account/phone-sms-auth/`](../phone-sms-auth/) — 上游 use case，响应 schema 不可变约束
+- [`specs/auth/phone-sms-auth/`](../phone-sms-auth/) — 上游 use case，响应 schema 不可变约束
 - [ADR-0016](https://github.com/xiaocaishen-michael/no-vain-years/blob/main/docs/adr/0016-unified-mobile-first-auth.md) / [ADR-0017](https://github.com/xiaocaishen-michael/no-vain-years/blob/main/docs/adr/0017-sdd-business-flow-first-then-mockup.md)

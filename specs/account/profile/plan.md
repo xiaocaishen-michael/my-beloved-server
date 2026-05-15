@@ -266,5 +266,5 @@ TDD 节奏（per server CLAUDE.md § 一）：T0 DisplayName 单测红 → impl 
 - [ADR-0011](https://github.com/xiaocaishen-michael/no-vain-years/blob/main/docs/adr/0011-rate-limit-jcache-then-redis.md) RateLimit
 - [ADR-0016](https://github.com/xiaocaishen-michael/no-vain-years/blob/main/docs/adr/0016-unified-mobile-first-auth.md) 上游 unified auth 决策
 - [ADR-0017](https://github.com/xiaocaishen-michael/no-vain-years/blob/main/docs/adr/0017-sdd-business-flow-first-then-mockup.md) SDD 业务流先行
-- [`specs/account/phone-sms-auth/`](../phone-sms-auth/) — auth 上游 use case（响应 schema 不可变约束的来源）
+- [`specs/auth/phone-sms-auth/`](../phone-sms-auth/) — auth 上游 use case（响应 schema 不可变约束的来源）
 - 前端配套 plan：[`apps/native/specs/onboarding/plan.md`](https://github.com/xiaocaishen-michael/no-vain-years-app/blob/main/apps/native/specs/onboarding/plan.md)

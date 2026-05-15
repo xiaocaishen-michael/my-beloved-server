@@ -7,7 +7,7 @@ import java.util.regex.Pattern;
  * BCrypt-hashed password value object.
  *
  * <p>Wraps an already-hashed password produced by {@code BCrypt} (cost 8
- * per {@code spec/account/register-by-phone/plan.md}). Plaintext password
+ * per {@code specs/auth/register-by-phone/plan.md}). Plaintext password
  * strength validation (FR-003) is the responsibility of
  * {@code PasswordPolicy} (T6), not this record — by the time a
  * PasswordHash exists, the plaintext has already been validated and

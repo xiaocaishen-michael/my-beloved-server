@@ -78,7 +78,7 @@
 
 定位 `mbw-account/src/test/java/.../application/usecase/RequestSmsCodeUseCaseTest.java`：
 
-- 删 "register-未注册号 Template B" 测试 case（Template B 已废 — 注：specs/account/register-by-phone § 反枚举使用过 Template B，但本 ADR 删除整个 register endpoint 后 Template B 配置一并废）
+- 删 "register-未注册号 Template B" 测试 case（Template B 已废 — 注：specs/auth/register-by-phone § 反枚举使用过 Template B，但本 ADR 删除整个 register endpoint 后 Template B 配置一并废）
 - 删 "login-未注册号 Template C" 测试 case
 - 改 "happy: 发送 Template A" 测试 case 为 "无论 phone 状态如何，发送 Template A"（4 子场景：not-exist / ACTIVE / FROZEN / ANONYMIZED 都发同一 template，per spec FR-004）
 

@@ -46,7 +46,7 @@
 ### Spec docs
 
 ```text
-specs/account/register-by-phone/
+specs/auth/register-by-phone/
 ├── spec.md            # ✅ 已有（PR #44/#45/#46 三轮 rev）
 ├── plan.md            # ← 本 PR
 ├── tasks.md           # 下个 PR (/speckit.tasks)
