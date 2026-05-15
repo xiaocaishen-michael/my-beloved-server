@@ -1,5 +1,29 @@
 # Changelog
 
+## [0.4.0](https://github.com/xiaocaishen-michael/my-beloved-server/compare/v0.3.1...v0.4.0) (2026-05-15)
+
+
+### Features
+
+* **repo:** install api-types-sync preset (FW-2 Phase 2) ([#195](https://github.com/xiaocaishen-michael/my-beloved-server/issues/195)) ([4391332](https://github.com/xiaocaishen-michael/my-beloved-server/commit/4391332ef936479eb2bbffa3d43187144e07028b))
+* **repo:** lefthook tasks-md-drift hook ([#190](https://github.com/xiaocaishen-michael/my-beloved-server/issues/190)) ([290a339](https://github.com/xiaocaishen-michael/my-beloved-server/commit/290a33942e3ad9eb36d235645b10eaa761dee743))
+
+
+### Bug Fixes
+
+* **ops:** nginx default_server expose /healthz so docker healthcheck flips to healthy ([#187](https://github.com/xiaocaishen-michael/my-beloved-server/issues/187)) ([9cc3813](https://github.com/xiaocaishen-michael/my-beloved-server/commit/9cc381392bddce4f8f8040aeec1bed99e8efde96))
+
+
+### Maintenance
+
+* **main:** release 0.3.2-SNAPSHOT ([#184](https://github.com/xiaocaishen-michael/my-beloved-server/issues/184)) ([a2e8fa5](https://github.com/xiaocaishen-michael/my-beloved-server/commit/a2e8fa55202cad20f13e274d1e2f7a5ba57f7fa9))
+* **repo:** adopt context7-injection + task-closure presets via michael-speckit-presets ([#193](https://github.com/xiaocaishen-michael/my-beloved-server/issues/193)) ([9b107a6](https://github.com/xiaocaishen-michael/my-beloved-server/commit/9b107a6e344e787d558337def66c8e75fe3bedde))
+* **repo:** commitlint footer-max 150 + lefthook tasks-md-drift regex `( |$)` 边界 fix ([#192](https://github.com/xiaocaishen-michael/my-beloved-server/issues/192)) ([276a789](https://github.com/xiaocaishen-michael/my-beloved-server/commit/276a789ae6eebc894cf47f9e45eed1ed50a80ac7))
+* **repo:** path sweep — archive plan 26-05-14-witty-churning-tome.md → archive/26-05/ ([#194](https://github.com/xiaocaishen-michael/my-beloved-server/issues/194)) ([4f5253d](https://github.com/xiaocaishen-michael/my-beloved-server/commit/4f5253df07df99d54bc059f4f54a4195d8bd0e3b))
+* **repo:** rename spec/ → specs/ to align spec-kit core default ([#189](https://github.com/xiaocaishen-michael/my-beloved-server/issues/189)) ([6dfbc1e](https://github.com/xiaocaishen-michael/my-beloved-server/commit/6dfbc1e63abca8079e53884fe0ec6aa2bdb08b61))
+* **repo:** spec.md → symlink + path align with meta canonical + spec-must-be-symlink hook ([#191](https://github.com/xiaocaishen-michael/my-beloved-server/issues/191)) ([2581255](https://github.com/xiaocaishen-michael/my-beloved-server/commit/25812557b6a30beea1c4f85ddeb0de06836b2ec3))
+* **repo:** upgrade spec-kit 0.8.2.dev0 → 0.8.7 + reapply C1-C4 ([#188](https://github.com/xiaocaishen-michael/my-beloved-server/issues/188)) ([ef64cfd](https://github.com/xiaocaishen-michael/my-beloved-server/commit/ef64cfd6eb78f105698d79e44573ae5aebc136cf))
+
 ## [0.3.1](https://github.com/xiaocaishen-michael/my-beloved-server/compare/v0.3.0...v0.3.1) (2026-05-14)
 
 
