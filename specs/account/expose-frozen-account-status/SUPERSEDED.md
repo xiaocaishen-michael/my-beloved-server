@@ -1,6 +1,6 @@
 # SUPERSEDED — 业务合并至 `account/delete-account`
 
-**生效日期**：2026-05-15（meta-repo Phase 2.1，per `docs/plans/26-05-14-witty-churning-tome.md` § 2.1 + user 拍板）
+**生效日期**：2026-05-15（meta-repo Phase 2.1，per `docs/plans/archive/26-05/26-05-14-witty-churning-tome.md` § 2.1 + user 拍板）
 
 ## 业务整合
 

@@ -59,7 +59,7 @@ pre-commit:
         - sdd
     spec-must-be-symlink:
       # impl 仓 spec.md / user-journey.md 必须 symlink → meta canonical
-      # per docs/plans/26-05-14-witty-churning-tome.md § 2.5
+      # per docs/plans/archive/26-05/26-05-14-witty-churning-tome.md § 2.5
       glob: "specs/**/{spec,user-journey}.md"
       run: |
         violations=""
