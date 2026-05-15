@@ -6,11 +6,16 @@ compatibility: "Requires spec-kit project structure with .specify/ directory"
 metadata:
   author: "github-spec-kit"
   source: "templates/commands/implement.md"
-  localCustomized: true   # local customization — see ./CUSTOMIZATIONS.md
 user-invocable: true
 disable-model-invocation: false
 ---
 
+---
+description: Execute the implementation plan by processing and executing all tasks defined in tasks.md
+scripts:
+  sh: scripts/bash/check-prerequisites.sh --json --require-tasks --include-tasks
+  ps: scripts/powershell/check-prerequisites.ps1 -Json -RequireTasks -IncludeTasks
+---
 
 ## User Input
 
@@ -30,7 +35,6 @@ You **MUST** consider the user input before proceeding (if not empty).
 - For each remaining hook, do **not** attempt to interpret or evaluate hook `condition` expressions:
   - If the hook has no `condition` field, or it is null/empty, treat the hook as executable
   - If the hook defines a non-empty `condition`, skip the hook and leave condition evaluation to the HookExecutor implementation
-- When constructing slash commands from hook command names, replace dots (`.`) with hyphens (`-`). For example, `speckit.git.commit` → `/speckit-git-commit`.
 - For each executable hook, output the following based on its `optional` flag:
   - **Optional hook** (`optional: true`):
     ```
@@ -57,7 +61,7 @@ You **MUST** consider the user input before proceeding (if not empty).
 
 ## Outline
 
-1. Run `.specify/scripts/bash/check-prerequisites.sh --json --require-tasks --include-tasks` from repo root and parse FEATURE_DIR and AVAILABLE_DOCS list. All paths must be absolute. For single quotes in args like "I'm Groot", use escape syntax: e.g 'I'\''m Groot' (or double-quote if possible: "I'm Groot").
+1. Run `{SCRIPT}` from repo root and parse FEATURE_DIR and AVAILABLE_DOCS list. All paths must be absolute. For single quotes in args like "I'm Groot", use escape syntax: e.g 'I'\''m Groot' (or double-quote if possible: "I'm Groot").
 
 2. **Check checklists status** (if FEATURE_DIR/checklists/ exists):
    - Scan all checklist files in the checklists/ directory
@@ -96,7 +100,7 @@ You **MUST** consider the user input before proceeding (if not empty).
    - **IF EXISTS**: Read data-model.md for entities and relationships
    - **IF EXISTS**: Read contracts/ for API specifications and test requirements
    - **IF EXISTS**: Read research.md for technical decisions and constraints
-   - **IF EXISTS**: Read .specify/memory/constitution.md for governance constraints
+   - **IF EXISTS**: Read /memory/constitution.md for governance constraints
    - **IF EXISTS**: Read quickstart.md for integration scenarios
 
 4. **Project Setup Verification**:
@@ -156,42 +160,12 @@ You **MUST** consider the user input before proceeding (if not empty).
    - **File-based coordination**: Tasks affecting the same files must run sequentially
    - **Validation checkpoints**: Verify each phase completion before proceeding
 
-## Task Closure Protocol (local project constraint — per-task hard closure)
-
-> This section is a **local customization** (see `./CUSTOMIZATIONS.md` C1). Upstream spec-kit only provides a soft directive `mark off as [X]` at the end of step 8; this project requires hard closure.
-
-**Scope**: tasks under `spec/<module>/<usecase>/tasks.md` in this repo.
-
-When a task completes, **the following sequence is mandatory**:
-
-1. Write tests (per `[Test]` task, if any) → typecheck pass + tests RED
-2. Write implementation → tests GREEN
-3. typecheck + lint pass
-4. **Update tasks.md**: in the `### T<N> [<label>] ...` heading, insert `✅` right after the T number (`### T<N> ✅ [<label>] ...`)
-5. `git add` implementation + tests + tasks.md **in the same stage**
-6. Proceed to commit
-
-**State semantics (project convention)**:
-
-- No marker = pending (this is the initial state shipped from the docs PR)
-- `✅` = done (manually added at impl time)
-- The upstream spec-kit default `[X]` is incompatible with this project's emoji convention; **replace every occurrence of `[X]` with `✅`**
-
-**Hard STOP**: before staging, run `git diff --cached --name-only | grep -q "tasks.md$"` — if it fails, **refuse to enter the commit flow** and return to step 4 to add the `✅` first.
-
-**Anti-patterns**:
-
-- ❌ Batching multiple tasks into a single commit and forgetting to update tasks.md (proven 2026-05-06 by commit `4d85a32`)
-- ❌ Moving to the next task before confirming the previous task's `✅` is staged in the commit
-- ❌ Running impl then opening a recovery PR after the fact (proven by login PR #55, onboarding PR #128)
-
 7. Implementation execution rules:
    - **Setup first**: Initialize project structure, dependencies, configuration
    - **Tests before code**: If you need to write tests for contracts, entities, and integration scenarios
    - **Core development**: Implement models, services, CLI commands, endpoints
    - **Integration work**: Database connections, middleware, logging, external services
    - **Polish and validation**: Unit tests, performance optimization, documentation
-   - **Pre-next-task assertion** *(local customization C2 — per Task Closure Protocol)*: before moving to the next task, run `git log -1 --stat | grep -q "tasks.md"` to confirm the previous task's `✅` flip landed in the latest commit; if not, return to the previous task and amend the commit — **do not proceed**.
 
 8. Progress tracking and error handling:
    - Report progress after each completed task
@@ -199,7 +173,7 @@ When a task completes, **the following sequence is mandatory**:
    - For parallel tasks [P], continue with successful tasks, report failed ones
    - Provide clear error messages with context for debugging
    - Suggest next steps if implementation cannot proceed
-   - **HARD STOP** *(local customization C3 — supersedes upstream `[X]` soft directive)*: when completing a task, add `✅` to the tasks.md heading (per Task Closure Protocol above) before commit; **commit is forbidden otherwise**. If `git diff --cached --name-only | grep -q "tasks.md$"` fails, roll back to step 4 of Task Closure Protocol.
+   - **IMPORTANT** For completed tasks, make sure to mark the task off as [X] in the tasks file.
 
 9. Completion validation:
    - Verify all required tasks are completed
@@ -208,7 +182,7 @@ When a task completes, **the following sequence is mandatory**:
    - Confirm the implementation follows the technical plan
    - Report final status with summary of completed work
 
-Note: This command assumes a complete task breakdown exists in tasks.md. If tasks are incomplete or missing, suggest running `/speckit-tasks` first to regenerate the task list.
+Note: This command assumes a complete task breakdown exists in tasks.md. If tasks are incomplete or missing, suggest running `__SPECKIT_COMMAND_TASKS__` first to regenerate the task list.
 
 10. **Check for extension hooks**: After completion validation, check if `.specify/extensions.yml` exists in the project root.
     - If it exists, read it and look for entries under the `hooks.after_implement` key
@@ -217,7 +191,6 @@ Note: This command assumes a complete task breakdown exists in tasks.md. If task
     - For each remaining hook, do **not** attempt to interpret or evaluate hook `condition` expressions:
       - If the hook has no `condition` field, or it is null/empty, treat the hook as executable
       - If the hook defines a non-empty `condition`, skip the hook and leave condition evaluation to the HookExecutor implementation
-    - When constructing slash commands from hook command names, replace dots (`.`) with hyphens (`-`). For example, `speckit.git.commit` → `/speckit-git-commit`.
     - For each executable hook, output the following based on its `optional` flag:
       - **Optional hook** (`optional: true`):
         ```
