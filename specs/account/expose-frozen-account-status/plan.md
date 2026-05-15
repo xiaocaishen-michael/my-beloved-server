@@ -38,7 +38,7 @@ mbw-app/src/test/java/com/mbw/app/account/
 ├── SingleEndpointEnumerationDefenseIT.java         — 改（per spec CL-004 + SC-002:删 FROZEN case 改 3 路径;头部 javadoc 加注释指向 SC-001 IT）
 └── FrozenAccountStatusDisclosureIT.java            — 新建（per spec SC-001:FROZEN 100 次请求 → 全部 403 + body code=ACCOUNT_IN_FREEZE_PERIOD + body freezeUntil + DB 不变 + 无 refresh_token 新行）
 
-specs/account/phone-sms-auth/
+specs/auth/phone-sms-auth/
 └── spec.md                                         — 改（per spec FR-008:FR-005 第 3 分支拆开 + FR-006 timing defense 范围明示 + SC-003 路径数 4→3 + 新增 Clarifications CL-006 引用 spec D）
 
 # 不动文件列表(防 Surgical Edits 越界):

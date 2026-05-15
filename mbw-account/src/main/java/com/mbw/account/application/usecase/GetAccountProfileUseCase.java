@@ -16,7 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 /**
  * "Get account profile" read use case ({@code GET /api/v1/accounts/me}).
  *
- * <p>Per spec/account/account-profile/spec.md FR-001 / FR-002 / FR-008
+ * <p>Per specs/account/profile/spec.md FR-001 / FR-002 / FR-008
  * / FR-009: returns the caller's profile (id / displayName / status /
  * createdAt) or throws to a 401 path on missing-token / unknown account
  * / non-ACTIVE status (anti-enumeration via byte-equal 401 responses,

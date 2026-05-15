@@ -439,5 +439,5 @@ if profile==prod && (DEK / PEPPER / aliyun key missing) → throw IllegalStateEx
 - [ADR-0008](https://github.com/xiaocaishen-michael/no-vain-years/blob/main/docs/adr/0008-repository-pure-interface.md) Repository 方式 A
 - [ADR-0011](https://github.com/xiaocaishen-michael/no-vain-years/blob/main/docs/adr/0011-rate-limit-jcache-then-redis.md) RateLimit
 - [ADR-0013](https://github.com/xiaocaishen-michael/no-vain-years/blob/main/docs/adr/0013-defer-sms-to-business-license.md) Aliyun ESP（同 vendor）
-- 既有参考：[`specs/account/phone-sms-auth/plan.md`](../phone-sms-auth/plan.md) — 结构参照
+- 既有参考：[`specs/auth/phone-sms-auth/plan.md`](../phone-sms-auth/plan.md) — 结构参照
 - 既有参考：[`specs/account/anonymize-frozen-accounts/`](../anonymize-frozen-accounts/) — 注销联动落点

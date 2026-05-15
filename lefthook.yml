@@ -53,6 +53,25 @@ pre-commit:
         fi
       tags:
         - sdd
+    spec-must-be-symlink:
+      # impl 仓 spec.md / user-journey.md 必须 symlink → meta canonical
+      # per docs/plans/26-05-14-witty-churning-tome.md § 2.5
+      glob: "specs/**/{spec,user-journey}.md"
+      run: |
+        violations=""
+        for f in {staged_files}; do
+          if [ -f "$f" ] && [ ! -L "$f" ]; then
+            violations="$violations\n     · $f"
+          fi
+        done
+        if [ -n "$violations" ]; then
+          echo "❌ impl 仓 spec.md / user-journey.md 必须是 symlink → meta canonical"
+          echo -e "   违规:$violations"
+          echo "   修复: cd <meta-root> && ./scripts/link-spec.sh <module>/<usecase> --target server"
+          exit 1
+        fi
+      tags:
+        - sdd
 
 # Conventional Commits enforcement at commit time.
 # Regex-based check (no Node dependency) — full ruleset runs in CI via

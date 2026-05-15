@@ -10,7 +10,7 @@ import java.util.function.Supplier;
  * Pads execution to a target wall-clock duration so success / failure
  * paths look identical to a timing-side-channel observer (FR-013).
  *
- * <p>Per {@code spec/account/register-by-phone/plan.md} § "Timing
+ * <p>Per {@code specs/auth/register-by-phone/plan.md} § "Timing
  * Defense", a single dummy bcrypt at the entry is not enough — the
  * register flow's success branch (commit + credential INSERT, ~50ms)
  * differs from the already-registered branch (DataIntegrityViolation

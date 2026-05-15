@@ -37,7 +37,7 @@ Account (聚合根)
 
 | Use case | Phase | Spec dir |
 |----------|-------|----------|
-| `register-by-phone` | M1.1 | `specs/account/register-by-phone/` (PR-3) |
+| `register-by-phone` | M1.1 | `specs/auth/register-by-phone/` (PR-3) |
 | `login-by-phone` | M1.1 | `specs/account/login-by-phone/` |
 | `refresh-token` | M1.1 | `specs/account/refresh-token/` |
 | `bind-google` | M1.2 | `specs/account/bind-google/` |

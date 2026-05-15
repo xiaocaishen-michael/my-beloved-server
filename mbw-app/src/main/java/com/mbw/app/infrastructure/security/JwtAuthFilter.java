@@ -32,7 +32,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
  * {@code verifyAccess} for tokens without did) working through the
  * rollout window without a flag day.
  *
- * <p>Per spec/account/account-profile/plan.md § JWT 前置基础设施 the
+ * <p>Per specs/account/profile/plan.md § JWT 前置基础设施 the
  * filter does not consult the database — it only verifies the
  * signature + parses claims. {@code Account.status != ACTIVE} (FR-009)
  * is handled at the application layer so the 401 anti-enumeration path

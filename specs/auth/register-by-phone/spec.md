@@ -1,0 +1,1 @@
+../../../../specs/auth/register-by-phone/spec.md

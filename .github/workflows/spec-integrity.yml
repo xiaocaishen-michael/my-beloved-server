@@ -1,0 +1,26 @@
+name: Spec Integrity
+
+on:
+  pull_request:
+    paths:
+      - "specs/**"
+
+jobs:
+  integrity:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # impl 仓 spec.md / user-journey.md 必须是 symlink → meta canonical
+      # CI 不验 symlink target resolvability (GH Actions 单仓 checkout，
+      # 跨仓 target 必断), 仅验 "是 symlink 形态".
+      # per docs/plans/26-05-14-witty-churning-tome.md § 2.6
+      - name: impl — spec.md / user-journey.md is symlink (form check only)
+        run: |
+          find specs -type f \( -name 'spec.md' -o -name 'user-journey.md' \) -not -type l 2>/dev/null > /tmp/non-symlinks
+          if [ -s /tmp/non-symlinks ]; then
+            echo "❌ impl 仓存在实体 spec.md / user-journey.md (应是 symlink → meta canonical):"
+            sed 's/^/     · /' /tmp/non-symlinks
+            exit 1
+          fi
+          echo "✅ 所有 spec.md / user-journey.md 均为 symlink"

@@ -7,7 +7,7 @@ import java.util.regex.Pattern;
  * Account-facing display name value object.
  *
  * <p>Constructed from arbitrary user input; the compact constructor enforces
- * spec/account/account-profile/spec.md FR-005:
+ * specs/account/profile/spec.md FR-005:
  *
  * <ul>
  *   <li>length: 1-32 Unicode codepoints after trim

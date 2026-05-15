@@ -19,7 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 /**
  * "Update display name" write use case ({@code PATCH /api/v1/accounts/me}).
  *
- * <p>Per spec/account/account-profile/spec.md FR-003 / FR-004 / FR-005 /
+ * <p>Per specs/account/profile/spec.md FR-003 / FR-004 / FR-005 /
  * FR-008 / FR-009: validates the raw input via {@link DisplayName}, then
  * mutates the aggregate via {@link AccountStateMachine#changeDisplayName}
  * (single ACTIVE-only entry point).

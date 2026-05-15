@@ -6,7 +6,7 @@ package com.mbw.account.domain.exception;
  *
  * <p>Mapped by the account web layer to HTTP 401, byte-equal to the
  * missing-token / invalid-token / unknown-account paths per
- * spec/account/account-profile FR-009 anti-enumeration.
+ * specs/account/profile FR-009 anti-enumeration.
  */
 public class AccountInactiveException extends RuntimeException {
 

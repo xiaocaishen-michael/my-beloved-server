@@ -25,7 +25,7 @@ import org.testcontainers.utility.DockerImageName;
 
 /**
  * End-to-end IT for the account-profile use case (per
- * {@code spec/account/account-profile/spec.md} T7).
+ * {@code specs/account/profile/spec.md} T7).
  *
  * <p>Bootstraps each scenario by exercising the production
  * phoneSmsAuth flow to obtain a real Bearer JWT, then drives GET / PATCH

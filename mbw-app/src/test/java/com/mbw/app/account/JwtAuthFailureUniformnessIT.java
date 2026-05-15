@@ -30,7 +30,7 @@ import org.testcontainers.utility.DockerImageName;
 
 /**
  * Anti-enumeration uniformness IT for {@code GET /api/v1/accounts/me}
- * (per spec/account/account-profile/spec.md T8 / SC-005).
+ * (per specs/account/profile/spec.md T8 / SC-005).
  *
  * <p>Asserts that the four "non-200" auth-failure paths produce
  * byte-equal 401 ProblemDetail responses:

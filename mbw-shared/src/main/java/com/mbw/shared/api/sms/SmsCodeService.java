@@ -9,7 +9,7 @@ package com.mbw.shared.api.sms;
  * {@code RegisterByPhoneUseCase}) depend on this contract; the concrete
  * Redis-backed implementation ({@code RedisSmsCodeService}, T2b) lives
  * in {@code mbw-app/infrastructure/sms} per
- * {@code spec/account/register-by-phone/plan.md} § "SmsCodeService 跨模块归属".
+ * {@code specs/auth/register-by-phone/plan.md} § "SmsCodeService 跨模块归属".
  *
  * <p>Implementations are responsible for:
  *

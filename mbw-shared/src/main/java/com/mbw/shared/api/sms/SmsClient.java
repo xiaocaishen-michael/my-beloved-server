@@ -11,7 +11,7 @@ import java.util.Map;
  * ({@code AliyunSmsClient}) lives in {@code mbw-app/infrastructure/sms}
  * so the deployment unit owns provider integration while
  * {@code mbw-shared} stays free of infrastructure concerns. See
- * {@code spec/account/register-by-phone/plan.md} § "SmsCodeService 跨模块归属".
+ * {@code specs/auth/register-by-phone/plan.md} § "SmsCodeService 跨模块归属".
  *
  * <p>Implementations should treat upstream failures (network errors,
  * quota exceeded, malformed templates) as {@link SmsSendException} —

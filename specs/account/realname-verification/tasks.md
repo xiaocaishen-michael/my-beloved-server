@@ -674,5 +674,5 @@ amend post-impl：
 ## References
 
 - [`./spec.md`](./spec.md) / [`./plan.md`](./plan.md)
-- 既有参考：[`specs/account/phone-sms-auth/tasks.md`](../phone-sms-auth/tasks.md) — 拆分粒度参照
+- 既有参考：[`specs/auth/phone-sms-auth/tasks.md`](../phone-sms-auth/tasks.md) — 拆分粒度参照
 - 既有参考：[`specs/account/anonymize-frozen-accounts/`](../anonymize-frozen-accounts/) — T22 amend 落点

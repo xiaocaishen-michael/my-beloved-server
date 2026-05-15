@@ -29,7 +29,7 @@ import org.springframework.stereotype.Service;
  * }</pre>
  *
  * <p>Per-scenario rules live in module-specific specs (e.g.
- * {@code spec/account/register-by-phone/spec.md}); this service is
+ * {@code specs/auth/register-by-phone/spec.md}); this service is
  * framework only. See {@code spec/_baseline/rate-limit-policy.md}.
  *
  * <p><b>Fail-closed semantics:</b> if Redis is unreachable or returns an

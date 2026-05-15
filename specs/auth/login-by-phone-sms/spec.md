@@ -1,0 +1,1 @@
+../../../../specs/auth/login-by-phone-sms/spec.md
