@@ -1,5 +1,9 @@
 {
   "presets": {
+    "api-types-sync": {
+      "enabled": true,
+      "priority": 12
+    },
     "context7-injection": {
       "enabled": true,
       "priority": 5
